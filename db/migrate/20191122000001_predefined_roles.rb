@@ -1,5 +1,5 @@
 class PredefinedRoles < ActiveRecord::Migration[5.1]
-    def change
+    def up
 
       # return if it's a new setup
       return if !Setting.find_by(name: 'system_init_done')
