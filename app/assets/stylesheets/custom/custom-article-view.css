@@ -1,0 +1,7 @@
+.custom-article hr{
+    height: 2px;
+    border: 0;
+    background: orange;
+    margin-left: 5%;
+    margin-right: 5%
+}
