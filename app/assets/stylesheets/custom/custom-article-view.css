@@ -12,6 +12,7 @@
 .custom-article table {
     border-collapse: collapse;
     margin-bottom: 0px;
+    display: table;
 }
 .custom-article table:first-of-type tr:first-child td, th {
     border-top: 0;
@@ -22,9 +23,7 @@
 .custom-article td, th {
     border-top: 0.5pt solid rgb(175, 171, 171);
     border-bottom: 0.5pt solid rgb(175, 171, 171);
-    padding-left: 1.5%;
-    padding-top: 1.5%;
-    padding-bottom: 1.5%;
+    padding: 1.5%;
     font-size: 9pt;
     font-family: Calibri, sans-serif;
     vertical-align: top;
