@@ -5,7 +5,9 @@
     margin: 10px 0px;
 }
 .custom-article table {
-    border-collapse: collapse;
+    border-collapse: collapse;    
+}
+.custom-article table:first-child {
     border-top: 2pt solid white;
     border-bottom: 2pt solid white;
 }
