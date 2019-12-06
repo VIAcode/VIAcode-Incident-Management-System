@@ -2,14 +2,22 @@
     height: 2px;
     border: 0;
     background: orange;
-    margin: 10px 0px;
+}
+.custom-article hr:first-of-type {
+    margin: 10px 0px 0px 0px;
+}
+.custom-article hr:last-of-type {
+    margin: 0px 0px 10px 0px;
 }
 .custom-article table {
-    border-collapse: collapse;    
+    border-collapse: collapse;
+    margin-bottom: 0px;
 }
-.custom-article table:first-child {
-    border-top: 2pt solid white;
-    border-bottom: 2pt solid white;
+.custom-article table:first-of-type tr:first-child td, th {
+    border-top: 0;
+}
+.custom-article table:first-of-type tr:last-child td, th {
+    border-bottom: 0;
 }
 .custom-article td, th {
     border-top: 0.5pt solid rgb(175, 171, 171);
@@ -24,4 +32,8 @@
 .custom-article th {
     width: 27%;
     text-align: left;
+}
+.custom-article p:last-of-type {
+    margin-left: 1%;
+    margin-bottom: 0.5%;
 }
