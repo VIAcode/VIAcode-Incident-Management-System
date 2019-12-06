@@ -6,8 +6,8 @@
 }
 .custom-article table {
     border-collapse: collapse;
-    border-top: 1pt solid white;
-    border-bottom: 1pt solid white;
+    border-top: 2pt solid white;
+    border-bottom: 2pt solid white;
 }
 .custom-article td, th {
     border-top: 0.5pt solid rgb(175, 171, 171);
