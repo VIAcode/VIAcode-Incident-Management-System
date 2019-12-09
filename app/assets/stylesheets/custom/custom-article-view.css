@@ -42,14 +42,15 @@
 
 .custom-article div {
   width: 200px;
-  height: 34px;
+  height: 35px;
   background: DarkOrange;
   position: relative;
   text-align: center;
   color: white;
   font-size: 20px;
-  padding-top: 6px;
+  padding-top: 5px;
   box-sizing: initial;
+  margin-top: 20px;
 }
 
 .custom-article div:before {
