@@ -36,3 +36,31 @@
     margin-left: 1%;
     margin-bottom: 0.5%;
 }
+
+.custom-article div {
+  width: 200px;
+  height: 33px;
+  background: DarkOrange;
+  position: relative;
+  margin-left: 50px;
+  text-align: center;
+  color: white;
+  font-size: 20px;
+  padding-top: 7px;
+}
+
+.custom-article div:before {
+    content: "";
+    position: absolute;
+    left: 100%;
+    top: 0px;
+    width: 0;
+    height: 0;
+    border-top: 20px solid transparent;
+    border-left: 40px solid DarkOrange;
+    border-bottom: 20px solid transparent;
+}
+
+.custom-article a {
+  text-decoration: none;
+}
