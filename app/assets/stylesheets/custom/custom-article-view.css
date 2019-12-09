@@ -69,7 +69,7 @@
     border-bottom: 20px solid transparent;
 }
 
-.custom-article a {
+.custom-article a:last-of-type {
   text-decoration: none;
   color: white;
 }
