@@ -14,13 +14,13 @@
     margin-bottom: 0px;
     display: table;
 }
-.custom-article table:first-of-type tr:first-child td, th {
+.custom-article table:first-of-type tr:first-child td, .custom-article table:first-of-type tr:first-child th {
     border-top: 0;
 }
-.custom-article table:first-of-type tr:last-child td, th {
+.custom-article table:first-of-type tr:last-child td, .custom-article table:first-of-type tr:last-child th {
     border-bottom: 0;
 }
-.custom-article td, th {
+.custom-article td, .custom-article th {
     border-top: 0.5pt solid rgb(175, 171, 171);
     border-bottom: 0.5pt solid rgb(175, 171, 171);
     padding: 1.5%;
@@ -35,6 +35,9 @@
 .custom-article p:last-of-type {
     margin-left: 1%;
     margin-bottom: 0.5%;
+    font-size: 12pt;
+    font-family: Calibri, sans-serif;
+    font-weight: bold;
 }
 
 .custom-article div {
