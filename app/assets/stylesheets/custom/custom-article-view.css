@@ -9,6 +9,10 @@
 .custom-article hr:last-of-type {
     margin: 0px 0px 10px 0px;
 }
+.custom-article span {
+    font-family: Calibri, sans-serif;
+    font-size: 10.5pt;
+}
 .custom-article table {
     border-collapse: collapse;
     margin-bottom: 0px;
@@ -23,7 +27,7 @@
 .custom-article td, .custom-article th {
     border-top: 0.5pt solid rgb(175, 171, 171);
     border-bottom: 0.5pt solid rgb(175, 171, 171);
-    padding: 1.5%;
+    padding: 10px;
     font-size: 9pt;
     font-family: Calibri, sans-serif;
     vertical-align: top;
@@ -33,8 +37,8 @@
     text-align: left;
 }
 .custom-article p:last-of-type {
-    margin-left: 1%;
-    margin-bottom: 0.5%;
+    margin-left: 10px;
+    margin-bottom: 10px;
     font-size: 12pt;
     font-family: Calibri, sans-serif;
     font-weight: bold;
