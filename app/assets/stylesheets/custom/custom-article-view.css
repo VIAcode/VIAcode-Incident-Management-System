@@ -35,6 +35,9 @@
 .custom-article p:last-of-type {
     margin-left: 1%;
     margin-bottom: 0.5%;
+    font-size: 12pt;
+    font-family: Calibri, sans-serif;
+    font-weight: bold;
 }
 
 .custom-article div {
