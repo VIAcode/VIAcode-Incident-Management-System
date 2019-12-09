@@ -39,14 +39,14 @@
 
 .custom-article div {
   width: 200px;
-  height: 33px;
+  height: 34px;
   background: DarkOrange;
   position: relative;
-  margin-left: 50px;
   text-align: center;
   color: white;
   font-size: 20px;
-  padding-top: 7px;
+  padding-top: 6px;
+  box-sizing: initial;
 }
 
 .custom-article div:before {
@@ -63,4 +63,5 @@
 
 .custom-article a {
   text-decoration: none;
+  color: white;
 }
