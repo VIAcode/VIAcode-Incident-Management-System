@@ -10,8 +10,7 @@
     margin: 0px 0px 10px 0px;
 }
 .custom-article span {
-    font-family: Calibri, sans-serif;
-    font-size: 10.5pt;
+    font-size: 16.5px;
 }
 .custom-article table {
     border-collapse: collapse;
@@ -28,8 +27,6 @@
     border-top: 0.5pt solid rgb(175, 171, 171);
     border-bottom: 0.5pt solid rgb(175, 171, 171);
     padding: 10px;
-    font-size: 9pt;
-    font-family: Calibri, sans-serif;
     vertical-align: top;
 }
 .custom-article th {
@@ -40,8 +37,7 @@
     margin-top: 20px;
     margin-left: 10px;
     margin-bottom: 10px;
-    font-size: 12pt;
-    font-family: Calibri, sans-serif;
+    font-size: 18.5px;
     font-weight: bold;
 }
 
