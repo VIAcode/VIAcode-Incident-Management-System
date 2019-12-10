@@ -1,7 +1,7 @@
 .custom-article hr {
     height: 2px;
     border: 0;
-    background: orange;
+    background: #ED3C05;
 }
 .custom-article hr:first-of-type {
     margin: 10px 0px 0px 0px;
@@ -42,19 +42,19 @@
 }
 
 .custom-article div {
-  width: 200px;
-  height: 35px;
-  background: DarkOrange;
-  position: relative;
-  text-align: center;
-  color: white;
-  font-size: 20px;
-  padding-top: 5px;
-  box-sizing: initial;
-  margin-top: 20px;
+    width: 200px;
+    height: 35px;
+    background: #ED3C05;
+    position: relative;
+    text-align: center;
+    color: white;
+    font-size: 20px;
+    padding-top: 5px;
+    box-sizing: initial;
+    margin-top: 20px;
 }
 
-.custom-article div:before {
+  .custom-article div:before {
     content: "";
     position: absolute;
     left: 100%;
@@ -62,10 +62,11 @@
     width: 0;
     height: 0;
     border-top: 20px solid transparent;
-    border-left: 40px solid DarkOrange;
+    border-left: 40px solid #ED3C05;
     border-bottom: 20px solid transparent;
-}
+  }
 
-.custom-article a{
-  text-decoration: none;
+.custom-article div a{
+    text-decoration: none;
+    color: white;
 }
