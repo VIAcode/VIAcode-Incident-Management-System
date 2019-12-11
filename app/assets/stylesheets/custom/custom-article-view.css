@@ -41,7 +41,7 @@
     font-weight: bold;
 }
 
-.custom-article div div {
+.custom-article div span {
     width: 200px;
     height: 35px;
     background: #ED3C05;
@@ -52,9 +52,10 @@
     padding-top: 5px;
     box-sizing: initial;
     margin-top: 20px;
+    display: inline-block;
 }
 
-  .custom-article div div:before {
+  .custom-article div span:before {
     content: "";
     position: absolute;
     left: 100%;
@@ -66,7 +67,8 @@
     border-bottom: 20px solid transparent;
   }
 
-.custom-article div div a{
+  .custom-article div span a {
     text-decoration: none;
     color: white;
-}
+    font-size: 20px;
+  }
