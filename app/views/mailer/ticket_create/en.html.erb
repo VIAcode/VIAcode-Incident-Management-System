@@ -1,21 +1,15 @@
 New Ticket (#{ticket.title})
 
-<div>Hi #{recipient.firstname},</div>
-<br>
-<div>A new ticket (#{ticket.title}) has been created by "<b>#{current_user.longname}</b>".</div>
-<br>
-<div>
-#{t('Group')}: #{ticket.group.name}<br>
-#{t('Owner')}: #{ticket.owner.fullname}<br>
-#{t('State')}: #{t(ticket.state.name)}<br>
-</div>
+
 <br>
 <% if @objects[:article] %>
   <div>
-  #{t('Information')}:
-  <blockquote type="cite">
-  #{article.body_as_html}
-  </blockquote>
+    #{t('Incident Details')}:
+    <blockquote type="cite">
+      <div class="custom-article">
+      #{article.body_as_html}
+      </div>
+    </blockquote>
   </div>
 <% end %>
 <br>
