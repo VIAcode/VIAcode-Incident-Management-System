@@ -5,11 +5,11 @@ New Ticket (#{ticket.title})
 <% if @objects[:article] %>
   <div>
     #{t('Incident Details')}:
-    <blockquote type="cite">
+
       <div class="custom-article">
       #{article.body_as_html}
       </div>
-    </blockquote>
+
   </div>
 <% end %>
 <br>
