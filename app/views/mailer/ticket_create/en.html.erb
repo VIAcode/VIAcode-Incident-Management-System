@@ -4,7 +4,6 @@ New Ticket (#{ticket.title})
 <br>
 <% if @objects[:article] %>
   <div class="exclamation-container">
-    <%- @Icon('checkbox-checked', 'icon-checked') %>
     <div>New incident #{ticket.title} has been created in group #{ticket.group.name} by #{ticket.owner.fullname}.</div>
   </div>
 
