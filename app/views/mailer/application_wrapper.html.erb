@@ -71,7 +71,7 @@
         overflow: auto;
       }
 
-//ticket article
+
   .custom-article hr {
   height: 2px;
   border: 0;
@@ -156,9 +156,12 @@
   font-size: 20px;
   }
 
-//footer navigation link
   .link-container{
-    display: flex;
+    display: -webkit-box;      /* OLD - iOS 6-, Safari 3.1-6 */
+    display: -moz-box;         /* OLD - Firefox 19- (buggy but mostly works) */
+    display: -ms-flexbox;      /* TWEENER - IE 10 */
+    display: -webkit-flex;     /* NEW - Chrome */
+    display: flex;  
   }
   .link-rectangle {
     padding-top: 7px;
@@ -180,9 +183,12 @@
     display: block;
   }
 
-//exclamation
    .exclamation-container{
-     display: flex;
+      display: -webkit-box;      /* OLD - iOS 6-, Safari 3.1-6 */
+      display: -moz-box;         /* OLD - Firefox 19- (buggy but mostly works) */
+      display: -ms-flexbox;      /* TWEENER - IE 10 */
+      display: -webkit-flex;     /* NEW - Chrome */
+      display: flex;
    }
 
     </style>
