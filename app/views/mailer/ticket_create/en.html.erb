@@ -3,17 +3,23 @@ New Ticket (#{ticket.title})
 
 <br>
 <% if @objects[:article] %>
+  <div class="exclamation-container">
+    <img class="exclamation" src="/assets/images/exclamation_point.png">
+    <div>New incident #IncidentTitle# has been created in group #Incoming# by “Azure Monitor Connector".</div>
+  </div>
+
   <div>
     #{t('Incident Details')}:
-
-      <div class="custom-article">
+    <div class="custom-article">
       #{article.body_as_html}
-      </div>
-
+    </div>
   </div>
 <% end %>
+
 <br>
-<div>
-  <a href="#{config.http_type}://#{config.fqdn}/#ticket/zoom/#{ticket.id}" target="zammad_app">#{t('View this in VIAcode Incident Management System for Azure')}</a>
+<div class="link-container">
+  <a class="link-rectangle" href="#{config.http_type}://#{config.fqdn}/#ticket/zoom/#{ticket.id}" target="zammad_app">#{t('View in VIAcode Portal')}</a>
+  <a class="link-triangle" href="#{config.http_type}://#{config.fqdn}/#ticket/zoom/#{ticket.id}" target="zammad_app"></a>
 </div>
+
 <p>Let VIAcode deal with these alerts & manage your Azure cloud operation for free; <a href="https://www.viacode.com/services/azure-managed-services/?utm_source=product&utm_medium=email&utm_campaign=VIMS&utm_content=ticketcreateemail">activate here</a></p>

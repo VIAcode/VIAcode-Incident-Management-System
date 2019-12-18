@@ -31,6 +31,7 @@
   color: #aaaaaa;
   }
 
+//ticket article
   .custom-article hr {
   height: 2px;
   border: 0;
@@ -114,6 +115,37 @@
   color: white;
   font-size: 20px;
   }
+
+//footer navigation link
+  .link-container, .exclamation-container{
+    display: flex;
+  }
+  .link-rectangle {
+    padding-top: 7px;
+    width: 220px;
+    height: 35px;
+    background: #787878;
+    text-decoration: none;
+    color: white;
+    font-size: 20px;
+    text-align: center;
+    display: block;
+  }
+  .link-triangle{
+    width: 0;
+    height: 0;
+    border-top: 21px solid transparent;
+    border-left: 42px solid #787878;
+    border-bottom: 21px solid transparent;
+    display: block;
+  }
+
+//exclamation
+  .exclamation{
+    width: 60px;
+    height: 60px;
+  }
+
 </style>
 <% if @objects[:standalone] != true %>
 <div class="header">
