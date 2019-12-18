@@ -4,8 +4,8 @@ New Ticket (#{ticket.title})
 <br>
 <% if @objects[:article] %>
   <div class="exclamation-container">
-    <img class="exclamation" src="/assets/images/exclamation_point.png">
-    <div>New incident #IncidentTitle# has been created in group #Incoming# by “Azure Monitor Connector".</div>
+    <%- @Icon('checkbox-checked', 'icon-checked') %>
+    <div>New incident #{ticket.title} has been created in group #{ticket.group.name} by #{ticket.owner.fullname}.</div>
   </div>
 
   <div>
