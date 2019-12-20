@@ -4,17 +4,14 @@ New Ticket (#{ticket.title})
 <br>
 <% if @objects[:article] %>
   <div class="exclamation-container">
-    <img style="width: 60px;" src="data:image/svg+xml;base64, PHN2ZyBoZWlnaHQ9IjEyMHB0IiBwcmVzZXJ2ZUFzcGVjdFJhdGlvPSJ4TWlkWU1pZCBtZWV0IiB
-    2aWV3Qm94PSIwIDAgMTIwIDEyMCIgd2lkdGg9IjEyMHB0IiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXRoIHN0eWxlPSJmaWxsOiNFRDNDMDU7IiBkPSJtNTQ0IDExMDJjL
-    TI1LTIwLTUyMi04NzktNTM2LTkyNXM0LTg1IDQ3LTEwMmM1MS0yMiAxMDM5LTIyIDEwOTAgMCA0MyAxNyA2MSA1NiA0NyAxMDEtMTQgNDctNTExIDkwNi01MzYgOTI2LTExIDEwLTM3IDE4LTU2IDE
-    4cy00NC04LTU2LTE4em0xMTYtNDQydi0xODBoLTYwLTYwdjE4MCAxODBoNjAgNjB6bTAtMzYwdi02MGgtNjAtNjB2NjAgNjBoNjAgNjB6IiB0cmFuc2Zvcm09Im1hdHJpeCguMSAwIDAgLS4xIDAgMTIwKSIvPjwvc3ZnPg==">
+    <img class="exclamation-point" src="#{config.http_type}://#{config.fqdn}/assets/images/exclamation_point.png"></img>
     <div class="subtitle">New incident "#{ticket.title}" has been created in group "#{ticket.group.name}" by "#{ticket.customer.fullname}".</div>
   </div>
 
   <br>
 
   <div>
-    <div class="subtitle"> #{t('Incident Details')}: </div>
+    <div class="regular-text"> #{t('Incident Details')}: </div>
     <div class="custom-article">
       #{article.body_as_html}
     </div>
@@ -23,8 +20,7 @@ New Ticket (#{ticket.title})
 
 <br>
 <div class="link-container">
-  <a style="height: 40px" class="link-rectangle" href="#{config.http_type}://#{config.fqdn}/#ticket/zoom/#{ticket.id}" target="zammad_app">#{t('View in VIAcode Portal')}</a>
-  <a class="link-triangle" href="#{config.http_type}://#{config.fqdn}/#ticket/zoom/#{ticket.id}" target="zammad_app"></a>
+  <a class="link-rectangle" href="#{config.http_type}://#{config.fqdn}/#ticket/zoom/#{ticket.id}" target="zammad_app">#{t('View in VIAcode Portal')}</a>
 </div>
 
 <p>Let VIAcode deal with these alerts & manage your Azure cloud operation for free; <a href="https://www.viacode.com/services/azure-managed-services/?utm_source=product&utm_medium=email&utm_campaign=VIMS&utm_content=ticketcreateemail">activate here</a></p>
