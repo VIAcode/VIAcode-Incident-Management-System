@@ -3,10 +3,17 @@ New Ticket (#{ticket.title})
 
 <br>
 <% if @objects[:article] %>
-  <div class="exclamation-container">
-    <img class="exclamation-point" src="#{config.http_type}://#{config.fqdn}/assets/images/exclamation_point.png"></img>
-    <div class="subtitle">New incident "#{ticket.title}" has been created in group "#{ticket.group.name}" by "#{ticket.customer.fullname}".</div>
-  </div>
+
+  <table>
+    <tr>
+      <td style="width: 60px;">
+        <img class="exclamation-point" src="#{config.http_type}://#{config.fqdn}/assets/images/exclamation_point.png"></img>
+      </td>
+      <td style="padding-left: 20px;">
+        <div class="subtitle">New incident "#{ticket.title}" has been created in group "#{ticket.group.name}" by "#{ticket.customer.fullname}".</div>
+      </td>
+    </tr>
+  </table>
 
   <br>
 
