@@ -3,8 +3,6 @@ class HideExternalWiId < ActiveRecord::Migration[5.1]
   
       # return if it's a new setup
       return if !Setting.find_by(name: 'system_init_done')
-  
-      add_column :tickets, :external_ticket_id, :string, limit: 150, null: true
 
       ObjectManager::Attribute.add(
         force:       true,
