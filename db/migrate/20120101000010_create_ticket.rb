@@ -86,7 +86,7 @@ class CreateTicket < ActiveRecord::Migration[4.2]
       t.column :updated_by_id,                    :integer,               null: false
       t.column :created_by_id,                    :integer,               null: false
       t.column :delegated_link,                   :string,    limit: 250, null: false, default: ''
-      t.column :alert_target,                     :string,                null: true
+      t.column :alert_target,                     :string,    limit: 1000, null: true
       t.column :alert_monitoring_service,         :string,                null: true
       t.timestamps limit: 3, null: false
     end
