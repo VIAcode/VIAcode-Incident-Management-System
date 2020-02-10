@@ -21,8 +21,15 @@ default: &default
   # password: <Password>
 
 production:
-  <<: *default
+  adapter: mysql2
   database: zammad_production
+  pool: 50
+  timeout: 5000
+  encoding: utf8
+  username: nimda@vims-db
+  password: Guardian-59!
+  host: vims-db.mysql.database.azure.com
+  port: 3306
 
 development:
   <<: *default
