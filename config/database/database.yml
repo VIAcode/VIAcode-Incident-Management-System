@@ -22,7 +22,7 @@ default: &default
 
 production:
   adapter: mysql2
-  database: zammad_production
+  database: zammad_prod
   pool: 50
   timeout: 5000
   encoding: utf8
