@@ -49,7 +49,7 @@ satinize html string based on whiltelist
 
           href = node['href']
 
-          if !href.include?('portal.azure.com')
+          if !href.include?('.azure.com')
             href                = cleanup_target(node['href'], keep_spaces: true)
           end
           
