@@ -5,14 +5,6 @@
     background: #ED3C05;
 }
 
-#custom-article hr:first-of-type {
-    margin: 10px 0px 0px 0px;
-}
-
-#custom-article hr:last-of-type {
-    margin: 0px 0px 10px 0px;
-}
-
 #custom-article span {
     font-size: 16.5px;
 }
