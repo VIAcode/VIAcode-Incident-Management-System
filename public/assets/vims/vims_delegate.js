@@ -21,7 +21,7 @@ class DelegateModal {
                       <h1 class="modal-title">Delegate</h1>
                     </div>
                       <div class="modal-body">
-                        New Backlog Item will be created for this incident at the connected Azure DevOps project.
+                        The incident will be linked to a Backlog Item (new or existing) at the connected Azure DevOps project. If the exisitng Backlog Item is closed or removed it will be reopened.
                         <br />
                         Backlog Item details:
                         <ul>
