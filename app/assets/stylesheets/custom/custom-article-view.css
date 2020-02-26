@@ -1,15 +1,8 @@
+/*Main template article*/
 #custom-article hr {
     height: 2px;
     border: 0;
     background: #ED3C05;
-}
-
-#custom-article hr:first-of-type {
-    margin: 10px 0px 0px 0px;
-}
-
-#custom-article hr:last-of-type {
-    margin: 0px 0px 10px 0px;
 }
 
 #custom-article span {
@@ -26,7 +19,7 @@
     border-top: 0;
 }
 
-#custom-article table:first-of-type tr:last-child td, #custom-article table:first-of-type tr:last-child th {
+#custom-article table tr:last-child td, #custom-article table tr:last-child th {
     border-bottom: 0;
 }
 
@@ -42,7 +35,7 @@
     text-align: left;
 }
 
-#custom-article p:last-of-type {
+#custom-article p {
     margin-top: 20px;
     margin-left: 10px;
     margin-bottom: 10px;
@@ -60,7 +53,6 @@
     font-size: 20px;
     padding-top: 5px;
     box-sizing: initial;
-    margin-bottom: 10px;
     display: inline-block;
 }
 
@@ -80,4 +72,33 @@
     text-decoration: none;
     color: white;
     font-size: 20px;
+}
+
+
+/*Delegation article*/
+#delegation-details span {
+  font-size: 16.5px;
+}
+
+#delegation-details table {
+  border-collapse: collapse;
+  margin-bottom: 0px;
+  display: table;
+}
+
+#delegation-details td, #delegation-details th {
+  border-top: 0.5pt solid rgb(175, 171, 171);
+  border-bottom: 0.5pt solid rgb(175, 171, 171);
+  padding: 10px;
+  vertical-align: top;
+}
+
+#delegation-details th {
+  width: 27%;
+  text-align: left;
+}
+
+#delegation-details p {
+  font-size: 18.5px;
+  font-weight: bold;
 }

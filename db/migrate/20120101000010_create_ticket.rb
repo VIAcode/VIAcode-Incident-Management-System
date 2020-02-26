@@ -56,6 +56,7 @@ class CreateTicket < ActiveRecord::Migration[4.2]
       t.column :title,                            :string,    limit: 250, null: false
       t.column :alert,                            :string,    limit: 999, null: true
       t.column :repeat_count,                     :integer,               null: true
+      t.column :external_ticket_id,               :string,                null: true
       t.column :owner_id,                         :integer,               null: false
       t.column :customer_id,                      :integer,               null: false
       t.column :note,                             :string,    limit: 250, null: true
@@ -84,6 +85,9 @@ class CreateTicket < ActiveRecord::Migration[4.2]
       t.column :preferences,                      :text,      limit: 500.kilobytes + 1, null: true
       t.column :updated_by_id,                    :integer,               null: false
       t.column :created_by_id,                    :integer,               null: false
+      t.column :delegated_link,                   :string,    limit: 250, null: false, default: ''
+      t.column :alert_target,                     :string,    limit: 1000, null: true
+      t.column :alert_monitoring_service,         :string,                null: true
       t.timestamps limit: 3, null: false
     end
     add_index :tickets, [:state_id]

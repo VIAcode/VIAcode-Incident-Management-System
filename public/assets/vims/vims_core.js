@@ -1,15 +1,4 @@
-(function() {	
-	let modalJQueryScript = document.createElement("SCRIPT");
-	modalJQueryScript.type = 'text/javascript';
-	modalJQueryScript.src = "assets/vims/vims_modal.js";
-	modalJQueryScript.defer = "defer";
-	$('body').append(modalJQueryScript);	
-
-	let vimsDelegateScript = document.createElement("SCRIPT");
-	vimsDelegateScript.src = "assets/vims/vims_delegate.js";
-	vimsDelegateScript.type = 'text/javascript';
-	vimsDelegateScript.defer = "defer";
-	$('body').append(vimsDelegateScript);		
+(function() {			
 	$('body').append('<div id="vims"></div>');
 	$('head').append('<link id="cssModal" rel="stylesheet" href="assets/vims/vims_modal.css" />');
 
@@ -43,17 +32,5 @@
         }
         console.log("menu found");
         menu.append('<li onclick="SendDelegation()"><a id="vimsDelegateLi" role="menuitem" tabindex="-1">Delegate</a></li>');
-
-		try {
-			if(DelegateModal){
-			  if($('#vimsDelegateModal').length == 0){
-				  $('#vims').append(DelegateModal.html);
-			  }	
-			}
-		} catch (e) {
-			if (e instanceof ReferenceError) {
-				console.log("Looking for DelegateModal");
-			}
-		}
 	}	
 })();
