@@ -15,7 +15,7 @@ class DelegatedCustomerOverview < ActiveRecord::Migration[5.1]
                 operator: 'is',
                 value:    Ticket::State.by_category(:delegated).pluck(:id),
               },
-              'ticket.owner_id' => {
+              'ticket.customer_id' => {
                 operator:      'is',
                 pre_condition: 'current_user.id',
               },
