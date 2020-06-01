@@ -1,4 +1,5 @@
 # Copyright (C) 2012-2016 Zammad Foundation, http://zammad-foundation.org/
+require 'net/http'
 
 class Observer::Ticket::ArticleChanges < ActiveRecord::Observer
   observe 'ticket::_article'
