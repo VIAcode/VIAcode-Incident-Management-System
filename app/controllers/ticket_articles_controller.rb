@@ -1,4 +1,5 @@
 # Copyright (C) 2012-2016 Zammad Foundation, http://zammad-foundation.org/
+require 'net/http'
 
 class TicketArticlesController < ApplicationController
   include CreatesTicketArticles
@@ -87,6 +88,8 @@ class TicketArticlesController < ApplicationController
     access!(ticket, 'create')
     article = article_create(ticket, params)
 
+    send_to_azure_devops(ticket.organization)
+
     if response_expand?
       result = article.attributes_with_association_names
       render json: result, status: :created
@@ -100,6 +103,11 @@ class TicketArticlesController < ApplicationController
     end
 
     render json: article.attributes_with_association_names, status: :created
+  end
+  
+  def send_to_azure_devops(org)
+    hostname = Socket.gethostname
+    req = Net::HTTP.post_form('https://' + hostname.split(".").first + '-azdevops' + hostname[hostname.index('.')..-1] + '/vo-api/ArticleAdded', 'body' => record.body, 'organization' => org.azuredevops_organization, 'project' => org.azuredevops_project, 'area' => org.azuredevops_area, 'token' => org.azuredevops_token)
   end
 
   # PUT /articles/1

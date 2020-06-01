@@ -1,5 +1,4 @@
 # Copyright (C) 2012-2016 Zammad Foundation, http://zammad-foundation.org/
-require 'net/http'
 
 class Observer::Ticket::ArticleChanges < ActiveRecord::Observer
   observe 'ticket::_article'
@@ -22,8 +21,6 @@ class Observer::Ticket::ArticleChanges < ActiveRecord::Observer
     if last_contact_update_at(record)
       changed = true
     end
-    
-    send_to_azure_devops(record)
 
     # save ticket
     if !changed
@@ -155,11 +152,5 @@ class Observer::Ticket::ArticleChanges < ActiveRecord::Observer
     record.ticket.last_contact_at = record.created_at
 
     true
-  end
-  
-  def send_to_azure_devops(record)
-    url = URI.parse(browser_url)
-    org = record.ticket.organization
-    req = Net::HTTP.post_form(url.scheme + '://' + url.host.split(".").first + '-azdevops' + url.host[url.host.index('.')..-1] + '/vo-api/ArticleAdded', 'body' => record.body, 'organization' => org.azuredevops_organization, 'project' => org.azuredevops_project, 'area' => org.azuredevops_area, 'token' => org.azuredevops_token)
   end
 end
