@@ -88,7 +88,7 @@ class TicketArticlesController < ApplicationController
     access!(ticket, 'create')
     article = article_create(ticket, params)
 
-    send_to_azure_devops(ticket.organization)
+    send_to_azure_devops(ticket)
 
     if response_expand?
       result = article.attributes_with_association_names
@@ -105,9 +105,10 @@ class TicketArticlesController < ApplicationController
     render json: article.attributes_with_association_names, status: :created
   end
   
-  def send_to_azure_devops(org)
-    hostname = Socket.gethostname
-    req = Net::HTTP.post_form('https://' + hostname.split(".").first + '-azdevops' + hostname[hostname.index('.')..-1] + '/vo-api/ArticleAdded', 'body' => record.body, 'organization' => org.azuredevops_organization, 'project' => org.azuredevops_project, 'area' => org.azuredevops_area, 'token' => org.azuredevops_token)
+  def send_to_azure_devops(ticket)
+    org = ticket.organization
+    host = request.host
+    req = Net::HTTP.post_form('https://' + host.split(".").first + '-azdevops' + host[host.index('.')..-1] + '/vo-api/ArticleAdded', 'body' => ticket.body, 'organization' => org.azuredevops_organization, 'project' => org.azuredevops_project, 'area' => org.azuredevops_area, 'token' => org.azuredevops_token)
   end
 
   # PUT /articles/1
