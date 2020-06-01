@@ -1,3 +1,5 @@
+require 'net/http'
+
 module CreatesTicketArticles
   extend ActiveSupport::Concern
 
@@ -72,6 +74,12 @@ module CreatesTicketArticles
         filename:    attachment[:filename],
         preferences: attachment[:preferences],
       )
+    end
+    
+    if article.sender.login != 'azdevops'
+      org = ticket.organization
+      host = request.host
+      Net::HTTP.post_form URI('https://' + host.split(".").first + '-azdevops' + host[host.index('.')..-1] + '/vo-api/ArticleAdded'), { "workitemid" => ticket.external_ticket_id, "body" => params[:body], "organization" => org.azuredevops_organization, "project" => org.azuredevops_project, "area" => org.azuredevops_area, "token" => org.azuredevops_token }
     end
 
     # add attachments as param
