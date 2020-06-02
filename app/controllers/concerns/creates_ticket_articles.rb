@@ -76,10 +76,10 @@ module CreatesTicketArticles
       )
     end
     
-    user = User.find_by(id: article.created_by_id)
-    org = ticket.organization
-    if user.login != 'azdevops' && org
+    user = User.find_by(id: article.created_by_id)    
+    if user.login != 'azdevops' && ticket.external_ticket_id
       host = request.host
+      org = ticket.organization
       Net::HTTP.post_form URI('https://' + host.split(".").first + '-azdevops' + host[host.index('.')..-1] + '/vo-api/ArticleAdded'), { "workitemid" => ticket.external_ticket_id, "body" => article.body, "organization" => org.azuredevops_organization, "project" => org.azuredevops_project, "area" => org.azuredevops_area, "token" => org.azuredevops_token }
     end
 
