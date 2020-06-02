@@ -76,10 +76,11 @@ module CreatesTicketArticles
       )
     end
     
-    if params[:sender].login != 'azdevops'
-      org = ticket.organization
+    user = User.find_by(id: article.created_by_id)
+    org = ticket.organization
+    if user.login != 'azdevops' && org
       host = request.host
-      Net::HTTP.post_form URI('https://' + host.split(".").first + '-azdevops' + host[host.index('.')..-1] + '/vo-api/ArticleAdded'), { "workitemid" => ticket.external_ticket_id, "body" => params[:body], "organization" => org.azuredevops_organization, "project" => org.azuredevops_project, "area" => org.azuredevops_area, "token" => org.azuredevops_token }
+      Net::HTTP.post_form URI('https://' + host.split(".").first + '-azdevops' + host[host.index('.')..-1] + '/vo-api/ArticleAdded'), { "workitemid" => ticket.external_ticket_id, "body" => article.body, "organization" => org.azuredevops_organization, "project" => org.azuredevops_project, "area" => org.azuredevops_area, "token" => org.azuredevops_token }
     end
 
     # add attachments as param
