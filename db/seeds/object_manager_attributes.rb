@@ -1949,3 +1949,39 @@ ObjectManager::Attribute.add(
   to_delete:   false,
   position:    1800,
 )
+
+ObjectManager::Attribute.add(
+  force:       true,
+  object:      'Ticket',
+  name:        'aspect',
+  display:     'Aspect',
+  data_type:   'select',
+  data_option: {
+    default:    '',
+    options:    {
+      'Cost'        => 'Cost',
+      'Security'    => 'Security',
+      'Monitoring'  => 'Monitoring',
+      'Other'       => 'Other',
+    },
+    nulloption: true,
+    multiple:   false,
+    null:       true,
+    translate:  true,
+  },
+  editable:    true,
+  active:      true,
+  screens:     {
+    create_middle: {},
+    edit:          {
+      '-all-' => {
+        shown: true,
+      },
+    },
+  },
+  to_create:   false,
+  to_migrate:  false,
+  to_delete:   false,
+  position:    2000,
+)
+
