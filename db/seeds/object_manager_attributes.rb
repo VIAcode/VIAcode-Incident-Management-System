@@ -1966,7 +1966,7 @@ ObjectManager::Attribute.add(
     },
     nulloption: false,
     multiple:   false,
-    null:       false,
+    null:       true,
     translate:  false,
     permission: ['ticket.agent'],
   },
