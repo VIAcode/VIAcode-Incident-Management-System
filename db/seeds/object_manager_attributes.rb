@@ -329,32 +329,32 @@ ObjectManager::Attribute.add(
   display:     'alert',
   data_type:   'input',
   data_option: {
-    default:    '',  
+    default:    '',
     type:      'text',
     maxlength: 2000,
     null:      true,
     translate: false,
   },
   editable:    false,
-  active:      true, 
+  active:      true,
   screens: {
     create_middle: {},
-    edit: {},        
+    edit: {},
   },
   to_create:   false,
   to_migrate:  false,
   to_delete:   false,
-  position:    101,  
+  position:    101,
 )
 
 ObjectManager::Attribute.add(
   force:       true,
   object:      'Ticket',
   name:        'repeat_count',
-  display:     'repeat count',  
+  display:     'repeat count',
   data_type:   'integer',
   data_option: {
-    default:    0, 
+    default:    0,
     maxlength: 150,
     null:      true,
     note:      'The number of the same alerts fired',
@@ -367,12 +367,12 @@ ObjectManager::Attribute.add(
     create_middle: {},
     edit: {
      'ticket.customer' => {
-        shown: true,                           
+        shown: true,
       },
        'ticket.agent' => {
          shown: true,
          },
-     },    
+     },
   },
   to_create:   false,
   to_migrate:  false,
@@ -407,15 +407,15 @@ ObjectManager::Attribute.add(
   to_delete:   false,
   position:    103,
 )
-  
+
 ObjectManager::Attribute.add(
   force:       true,
   object:      'Ticket',
   name:        'external_ticket_id',
-  display:     'External ticket id',  
+  display:     'External ticket id',
   data_type:   'input',
   data_option: {
-    default:    '', 
+    default:    '',
     maxlength: 150,
     null:      true,
     type:      'text'
@@ -428,7 +428,7 @@ ObjectManager::Attribute.add(
       '-all-' => {
         shown: false,
       },
-    }    
+    }
   },
   to_create:   false,
   to_migrate:  false,
@@ -436,7 +436,7 @@ ObjectManager::Attribute.add(
   position:    104,
 )
 
-  
+
 
 ObjectManager::Attribute.add(
   force:       true,
@@ -1949,3 +1949,45 @@ ObjectManager::Attribute.add(
   to_delete:   false,
   position:    1800,
 )
+
+ObjectManager::Attribute.add(
+  force:       true,
+  object:      'Ticket',
+  name:        'aspect',
+  display:     'Aspect',
+  data_type:   'select',
+  data_option: {
+    default:    'Other',
+    options:    {
+      'Cost'        => 'Cost',
+      'Security'    => 'Security',
+      'Monitoring'  => 'Monitoring',
+      'Other'       => 'Other',
+    },
+    nulloption: true,
+    multiple:   false,
+    null:       true,
+    permission: ['ticket.agent'],
+    translate:  false,
+  },
+  editable:    true,
+  active:      true,
+  screens:     {
+    create_middle: {
+      '-all-' => {
+        shown: true,
+        item_class: 'column',
+      },
+    },
+    edit:          {
+      '-all-' => {
+        shown: true,
+      },
+    },
+  },
+  to_create:   false,
+  to_migrate:  false,
+  to_delete:   false,
+  position:    2000,
+)
+
