@@ -1957,7 +1957,7 @@ ObjectManager::Attribute.add(
   display:     'Aspect',
   data_type:   'select',
   data_option: {
-    default:    '',
+    default:    'Other',
     options:    {
       'Cost'        => 'Cost',
       'Security'    => 'Security',
@@ -1968,7 +1968,7 @@ ObjectManager::Attribute.add(
     multiple:   false,
     null:       true,
     permission: ['ticket.agent'],
-    translate:  true,
+    translate:  false,
   },
   editable:    true,
   active:      true,
