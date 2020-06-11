@@ -1973,7 +1973,12 @@ ObjectManager::Attribute.add(
   editable:    true,
   active:      true,
   screens:     {
-    create_middle: {},
+    create_middle: {
+      '-all-' => {
+        shown: true,
+        item_class: 'column',
+      },
+    },
     edit:          {
       '-all-' => {
         shown: true,
