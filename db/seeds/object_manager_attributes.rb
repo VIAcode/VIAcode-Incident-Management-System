@@ -1998,13 +1998,14 @@ ObjectManager::Attribute.add(
   display:     'Reason',
   data_type:   'select',
   data_option: {
+    default:
     options:    {
       'Completed'     => 'Completed',
       'Suppressed'    => 'Suppressed',
     },
     nulloption: false,
     multiple:   false,
-    null:       false,
+    null:       true,
     permission: ['ticket.agent'],
     translate:  false,
   },
