@@ -48,9 +48,9 @@ returns:
     when :viewable_agent_edit
       state_types = ['open', 'pending reminder', 'pending action', 'closed', 'pending review', 'delegated']
     when :viewable_customer_new
-      state_types = ['new', 'pending review']
+      state_types = ['new']
     when :viewable_customer_edit
-      state_types = ['open', 'pending review']
+      state_types = ['open']
     when :closed
       state_types = %w[closed]
     when :merged
