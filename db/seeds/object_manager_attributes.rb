@@ -1998,7 +1998,6 @@ ObjectManager::Attribute.add(
   display:     'Reason',
   data_type:   'select',
   data_option: {
-    default:
     options:    {
       'Completed'     => 'Completed',
       'Suppressed'    => 'Suppressed',
