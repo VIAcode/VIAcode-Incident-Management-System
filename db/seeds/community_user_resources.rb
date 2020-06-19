@@ -23,7 +23,7 @@ UserInfo.current_user_id = user_admin.id
 
 if Ticket.count.zero?
   ticket = Ticket.create!(
-    group_id:    Group.find_by(name: 'Incoming').id,
+    group_id:    Group.find_by(name: 'Incidents').id,
     customer_id: 1,
     title:       'Welcome to VIAcode Incident Management System for Azure!',
   )
@@ -40,9 +40,9 @@ if Ticket.count.zero?
     content_type: 'text/html',
     internal:  false,
   )
-  
+
   ticket = Ticket.create!(
-    group_id:    Group.find_by(name: 'Incoming').id,
+    group_id:    Group.find_by(name: 'Incidents').id,
     customer_id: 1,
     title:       'Change admin password and enter email',
     priority_id: 3,

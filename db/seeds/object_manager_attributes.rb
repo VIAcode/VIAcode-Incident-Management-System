@@ -1991,3 +1991,41 @@ ObjectManager::Attribute.add(
   position:    2000,
 )
 
+ObjectManager::Attribute.add(
+  force:       true,
+  object:      'Ticket',
+  name:        'state_reason',
+  display:     'Reason',
+  data_type:   'select',
+  data_option: {
+    default:    '',
+    options:    {
+      'Completed'     => 'Completed',
+      'Suppressed'    => 'Suppressed',
+    },
+    nulloption: false,
+    multiple:   false,
+    null:       true,
+    permission: ['ticket.agent'],
+    translate:  false,
+  },
+  editable:    true,
+  active:      true,
+  screens:     {
+    create_middle: {
+      '-all-' => {
+        shown: true,
+        item_class: 'column',
+      },
+    },
+    edit:          {
+      '-all-' => {
+        shown: true,
+      },
+    },
+  },
+  to_create:   false,
+  to_migrate:  false,
+  to_delete:   false,
+  position:    2300,
+)
