@@ -1964,7 +1964,7 @@ ObjectManager::Attribute.add(
       'Monitoring'  => 'Monitoring',
       'Other'       => 'Other',
     },
-    nulloption: true,
+    nulloption: false,
     multiple:   false,
     null:       true,
     permission: ['ticket.agent'],
