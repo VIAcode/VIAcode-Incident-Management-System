@@ -90,6 +90,7 @@ class CreateTicket < ActiveRecord::Migration[4.2]
       t.column :alert_monitoring_service,         :string,                null: true
       t.column :aspect,                           :string,    limit: 25,  null: true
       t.column :state_reason,                     :string,    limit: 15,  null: true
+      t.column :codes,                            :string,    limit: 120, null: true
       t.timestamps limit: 3, null: false
     end
     add_index :tickets, [:state_id]
