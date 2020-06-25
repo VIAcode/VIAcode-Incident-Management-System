@@ -2033,7 +2033,7 @@ ObjectManager::Attribute.add(
 ObjectManager::Attribute.add(
   force:       true,
   object:      'Ticket',
-  name:        'codes',
+  name:        'hashproperties',
   display:     'Codes',
   data_type:   'input',
   data_option: {
