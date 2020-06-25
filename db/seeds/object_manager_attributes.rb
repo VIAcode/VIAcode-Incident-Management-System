@@ -2029,3 +2029,36 @@ ObjectManager::Attribute.add(
   to_delete:   false,
   position:    2300,
 )
+
+ObjectManager::Attribute.add(
+  force:       true,
+  object:      'Ticket',
+  name:        'hashproperties',
+  display:     'Codes',
+  data_type:   'input',
+  data_option: {
+    type:           'text',
+    maxlength:      120,
+    null:           true,
+    permission:     ['ticket.agent'],
+  },
+  editable:    true,
+  active:      true,
+  screens:     {
+    create_middle: {
+      '-all-' => {
+        shown: true,
+        item_class: 'column',
+      },
+    },
+    edit:          {
+      '-all-' => {
+        shown: true,
+      },
+    },
+  },
+  to_create:   false,
+  to_migrate:  false,
+  to_delete:   false,
+  position:    2500,
+)
