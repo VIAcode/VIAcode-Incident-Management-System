@@ -1216,8 +1216,6 @@ result
     true
   end
 
-  private
-
   def check_generate
     return true if number
 
