@@ -23,7 +23,7 @@ class Ticket < ApplicationModel
   include Ticket::Search
 
   store          :preferences
-  before_create  :check_generate, :check_defaults, :check_title, :set_default_state, :set_default_priority
+  before_create  :check_aspect, :check_generate, :check_defaults, :check_title, :set_default_state, :set_default_priority
   before_update  :check_defaults, :check_title, :reset_pending_time, :check_owner_active
 
   validates :group_id, presence: true
@@ -1208,6 +1208,13 @@ result
   end
 
   private
+
+  def check_aspect
+    if !aspect
+      self.aspect = "Other"
+    end
+    true
+  end
 
   def check_generate
     return true if number
