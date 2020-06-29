@@ -1000,7 +1000,7 @@ Setting.create_if_not_exists(
       },
     ],
   },
-  state:       true,
+  state:       false,
   preferences: {
     permission: ['admin.security'],
   },
