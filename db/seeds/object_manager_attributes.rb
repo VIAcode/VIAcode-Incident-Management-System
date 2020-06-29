@@ -104,7 +104,7 @@ ObjectManager::Attribute.add(
   display:     'Group',
   data_type:   'select',
   data_option: {
-    default:                  '',
+    default:                  Group.find_by(id: Setting.get('form_ticket_create_group_id')),
     relation:                 'Group',
     relation_condition:       { access: 'full' },
     nulloption:               true,
