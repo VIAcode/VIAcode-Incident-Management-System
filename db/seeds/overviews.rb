@@ -218,88 +218,9 @@ Overview.create_if_not_exists(
 
 overview_role = Role.find_by(name: 'Customer')
 Overview.create_if_not_exists(
-  name:      'My Tickets',
-  link:      'my_tickets',
-  prio:      1100,
-  role_ids:  [overview_role.id],
-  condition: {
-    'ticket.state_id'    => {
-      operator: 'is',
-      value:    Ticket::State.by_category(:viewable).pluck(:id),
-    },
-    'ticket.customer_id' => {
-      operator:      'is',
-      pre_condition: 'current_user.id',
-    },
-  },
-  order:     {
-    by:        'created_at',
-    direction: 'DESC',
-  },
-  view:      {
-    d:                 %w[title customer state created_at],
-    s:                 %w[number title state created_at],
-    m:                 %w[number title state created_at],
-    view_mode_default: 's',
-  },
-)
-Overview.create_if_not_exists(
-  name:                'My Organization Tickets',
-  link:                'my_organization_tickets',
-  prio:                1200,
-  role_ids:            [overview_role.id],
-  organization_shared: true,
-  condition:           {
-    'ticket.state_id'        => {
-      operator: 'is',
-      value:    Ticket::State.by_category(:viewable).pluck(:id),
-    },
-    'ticket.organization_id' => {
-      operator:      'is',
-      pre_condition: 'current_user.organization_id',
-    },
-  },
-  order:               {
-    by:        'created_at',
-    direction: 'DESC',
-  },
-  view:                {
-    d:                 %w[title customer state created_at],
-    s:                 %w[number title customer state created_at],
-    m:                 %w[number title customer state created_at],
-    view_mode_default: 's',
-  },  
-)
-Overview.create_if_not_exists(
-  name:      'My delegated',
-  link:      'my_delegated_tickets',
-  prio:      1300,
-  role_ids:  [overview_role.id],
-  condition: {
-    'ticket.state_id' => {
-      operator: 'is',
-      value:    Ticket::State.by_category(:delegated).pluck(:id),
-    },
-    'ticket.customer_id' => {
-      operator:      'is',
-      pre_condition: 'current_user.id',
-    },
-  },
-  order:     {
-    by:        'created_at',
-    direction: 'ASC',
-  },
-  view:      {
-    d:                 %w[title customer group created_at],
-    s:                 %w[title customer group created_at],
-    m:                 %w[number title customer group created_at],
-    view_mode_default: 's',
-  },
-)
-Overview.create_if_not_exists(
   name:      'My open tickets',
   link:      'my_open_tickets',
-  prio:      1400,
+  prio:      1100,
   role_ids:  [overview_role.id],
   condition: {
     'ticket.state_id' => {
@@ -329,7 +250,7 @@ Overview.create_if_not_exists(
 Overview.create_if_not_exists(
   name:      'Closed tickets',
   link:      'closed_tickets',
-  prio:      1500,
+  prio:      1200,
   role_ids:  [overview_role.id],
   condition: {
     'ticket.state_id' => {
@@ -359,7 +280,7 @@ Overview.create_if_not_exists(
 Overview.create_if_not_exists(
   name:      'Tickets in progress',
   link:      'tickets_in_progress',
-  prio:      1600,
+  prio:      1300,
   role_ids:  [overview_role.id],
   condition: {
     'ticket.state_id' => {
