@@ -296,4 +296,94 @@ Overview.create_if_not_exists(
     view_mode_default: 's',
   },
 )
+Overview.create_if_not_exists(
+  name:      'My open tickets',
+  link:      'my_open_tickets',
+  prio:      1400,
+  role_ids:  [overview_role.id],
+  condition: {
+    'ticket.state_id' => {
+      operator: 'is',
+      value:    Ticket::State.by_category(:open).pluck(:id),
+    },
+    'ticket.customer_id' => {
+      operator:      'is',
+      pre_condition: 'current_user.id',
+    },
+  },
+  order:     {
+    by:        'created_at',
+    direction: 'DESC',
+  },
+  group:     {
+    by:        'group',
+    direction: 'DESC',
+  },
+  view:      {
+    d:                 %w[title customer updated_at aspect],
+    s:                 %w[number title updated_at aspect],
+    m:                 %w[number title updated_at aspect],
+    view_mode_default: 's',
+  },
+)
+Overview.create_if_not_exists(
+  name:      'Closed tickets',
+  link:      'closed_tickets',
+  prio:      1500,
+  role_ids:  [overview_role.id],
+  condition: {
+    'ticket.state_id' => {
+      operator: 'is',
+      value:    Ticket::State.by_category(:closed).pluck(:id),
+    },
+    'ticket.organization_id' => {
+      operator:      'is',
+      pre_condition: 'current_user.organization_id',
+    },
+  },
+  order:     {
+    by:        'created_at',
+    direction: 'DESC',
+  },
+  group:     {
+    by:        'group',
+    direction: 'DESC',
+  },
+  view:      {
+    d:                 %w[title customer updated_at aspect state_reason],
+    s:                 %w[number title updated_at aspect state_reason],
+    m:                 %w[number title updated_at aspect state_reason],
+    view_mode_default: 's',
+  },
+)
+Overview.create_if_not_exists(
+  name:      'Tickets in progress',
+  link:      'tickets_in_progress',
+  prio:      1600,
+  role_ids:  [overview_role.id],
+  condition: {
+    'ticket.state_id' => {
+      operator: 'is',
+      value:    Ticket::State.by_category(:open).pluck(:id),
+    },
+    'ticket.organization_id' => {
+      operator:      'is',
+      pre_condition: 'current_user.organization_id',
+    },
+  },
+  order:     {
+    by:        'created_at',
+    direction: 'DESC',
+  },
+  group:     {
+    by:        'aspect',
+    direction: 'DESC',
+  },
+  view:      {
+    d:                 %w[title customer created_at updated_at],
+    s:                 %w[number title created_at updated_at],
+    m:                 %w[number title created_at updated_at],
+    view_mode_default: 's',
+  },
+)
 
