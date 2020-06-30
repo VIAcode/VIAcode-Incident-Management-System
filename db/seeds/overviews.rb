@@ -236,10 +236,8 @@ Overview.create_if_not_exists(
     by:        'created_at',
     direction: 'DESC',
   },
-  group:     {
-    by:        'group',
-    direction: 'DESC',
-  },
+  group_by:  'group',
+  group_direction: 'DESC',
   view:      {
     d:                 %w[title customer updated_at aspect],
     s:                 %w[number title updated_at aspect],
@@ -266,10 +264,8 @@ Overview.create_if_not_exists(
     by:        'created_at',
     direction: 'DESC',
   },
-  group:     {
-    by:        'group',
-    direction: 'DESC',
-  },
+  group_by:  'group',
+  group_direction: 'DESC',
   view:      {
     d:                 %w[title customer updated_at aspect state_reason],
     s:                 %w[number title updated_at aspect state_reason],
@@ -296,10 +292,8 @@ Overview.create_if_not_exists(
     by:        'created_at',
     direction: 'DESC',
   },
-  group:     {
-    by:        'aspect',
-    direction: 'DESC',
-  },
+  group_by:  'aspect',
+  group_direction: 'DESC',
   view:      {
     d:                 %w[title customer created_at updated_at],
     s:                 %w[number title created_at updated_at],
