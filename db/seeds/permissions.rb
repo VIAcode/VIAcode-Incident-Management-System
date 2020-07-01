@@ -403,7 +403,7 @@ admin.permission_grant('admin')
 admin.permission_grant('report')
 admin.permission_grant('knowledge_base.editor')
 
-agent = Role.find_by(name: 'Agent')
+agent = Role.find_by(name: 'Agent (SRE)')
 agent.permission_grant('user_preferences')
 agent.permission_grant('ticket.agent')
 agent.permission_grant('chat.agent')
