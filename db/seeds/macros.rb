@@ -17,3 +17,19 @@ Macro.create_if_not_exists(
   note:            'example macro',
   active:          true,
 )
+Macro.create_if_not_exists(
+  name:            'Take ticket',
+  perform:         {
+    'ticket.state_id' => {
+      value: 2,
+    },
+    'ticket.priority_id'     => {
+      value: 2,
+    },
+    'ticket.owner_id' => {
+      pre_condition: 'current_user.id',
+      value:         '',
+    },
+  },
+  active:          true,
+)
