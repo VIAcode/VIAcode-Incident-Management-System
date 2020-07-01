@@ -218,14 +218,14 @@ Overview.create_if_not_exists(
 
 overview_role = Role.find_by(name: 'Customer')
 Overview.create_if_not_exists(
-  name:      'My Tickets',
-  link:      'my_tickets',
+  name:      'My open tickets',
+  link:      'my_open_tickets',
   prio:      1100,
   role_ids:  [overview_role.id],
   condition: {
-    'ticket.state_id'    => {
+    'ticket.state_id' => {
       operator: 'is',
-      value:    Ticket::State.by_category(:viewable).pluck(:id),
+      value:    Ticket::State.by_category(:open).pluck(:id),
     },
     'ticket.customer_id' => {
       operator:      'is',
@@ -236,63 +236,68 @@ Overview.create_if_not_exists(
     by:        'created_at',
     direction: 'DESC',
   },
+  group_by:  'group',
+  group_direction: 'DESC',
   view:      {
-    d:                 %w[title customer state created_at],
-    s:                 %w[number title state created_at],
-    m:                 %w[number title state created_at],
+    d:                 %w[title customer updated_at aspect],
+    s:                 %w[number title updated_at aspect],
+    m:                 %w[number title updated_at aspect],
     view_mode_default: 's',
   },
 )
 Overview.create_if_not_exists(
-  name:                'My Organization Tickets',
-  link:                'my_organization_tickets',
-  prio:                1200,
-  role_ids:            [overview_role.id],
-  organization_shared: true,
-  condition:           {
-    'ticket.state_id'        => {
+  name:      'Closed tickets',
+  link:      'closed_tickets',
+  prio:      1200,
+  role_ids:  [overview_role.id],
+  condition: {
+    'ticket.state_id' => {
       operator: 'is',
-      value:    Ticket::State.by_category(:viewable).pluck(:id),
+      value:    Ticket::State.by_category(:closed).pluck(:id),
     },
     'ticket.organization_id' => {
       operator:      'is',
       pre_condition: 'current_user.organization_id',
     },
   },
-  order:               {
+  order:     {
     by:        'created_at',
     direction: 'DESC',
   },
-  view:                {
-    d:                 %w[title customer state created_at],
-    s:                 %w[number title customer state created_at],
-    m:                 %w[number title customer state created_at],
+  group_by:  'group',
+  group_direction: 'DESC',
+  view:      {
+    d:                 %w[title customer updated_at aspect state_reason],
+    s:                 %w[number title updated_at aspect state_reason],
+    m:                 %w[number title updated_at aspect state_reason],
     view_mode_default: 's',
-  },  
+  },
 )
 Overview.create_if_not_exists(
-  name:      'My delegated',
-  link:      'my_delegated_tickets',
+  name:      'Tickets in progress',
+  link:      'tickets_in_progress',
   prio:      1300,
   role_ids:  [overview_role.id],
   condition: {
     'ticket.state_id' => {
       operator: 'is',
-      value:    Ticket::State.by_category(:delegated).pluck(:id),
+      value:    Ticket::State.by_category(:open).pluck(:id),
     },
-    'ticket.customer_id' => {
+    'ticket.organization_id' => {
       operator:      'is',
-      pre_condition: 'current_user.id',
+      pre_condition: 'current_user.organization_id',
     },
   },
   order:     {
     by:        'created_at',
-    direction: 'ASC',
+    direction: 'DESC',
   },
+  group_by:  'aspect',
+  group_direction: 'DESC',
   view:      {
-    d:                 %w[title customer group created_at],
-    s:                 %w[title customer group created_at],
-    m:                 %w[number title customer group created_at],
+    d:                 %w[title customer created_at updated_at],
+    s:                 %w[number title created_at updated_at],
+    m:                 %w[number title created_at updated_at],
     view_mode_default: 's',
   },
 )
