@@ -1,4 +1,4 @@
-overview_role = Role.find_by(name: 'Agent')
+overview_role = Role.find_by(name: 'Agent (SRE)')
 Overview.create_if_not_exists(
   name:      'My assigned Tickets',
   link:      'my_assigned',
