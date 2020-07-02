@@ -1000,7 +1000,7 @@ Setting.create_if_not_exists(
       },
     ],
   },
-  state:       true,
+  state:       false,
   preferences: {
     permission: ['admin.security'],
   },
@@ -2210,7 +2210,7 @@ Setting.create_if_not_exists(
       },
     ],
   },
-  state:       '',
+  state:       1,
   preferences: {
     authentication: true,
     permission:     ['admin.channel_web'],
