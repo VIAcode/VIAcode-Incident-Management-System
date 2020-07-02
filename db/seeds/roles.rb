@@ -11,7 +11,7 @@ Role.create_if_not_exists(
 )
 Role.create_if_not_exists(
   id:                2,
-  name:              'Agent',
+  name:              'Agent (SRE)',
   note:              'To work on Tickets.',
   default_at_signup: false,
   preferences:       {
@@ -27,7 +27,7 @@ Role.create_if_not_exists(
   preferences:       {
     not: %w[Agent Admin],
   },
-  default_at_signup: true,
+  default_at_signup: false,
   updated_by_id:     1,
   created_by_id:     1
 )
