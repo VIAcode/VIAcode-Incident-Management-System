@@ -143,7 +143,7 @@ ObjectManager::Attribute.add(
   data_option: {
     default:            '',
     relation:           'User',
-    relation_condition: { roles: 'Agent' },
+    relation_condition: { roles: 'Agent (SRE)' },
     nulloption:         true,
     multiple:           false,
     null:               true,
@@ -1280,7 +1280,7 @@ ObjectManager::Attribute.add(
     invite_agent:    {
       '-all-' => {
         null:    false,
-        default: [Role.lookup(name: 'Agent').id],
+        default: [Role.lookup(name: 'Agent (SRE)').id],
       },
     },
     invite_customer: {},

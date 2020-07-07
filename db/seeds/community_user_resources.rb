@@ -16,7 +16,7 @@ user_admin = User.create_or_update(
   email:           '',
   password:        'admin',
   active:          true,
-  roles:           [ Role.find_by(name: 'Admin'), Role.find_by(name: 'Agent') ],
+  roles:           [ Role.find_by(name: 'Admin'), Role.find_by(name: 'Agent (SRE)') ],
 )
 
 UserInfo.current_user_id = user_admin.id
