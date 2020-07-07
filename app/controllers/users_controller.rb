@@ -195,7 +195,7 @@ class UsersController < ApplicationController
       end
 
       # load calendar
-      Calendar.init_setup(request.remote_ip)
+      #Calendar.init_setup(request.remote_ip)
 
       # load text modules
       begin
