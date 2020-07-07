@@ -329,22 +329,5 @@ RSpec.describe AutoWizard do
       end
     end
 
-    context 'when "auto_wizard.json" contains a Calendar IP' do
-      let(:seed_data) do
-        {
-          CalendarSetup: {
-            Ip: '195.65.29.254',
-          },
-        }
-      end
-
-      it 'updates the existing calendar with the specified IP' do
-        expect { described_class.setup }
-          .to not_change(Calendar, :count)
-          .and change { Calendar.last.name }.to('Switzerland')
-          .and change { Calendar.last.timezone }.to('Europe/Zurich')
-      end
-    end
-
   end
 end
