@@ -23,39 +23,6 @@ returns calendar object
 
 =end
 
-  # def self.init_setup(ip = nil)
-
-  #   # ignore client ip if not public ip
-  #   if ip && ip =~ /^(::1|127\.|10\.|172\.1[6-9]\.|172\.2[0-9]\.|172\.3[0-1]\.|192\.168\.)/
-  #     ip = nil
-  #   end
-
-  #   # prevent multible setups for same ip
-  #   cache = Cache.get('Calendar.init_setup.done')
-  #   return if cache && cache[:ip] == ip
-
-  #   Cache.write('Calendar.init_setup.done', { ip: ip }, { expires_in: 1.hour })
-
-  #   # call for calendar suggestion
-  #   calendar_details = Service::GeoCalendar.location(ip)
-  #   return if calendar_details.blank?
-  #   return if calendar_details['name'].blank?
-  #   return if calendar_details['business_hours'].blank?
-
-  #   calendar_details['name'] = Calendar.generate_uniq_name(calendar_details['name'])
-  #   calendar_details['default'] = true
-  #   calendar_details['created_by_id'] = 1
-  #   calendar_details['updated_by_id'] = 1
-
-  #   # find if auto generated calendar exists
-  #   calendar = Calendar.find_by(default: true, updated_by_id: 1, created_by_id: 1)
-  #   if calendar
-  #     calendar.update!(calendar_details)
-  #     return calendar
-  #   end
-  #   create(calendar_details)
-  # end
-
 =begin
 
 get default calendar
