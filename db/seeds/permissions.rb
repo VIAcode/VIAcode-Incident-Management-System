@@ -422,5 +422,5 @@ connector = Role.find_by(name: 'Connector')
 connector.permission_grant('ticket.agent')
 connector.permission_grant('user_preferences.access_token')
 
-connector = Role.find_by(name: 'Managed App')
+connector = Role.find_by(name: 'VIMS for Azure')
 connector.permission_grant('admin.security')

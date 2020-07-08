@@ -44,7 +44,7 @@ Role.create_if_not_exists(
 )
 Role.create_if_not_exists(
   id:                5,
-  name:              'Managed App',
+  name:              'VIMS for Azure',
   note:              '',
   preferences:       {
     not: %w[Agent Admin Customer],
