@@ -420,5 +420,8 @@ customer.permission_grant('ticket.customer')
 
 connector = Role.find_by(name: 'Connector')
 connector.permission_grant('ticket.agent')
-connector.permission_grant('admin.security')
 connector.permission_grant('user_preferences.access_token')
+
+connector = Role.find_by(name: 'VIMS Manager')
+connector.permission_grant('ticket.agent')
+connector.permission_grant('admin.security')
