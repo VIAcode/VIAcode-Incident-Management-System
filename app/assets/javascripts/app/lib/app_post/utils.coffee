@@ -5,8 +5,12 @@ class App.Utils
     'TD': ['abbr', 'align', 'axis', 'colspan', 'headers', 'rowspan', 'valign', 'width', 'style']
     'TH': ['abbr', 'align', 'axis', 'colspan', 'headers', 'rowspan', 'scope', 'sorted', 'valign', 'width', 'style']
     'TR': ['width', 'style']
-    'A': ['href', 'hreflang', 'name', 'rel']
+    'A': ['href', 'hreflang', 'name', 'rel', 'style']
     'IMG': ['align', 'alt', 'border', 'height', 'src', 'srcset', 'width', 'style']
+    'SPAN': ['style']
+    'DIV': ['style']
+    'HR': ['style']
+    'A': ['style']
 
   @mapCss:
     'TABLE': [
