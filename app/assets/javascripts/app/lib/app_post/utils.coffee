@@ -5,12 +5,8 @@ class App.Utils
     'TD': ['abbr', 'align', 'axis', 'colspan', 'headers', 'rowspan', 'valign', 'width', 'style']
     'TH': ['abbr', 'align', 'axis', 'colspan', 'headers', 'rowspan', 'scope', 'sorted', 'valign', 'width', 'style']
     'TR': ['width', 'style']
-    'A': ['href', 'hreflang', 'name', 'rel', 'style']
+    'A': ['href', 'hreflang', 'name', 'rel']
     'IMG': ['align', 'alt', 'border', 'height', 'src', 'srcset', 'width', 'style']
-    'SPAN': ['style']
-    'DIV': ['style']
-    'HR': ['style']
-    'A': ['style']
 
   @mapCss:
     'TABLE': [
@@ -23,7 +19,6 @@ class App.Utils
       'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
       'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color',
       'border-top-style', 'border-right-style', 'border-bottom-style', 'border-left-style',
-      'display',
     ]
     'TH': [
       'background', 'background-color', 'color', 'font-size', 'vertical-align',
@@ -35,7 +30,6 @@ class App.Utils
       'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
       'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color',
       'border-top-style', 'border-right-style', 'border-bottom-style', 'border-left-style',
-      'width',
 
     ]
     'TR': [
@@ -64,19 +58,6 @@ class App.Utils
     ]
     'IMG': [
       'width', 'height',
-    ]
-    'SPAN': [
-      'font-size', 'left', 'top', 'width', 'height', 'background', 'position', 'text-align', 'color', 'padding-top', 'box-sizing',
-      'display', 'border-top', 'border-left', 'border-bottom',
-    ]
-    'DIV': [
-      'margin-top',
-    ]
-    'HR': [
-      'height', 'border', 'background',
-    ]
-    'A': [
-      'text-decoration', 'color', 'font-size',
     ]
 
   # textCleand = App.Utils.textCleanup(rawText)
