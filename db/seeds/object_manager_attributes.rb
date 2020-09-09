@@ -357,7 +357,7 @@ ObjectManager::Attribute.add(
     default:    0,
     maxlength: 150,
     null:      true,
-    note:      'The number of the same alerts fired',
+    note:      'The number of the same Azure signals fired',
     min:       0,
     max:       999_999_999,
   },

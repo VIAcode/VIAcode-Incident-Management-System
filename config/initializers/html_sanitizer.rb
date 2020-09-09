@@ -24,7 +24,7 @@ Rails.application.config.html_sanitizer_tags_whitelist = %w[
 # attributes allowed for tags
 Rails.application.config.html_sanitizer_attributes_whitelist = {
   :all         => %w[class dir lang title translate data-signature data-signature-id],
-  'a'          => %w[href hreflang name rel data-target-id data-target-type],
+  'a'          => %w[href hreflang name rel data-target-id data-target-type style],
   'abbr'       => %w[title],
   'blockquote' => %w[type cite],
   'col'        => %w[span width],
@@ -44,7 +44,8 @@ Rails.application.config.html_sanitizer_attributes_whitelist = {
   'q'          => %w[cite],
   'span'       => %w[style],
   'time'       => %w[datetime pubdate],
-  'div'        => %w[id],
+  'div'        => %w[id style],
+  'hr'         => %w[style],
 }
 
 # only this css properties are allowed
@@ -55,7 +56,8 @@ Rails.application.config.html_sanitizer_css_properties_whitelist = {
     max-height min-height
   ],
   'span'  => %w[
-    color
+    color font-size left top width height background position text-align padding-top box-sizing display
+    border-top border-left border-bottom
   ],
   'table' => %w[
     background background-color color font-size vertical-align
@@ -67,6 +69,7 @@ Rails.application.config.html_sanitizer_css_properties_whitelist = {
     border-top-width border-right-width border-bottom-width border-left-width
     border-top-color border-right-color border-bottom-color border-left-color
     border-top-style border-right-style border-bottom-style border-left-style
+    display
   ],
   'th'    => %w[
     background background-color color font-size vertical-align
@@ -78,6 +81,7 @@ Rails.application.config.html_sanitizer_css_properties_whitelist = {
     border-top-width border-right-width border-bottom-width border-left-width
     border-top-color border-right-color border-bottom-color border-left-color
     border-top-style border-right-style border-bottom-style border-left-style
+    width
   ],
   'tr'    => %w[
     background background-color color font-size vertical-align
@@ -100,6 +104,15 @@ Rails.application.config.html_sanitizer_css_properties_whitelist = {
     border-top-width border-right-width border-bottom-width border-left-width
     border-top-color border-right-color border-bottom-color border-left-color
     border-top-style border-right-style border-bottom-style border-left-style
+  ],
+  'div'   => %w[
+    margin-top
+  ],
+  'hr'    => %w[
+    height border background
+  ],
+  'a'    => %w[
+    text-decoration color font-size
   ],
 }
 
