@@ -46,6 +46,7 @@ Rails.application.config.html_sanitizer_attributes_whitelist = {
   'time'       => %w[datetime pubdate],
   'div'        => %w[id style],
   'hr'         => %w[style],
+  'p'          => %w[style],
 }
 
 # only this css properties are allowed
@@ -113,6 +114,9 @@ Rails.application.config.html_sanitizer_css_properties_whitelist = {
   ],
   'a'    => %w[
     text-decoration color font-size
+  ],
+  'p'    => %w[
+    margin-top margin-left margin-bottom font-size font-weight
   ],
 }
 
