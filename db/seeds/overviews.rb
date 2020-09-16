@@ -21,7 +21,7 @@ Overview.create_if_not_exists(
   group_by:  'customer',
   group_direction: 'DESC',
   view:      {
-    d:                 %w[number title customer priority created_at repeat_count],
+    d:                 %w[title customer priority created_at repeat_count],
     s:                 %w[number title customer priority created_at repeat_count],
     m:                 %w[number title customer priority created_at repeat_count],
     view_mode_default: 's',
@@ -50,7 +50,7 @@ Overview.create_if_not_exists(
   group_by:  'customer',
   group_direction: 'DESC',
   view:      {
-    d:                 %w[number title customer created_at repeat_count],
+    d:                 %w[title customer created_at repeat_count],
     s:                 %w[number title customer created_at repeat_count],
     m:                 %w[number title customer created_at repeat_count],
     view_mode_default: 's',
@@ -75,7 +75,7 @@ Overview.create_if_not_exists(
   group_by:  'group',
   group_direction: 'DESC',
   view:      {
-    d:                 %w[number title customer state owner created_at updated_at repeat_count aspect],
+    d:                 %w[title customer state owner created_at updated_at repeat_count aspect],
     s:                 %w[number title customer state owner created_at updated_at repeat_count aspect],
     m:                 %w[number title customer state owner created_at updated_at repeat_count aspect],
     view_mode_default: 's',
@@ -101,7 +101,7 @@ Overview.create_if_not_exists(
   group_by:  'group',
   group_direction: 'DESC',
   view:      {
-    d:                 %w[number title customer group owner escalation_at],
+    d:                 %w[title customer group owner escalation_at],
     s:                 %w[number title customer group owner escalation_at],
     m:                 %w[number title customer group owner escalation_at],
     view_mode_default: 's',
@@ -131,7 +131,7 @@ Overview.create_if_not_exists(
   group_by:  'group',
   group_direction: 'DESC',
   view:          {
-    d:                 %w[number title customer owner escalation_at created_at repeat_count aspect],
+    d:                 %w[title customer owner escalation_at created_at repeat_count aspect],
     s:                 %w[number title customer owner escalation_at created_at repeat_count aspect],
     m:                 %w[number title customer owner escalation_at created_at repeat_count aspect],
     view_mode_default: 's',
@@ -158,7 +158,7 @@ Overview.create_if_not_exists(
     direction: 'DESC',
   },
   view:      {
-    d:                 %w[number title owner close_at created_at],
+    d:                 %w[title owner close_at created_at],
     s:                 %w[number title owner close_at created_at],
     m:                 %w[number title owner close_at created_at],
     view_mode_default: 's',
