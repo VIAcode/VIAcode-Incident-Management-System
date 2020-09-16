@@ -18,7 +18,7 @@ class Ticket::State < ApplicationModel
 
 looks up states for a given category
 
-  states = Ticket::State.by_category(:open) # :open|:closed|:work_on|:work_on_all|:viewable|:viewable_agent_new|:viewable_agent_edit|:viewable_customer_new|:viewable_customer_edit|:pending_reminder|:pending_action|:pending|:merged
+  states = Ticket::State.by_category(:open) # :open|:closed|:work_on|:work_on_all|:viewable|:viewable_agent_new|:viewable_agent_edit|:viewable_customer_new|:viewable_customer_edit|:pending_reminder|:pending_action|:pending|:merged|:delegated|:new
 
 returns:
 
@@ -40,7 +40,7 @@ returns:
     when :work_on
       state_types = %w[new open]
     when :work_on_all
-      state_types = ['new', 'open', 'pending reminder','delegated','pending review']
+      state_types = ['open', 'pending reminder', 'pending action', 'delegated', 'pending review']
     when :viewable
       state_types = ['new', 'open', 'pending reminder', 'pending action', 'closed', 'removed', 'pending review', 'delegated']
     when :viewable_agent_new
@@ -57,6 +57,10 @@ returns:
       state_types = %w[merged]
     when :delegated
       state_types = ['delegated']
+    when :new
+      state_types = %w[new]
+    when :closed_or_merged
+      state_types = %w[closed merged]
     end
 
     raise "Unknown category '#{category}'" if state_types.blank?
