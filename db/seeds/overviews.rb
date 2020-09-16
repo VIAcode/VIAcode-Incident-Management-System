@@ -139,8 +139,8 @@ Overview.create_if_not_exists(
 )
 
 Overview.create_if_not_exists(
-  name:      'Closed',
-  link:      'all_closed',
+  name:      'Closed & Merged',
+  link:      'all_closed_and_merged',
   prio:      1090,
   role_ids:  [overview_role.id],
   condition: {
