@@ -147,11 +147,7 @@ Overview.create_if_not_exists(
     'ticket.state_id' => {
       operator: 'is',
       value:    Ticket::State.by_category(:closed_or_merged).pluck(:id),
-    },
-    'ticket.owner_id' => {
-      operator:      'is',
-      pre_condition: 'current_user.id',
-    },
+    },    
   },
   order:     {
     by:        'created_at',
