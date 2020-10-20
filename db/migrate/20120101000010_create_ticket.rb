@@ -54,7 +54,6 @@ class CreateTicket < ActiveRecord::Migration[4.2]
       t.references :organization,                                         null: true
       t.column :number,                           :string,    limit: 60,  null: false
       t.column :title,                            :string,    limit: 250, null: false
-      t.column :alert,                            :string,    limit: 999, null: true
       t.column :repeat_count,                     :integer,               null: true
       t.column :external_ticket_id,               :string,                null: true
       t.column :owner_id,                         :integer,               null: false
@@ -86,8 +85,6 @@ class CreateTicket < ActiveRecord::Migration[4.2]
       t.column :updated_by_id,                    :integer,               null: false
       t.column :created_by_id,                    :integer,               null: false
       t.column :delegated_link,                   :string,    limit: 250, null: false, default: ''
-      t.column :connector_data_1,                 :string,    limit: 1000, null: true
-      t.column :connector_data_2,                 :string,                null: true
       t.column :aspect,                           :string,    limit: 25,  null: true
       t.column :state_reason,                     :string,    limit: 15,  null: true
       t.column :hashproperties,                   :string,    limit: 120, null: true
