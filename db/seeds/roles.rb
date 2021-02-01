@@ -30,7 +30,7 @@ Role.create_if_not_exists(
   name:              'Connector',
   note:              '',
   preferences:       {
-    not: %w[Agent Admin Customer],
+    not: %w[Customer],
   },
   default_at_signup: false,
   updated_by_id:     1,

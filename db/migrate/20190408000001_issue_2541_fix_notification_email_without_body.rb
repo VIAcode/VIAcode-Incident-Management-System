@@ -8,10 +8,6 @@ class Issue2541FixNotificationEmailWithoutBody < ActiveRecord::Migration[5.1]
     # that get e.g. validated in callbacks
     UserInfo.current_user_id = 1
 
-    # there might be Job/Trigger selectors referencing the current user
-    # that get e.g. validated in callbacks
-    UserInfo.current_user_id = 1
-
     # update jobs and triggers
     actions = %w[notification.email notification.sms]
     [::Job, ::Trigger].each do |model|

@@ -765,8 +765,6 @@ generate url for index or document access (only for internal use)
 
     url = Setting.get('es_url')
     return "#{url}#{params_string}" if index.blank?
-      # access (e. g. creating or dropping) whole index
-      if with_document_type == false
 
     # add type information
     url = "#{url}/#{index}"
@@ -779,16 +777,6 @@ generate url for index or document access (only for internal use)
     # add action
     if action
       url = "#{url}/#{action}"
-
-  # url search access with single index
-  url = SearchIndexBackend.build_search_url('User')
-
-  # url to access all over es
-  url = SearchIndexBackend.build_search_url
-
-=end
-
-  def self.build_search_url(index = nil)
     end
 
     # add object id

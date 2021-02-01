@@ -39,8 +39,6 @@ module Channel::Filter::FollowUpCheck
             ticket = Ticket::Number.check(text)
           rescue => e
             Rails.logger.error e
-        end
-
           end
         end
 

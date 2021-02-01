@@ -598,10 +598,10 @@ do(window) ->
 
     renderBase: ->
       @el.remove() if @el
-      @options.target.innerHTML += @view('chat')(
+      @options.target.insertAdjacentHTML('beforeend', @view('chat')(
         title: @options.title,
         scrollHint: @options.scrollHint
-      )
+      ))
       @el = @options.target.querySelector('.zammad-chat')
       @input = @el.querySelector('.zammad-chat-input')
       @body = @el.querySelector('.zammad-chat-body')
@@ -931,7 +931,7 @@ do(window) ->
     onInput: =>
       # remove unread-state from messages
       for message in @el.querySelectorAll('.zammad-chat-message--unread')
-        node.classList.remove 'zammad-chat-message--unread'
+        message.classList.remove 'zammad-chat-message--unread'
 
       sessionStorage.setItem 'unfinished_message', @input.innerHTML
 
