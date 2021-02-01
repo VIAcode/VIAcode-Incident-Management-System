@@ -72,7 +72,7 @@ Setting.create_if_not_exists(
   area:        'Core::Develop',
   description: 'Defines if application is in developer mode (useful for developer, all users have the same password, password reset will work without email delivery).',
   options:     {},
-  state:       false,
+  state:       Rails.env.development?,
   preferences: { online_service_disable: true },
   frontend:    true
 )
@@ -275,6 +275,14 @@ Setting.create_if_not_exists(
     placeholder:            true,
     permission:             ['admin.system'],
   },
+  frontend:    true
+)
+Setting.create_if_not_exists(
+  title:       'Websocket backend',
+  name:        'websocket_backend',
+  area:        'System::WebSocket',
+  description: 'Defines how to reach websocket server. "websocket" is default on production, "websocketPort" is for CI',
+  state:       Rails.env.production? ? 'websocket' : 'websocketPort',
   frontend:    true
 )
 Setting.create_if_not_exists(
@@ -1450,7 +1458,7 @@ Setting.create_if_not_exists(
         null:        true,
         name:        'site',
         tag:         'input',
-        placeholder: 'https://gitlab.YOURDOMAIN.com',
+        placeholder: 'https://gitlab.YOURDOMAIN.com/api/v4/',
       },
     ],
   },
@@ -1658,6 +1666,78 @@ Setting.create_if_not_exists(
   },
   frontend:    false
 )
+Setting.create_if_not_exists(
+  title:       'Authentication via %s',
+  name:        'auth_saml',
+  area:        'Security::ThirdPartyAuthentication',
+  description: 'Enables user authentication via %s.',
+  options:     {
+    form: [
+      {
+        display: '',
+        null:    true,
+        name:    'auth_saml',
+        tag:     'boolean',
+        options: {
+          true  => 'yes',
+          false => 'no',
+        },
+      },
+    ],
+  },
+  preferences: {
+    controller:       'SettingsAreaSwitch',
+    sub:              ['auth_saml_credentials'],
+    title_i18n:       ['SAML'],
+    description_i18n: ['SAML'],
+    permission:       ['admin.security'],
+  },
+  state:       false,
+  frontend:    true
+)
+Setting.create_if_not_exists(
+  title:       'SAML App Credentials',
+  name:        'auth_saml_credentials',
+  area:        'Security::ThirdPartyAuthentication::SAML',
+  description: 'Enables user authentication via SAML.',
+  options:     {
+    form: [
+      {
+        display:     'IDP SSO target URL',
+        null:        true,
+        name:        'idp_sso_target_url',
+        tag:         'input',
+        placeholder: 'https://capriza.github.io/samling/samling.html',
+      },
+      {
+        display:     'IDP certificate',
+        null:        true,
+        name:        'idp_cert',
+        tag:         'input',
+        placeholder: '-----BEGIN CERTIFICATE-----\n...-----END CERTIFICATE-----',
+      },
+      {
+        display:     'IDP certificate fingerprint',
+        null:        true,
+        name:        'idp_cert_fingerprint',
+        tag:         'input',
+        placeholder: 'E7:91:B2:E1:...',
+      },
+      {
+        display:     'Name Identifier Format',
+        null:        true,
+        name:        'name_identifier_format',
+        tag:         'input',
+        placeholder: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress',
+      },
+    ],
+  },
+  state:       {},
+  preferences: {
+    permission: ['admin.security'],
+  },
+  frontend:    false
+)
 
 Setting.create_if_not_exists(
   title:       'Minimum length',
@@ -1693,7 +1773,7 @@ Setting.create_if_not_exists(
       },
     ],
   },
-  state:       6,
+  state:       10,
   preferences: {
     permission: ['admin.security'],
   },
@@ -1718,7 +1798,7 @@ Setting.create_if_not_exists(
       },
     ],
   },
-  state:       0,
+  state:       1,
   preferences: {
     permission: ['admin.security'],
   },
@@ -1744,6 +1824,31 @@ Setting.create_if_not_exists(
     ],
   },
   state:       1,
+  preferences: {
+    permission: ['admin.security'],
+  },
+  frontend:    false
+)
+Setting.create_if_not_exists(
+  title:       'Special character required',
+  name:        'password_need_special_character',
+  area:        'Security::Password',
+  description: 'Password needs to contain at least one special character.',
+  options:     {
+    form: [
+      {
+        display: 'Needed',
+        null:    true,
+        name:    'password_need_special_character',
+        tag:     'select',
+        options: {
+          1 => 'yes',
+          0 => 'no',
+        },
+      },
+    ],
+  },
+  state:       0,
   preferences: {
     permission: ['admin.security'],
   },
@@ -1782,7 +1887,7 @@ Setting.create_if_not_exists(
       },
     ],
   },
-  state:       10,
+  state:       5,
   preferences: {
     permission: ['admin.security'],
   },
@@ -2515,9 +2620,9 @@ Setting.create_if_not_exists(
         name:    'postmaster_follow_up_search_in',
         tag:     'checkbox',
         options: {
-          'references' => 'References - Search for follow up also in In-Reply-To or References headers.',
-          'body'       => 'Body - Search for follow up also in mail body.',
-          'attachment' => 'Attachment - Search for follow up also in attachments.',
+          'references' => 'References - Search for follow-up also in In-Reply-To or References headers.',
+          'body'       => 'Body - Search for follow-up also in mail body.',
+          'attachment' => 'Attachment - Search for follow-up also in attachments.',
         },
       },
     ],
@@ -2578,6 +2683,33 @@ Setting.create_if_not_exists(
   state:       true,
   preferences: {
     permission: ['admin.channel_email'],
+  },
+  frontend:    false
+)
+
+Setting.create_if_not_exists(
+  title:       'Send postmaster mail if mail too large',
+  name:        'postmaster_send_reject_if_mail_too_large',
+  area:        'Email::Base',
+  description: 'Send postmaster reject mail to sender of mail if mail is too large.',
+  options:     {
+    form: [
+      {
+        display: '',
+        null:    true,
+        name:    'postmaster_send_reject_if_mail_too_large',
+        tag:     'boolean',
+        options: {
+          true  => 'yes',
+          false => 'no',
+        },
+      },
+    ],
+  },
+  state:       true,
+  preferences: {
+    online_service_disable: true,
+    permission:             ['admin.channel_email'],
   },
   frontend:    false
 )
@@ -3199,11 +3331,38 @@ Setting.create_if_not_exists(
 
 Setting.create_if_not_exists(
   title:       'Defines postmaster filter.',
-  name:        '0010_postmaster_filter_trusted',
+  name:        '0005_postmaster_filter_trusted',
   area:        'Postmaster::PreFilter',
   description: 'Defines postmaster filter to remove X-VIMS headers from not trusted sources.',
   options:     {},
   state:       'Channel::Filter::Trusted',
+  frontend:    false
+)
+Setting.create_if_not_exists(
+  title:       'Defines postmaster filter.',
+  name:        '0006_postmaster_filter_auto_response_check',
+  area:        'Postmaster::PreFilter',
+  description: 'Defines postmaster filter to identify auto responses to prevent auto replies from VIAcode Incident Management System.',
+  options:     {},
+  state:       'Channel::Filter::AutoResponseCheck',
+  frontend:    false
+)
+Setting.create_if_not_exists(
+  title:       'Defines postmaster filter.',
+  name:        '0007_postmaster_filter_follow_up_check',
+  area:        'Postmaster::PreFilter',
+  description: 'Defines postmaster filter to identify follow-ups (based on admin settings).',
+  options:     {},
+  state:       'Channel::Filter::FollowUpCheck',
+  frontend:    false
+)
+Setting.create_if_not_exists(
+  title:       'Defines postmaster filter.',
+  name:        '0008_postmaster_filter_follow_up_merged',
+  area:        'Postmaster::PreFilter',
+  description: 'Defines postmaster filter to identify follow-up ticket for merged tickets.',
+  options:     {},
+  state:       'Channel::Filter::FollowUpMerged',
   frontend:    false
 )
 Setting.create_if_not_exists(
@@ -3213,6 +3372,15 @@ Setting.create_if_not_exists(
   description: 'Defines postmaster filter to set the sender/from of emails based on reply-to header.',
   options:     {},
   state:       'Channel::Filter::ReplyToBasedSender',
+  frontend:    false
+)
+Setting.create_if_not_exists(
+  title:       'Define postmaster filter.',
+  name:        '0018_postmaster_import_archive',
+  area:        'Postmaster::PreFilter',
+  description: 'Define postmaster filter to import archive mailboxes.',
+  options:     {},
+  state:       'Channel::Filter::ImportArchive',
   frontend:    false
 )
 Setting.create_if_not_exists(
@@ -3244,11 +3412,11 @@ Setting.create_if_not_exists(
 )
 Setting.create_if_not_exists(
   title:       'Defines postmaster filter.',
-  name:        '0020_postmaster_filter_auto_response_check',
+  name:        '0016_postmaster_filter_smime',
   area:        'Postmaster::PreFilter',
-  description: 'Defines postmaster filter to identify auto responses to prevent auto replies from VIAcode Incident Management System.',
+  description: 'Defines postmaster filter to handle secure mailing.',
   options:     {},
-  state:       'Channel::Filter::AutoResponseCheck',
+  state:       'Channel::Filter::SecureMailing',
   frontend:    false
 )
 Setting.create_if_not_exists(
@@ -3262,27 +3430,9 @@ Setting.create_if_not_exists(
 )
 Setting.create_if_not_exists(
   title:       'Defines postmaster filter.',
-  name:        '0100_postmaster_filter_follow_up_check',
-  area:        'Postmaster::PreFilter',
-  description: 'Defines postmaster filter to identify follow-ups (based on admin settings).',
-  options:     {},
-  state:       'Channel::Filter::FollowUpCheck',
-  frontend:    false
-)
-Setting.create_if_not_exists(
-  title:       'Defines postmaster filter.',
-  name:        '0110_postmaster_filter_follow_up_merged',
-  area:        'Postmaster::PreFilter',
-  description: 'Defines postmaster filter to identify follow-up ticket for merged tickets.',
-  options:     {},
-  state:       'Channel::Filter::FollowUpMerged',
-  frontend:    false
-)
-Setting.create_if_not_exists(
-  title:       'Defines postmaster filter.',
   name:        '0200_postmaster_filter_follow_up_possible_check',
   area:        'Postmaster::PreFilter',
-  description: 'Define postmaster filter to check if follow ups get created (based on admin settings).',
+  description: 'Define postmaster filter to check if follow-ups get created (based on admin settings).',
   options:     {},
   state:       'Channel::Filter::FollowUpPossibleCheck',
   frontend:    false
@@ -3348,6 +3498,24 @@ Setting.create_if_not_exists(
   description: 'Defines postmaster filter to manage Monit (https://mmonit.com/monit/) emails.',
   options:     {},
   state:       'Channel::Filter::Monit',
+  frontend:    false
+)
+Setting.create_if_not_exists(
+  title:       'Defines postmaster filter.',
+  name:        '5400_postmaster_filter_service_now_check',
+  area:        'Postmaster::PreFilter',
+  description: 'Defines postmaster filter to identify service now mails for correct follow-ups.',
+  options:     {},
+  state:       'Channel::Filter::ServiceNowCheck',
+  frontend:    false
+)
+Setting.create_if_not_exists(
+  title:       'Defines postmaster filter.',
+  name:        '5401_postmaster_filter_service_now_check',
+  area:        'Postmaster::PostFilter',
+  description: 'Defines postmaster filter to identify service now mails for correct follow-ups.',
+  options:     {},
+  state:       'Channel::Filter::ServiceNowCheck',
   frontend:    false
 )
 Setting.create_if_not_exists(
@@ -3547,10 +3715,10 @@ Setting.create_if_not_exists(
   frontend:    false
 )
 Setting.create_if_not_exists(
-  title:       'Check_MK integration',
+  title:       'Checkmk integration',
   name:        'check_mk_integration',
   area:        'Integration::Switch',
-  description: 'Defines if Check_MK (http://mathias-kettner.com/check_mk.html) is enabled or not.',
+  description: 'Defines if Checkmk (https://checkmk.com/) is enabled or not.',
   options:     {
     form: [
       {
@@ -3605,7 +3773,7 @@ Setting.create_if_not_exists(
       {
         display: '',
         null:    true,
-        name:    'check_mk_auto_close',
+        name:    'checkmk_auto_close',
         tag:     'boolean',
         options: {
           true  => 'yes',
@@ -3645,10 +3813,10 @@ Setting.create_if_not_exists(
   frontend:    false
 )
 Setting.create_if_not_exists(
-  title:       'Check_MK tolen',
+  title:       'Checkmk token',
   name:        'check_mk_token',
   area:        'Core',
-  description: 'Defines the Check_MK token for allowing updates.',
+  description: 'Defines the Checkmk token for allowing updates.',
   options:     {},
   state:       ENV['CHECK_MK_TOKEN'] || SecureRandom.hex(16),
   preferences: {
@@ -4079,6 +4247,19 @@ Setting.create_if_not_exists(
   frontend:    false
 )
 Setting.create_if_not_exists(
+  title:       'cti customer last activity',
+  name:        'cti_customer_last_activity',
+  area:        'Integration::Cti',
+  description: 'Defines the range in seconds of customer activity to trigger the user profile dialog on call.',
+  options:     {},
+  state:       30.days,
+  preferences: {
+    prio:       2,
+    permission: ['admin.integration'],
+  },
+  frontend:    false,
+)
+Setting.create_if_not_exists(
   title:       'Placetel integration',
   name:        'placetel_integration',
   area:        'Integration::Switch',
@@ -4409,5 +4590,90 @@ Setting.create_if_not_exists(
     authentication: true,
     permission:     [],
   },
+  frontend:    true
+)
+
+Setting.create_if_not_exists(
+  title:       'Define timeframe where a own created note can get deleted.',
+  name:        'ui_ticket_zoom_article_delete_timeframe',
+  area:        'UI::TicketZoomArticle',
+  description: "Set timeframe in seconds. If it's set to 0 you can delete notes without time limits",
+  options:     {},
+  state:       600,
+  preferences: {
+    permission: ['admin.ui']
+  },
+  frontend:    true
+)
+
+Setting.create_if_not_exists(
+  title:       'S/MIME integration',
+  name:        'smime_integration',
+  area:        'Integration::Switch',
+  description: 'Defines if S/MIME encryption is enabled or not.',
+  options:     {
+    form: [
+      {
+        display: '',
+        null:    true,
+        name:    'smime_integration',
+        tag:     'boolean',
+        options: {
+          true  => 'yes',
+          false => 'no',
+        },
+      },
+    ],
+  },
+  state:       false,
+  preferences: {
+    prio:           1,
+    authentication: true,
+    permission:     ['admin.integration'],
+  },
+  frontend:    true
+)
+
+Setting.create_if_not_exists(
+  title:       'S/MIME config',
+  name:        'smime_config',
+  area:        'Integration::SMIME',
+  description: 'Defines the S/MIME config.',
+  options:     {},
+  state:       {},
+  preferences: {
+    prio:       2,
+    permission: ['admin.integration'],
+  },
+  frontend:    true,
+)
+
+Setting.create_if_not_exists(
+  title:       'Authentication via %s',
+  name:        'auth_sso',
+  area:        'Security::ThirdPartyAuthentication',
+  description: 'Enables button for user authentication via %s. The button will redirect to /auth/sso on user interaction.',
+  options:     {
+    form: [
+      {
+        display: '',
+        null:    true,
+        name:    'auth_sso',
+        tag:     'boolean',
+        options: {
+          true  => 'yes',
+          false => 'no',
+        },
+      },
+    ],
+  },
+  preferences: {
+    controller:       'SettingsAreaSwitch',
+    sub:              {},
+    title_i18n:       ['SSO'],
+    description_i18n: ['SSO', 'Button for Single Sign On.'],
+    permission:       ['admin.security'],
+  },
+  state:       false,
   frontend:    true
 )

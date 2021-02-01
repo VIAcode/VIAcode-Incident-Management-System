@@ -17,16 +17,20 @@ class SearchKnowledgeBaseBackend
 
   def search(query, user: nil)
     raw_results = if SearchIndexBackend.enabled?
-                    SearchIndexBackend.search(query, indexes, options)
+                    SearchIndexBackend
+                      .search(query, indexes, options)
+                      .map do |hash|
+                        hash[:id] = hash[:id].to_i
+                        hash
+                      end
                   else
-                    search_fallback(query, indexes, user)
+                    search_fallback(query, indexes, { user: user })
                   end
 
     if (limit = @params.fetch(:limit, nil))
       raw_results = raw_results[0, limit]
     end
 
-    #raw_results
     filter_results raw_results, user
   end
 
@@ -36,10 +40,10 @@ class SearchKnowledgeBaseBackend
       .flatten
   end
 
-  def search_fallback_for_index(query, index, _options)
+  def search_fallback_for_index(query, index, options)
     index
       .constantize
-      .search_fallback("%#{query}%", @cached_scope_ids)
+      .search_fallback("%#{query}%", @cached_scope_ids, options: options)
       .where(kb_locale: kb_locales)
       .pluck(:id)
       .map { |id| { id: id, type: index } }
@@ -165,7 +169,7 @@ class SearchKnowledgeBaseBackend
 
     if @params.fetch(:highlight_enabled, true)
       output[:highlight_fields_by_indexes] = {
-        'KnowledgeBase::Answer::Translation':   %w[title content.body],
+        'KnowledgeBase::Answer::Translation':   %w[title content.body attachment.content],
         'KnowledgeBase::Category::Translation': %w[title],
         'KnowledgeBase::Translation':           %w[title]
       }
@@ -203,7 +207,7 @@ class SearchKnowledgeBaseBackend
   end
 
   def visible_translation?(translation, visibility)
-    if !kb_locales_in(translation.category.knowledge_base_id).include? translation.kb_locale
+    if kb_locales_in(translation.category.knowledge_base_id).exclude?(translation.kb_locale)
       return false
     end
 

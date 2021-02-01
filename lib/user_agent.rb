@@ -48,7 +48,10 @@ returns
     http = get_http(uri, options)
 
     # prepare request
-    request = Net::HTTP::Get.new(uri, { 'User-Agent' => 'VIMS User Agent' })
+    request = Net::HTTP::Get.new(uri)
+
+    # set headers
+    request = set_headers(request, options)
 
     # http basic auth (if needed)
     request = set_basic_auth(request, options)
@@ -56,16 +59,22 @@ returns
     # set params
     request = set_params(request, params, options)
 
+    # add signature
+    request = set_signature(request, options)
+
     # start http call
     begin
       total_timeout = options[:total_timeout] || 60
-      Timeout.timeout(total_timeout) do
-        response = http.request(request)
-        return process(request, response, uri, count, params, options)
+
+      handled_open_timeout(options[:open_socket_tries]) do
+        Timeout.timeout(total_timeout) do
+          response = http.request(request)
+          return process(request, response, uri, count, params, options)
+        end
       end
     rescue => e
       log(url, request, nil, options)
-      return Result.new(
+      Result.new(
         error:   e.inspect,
         success: false,
         code:    0,
@@ -101,7 +110,10 @@ returns
     http = get_http(uri, options)
 
     # prepare request
-    request = Net::HTTP::Post.new(uri, { 'User-Agent' => 'VIMS User Agent' })
+    request = Net::HTTP::Post.new(uri)
+
+    # set headers
+    request = set_headers(request, options)
 
     # set params
     request = set_params(request, params, options)
@@ -109,16 +121,22 @@ returns
     # http basic auth (if needed)
     request = set_basic_auth(request, options)
 
+    # add signature
+    request = set_signature(request, options)
+
     # start http call
     begin
       total_timeout = options[:total_timeout] || 60
-      Timeout.timeout(total_timeout) do
-        response = http.request(request)
-        return process(request, response, uri, count, params, options)
+
+      handled_open_timeout(options[:open_socket_tries]) do
+        Timeout.timeout(total_timeout) do
+          response = http.request(request)
+          return process(request, response, uri, count, params, options)
+        end
       end
     rescue => e
       log(url, request, nil, options)
-      return Result.new(
+      Result.new(
         error:   e.inspect,
         success: false,
         code:    0,
@@ -153,7 +171,10 @@ returns
     http = get_http(uri, options)
 
     # prepare request
-    request = Net::HTTP::Put.new(uri, { 'User-Agent' => 'VIMS User Agent' })
+    request = Net::HTTP::Put.new(uri)
+
+    # set headers
+    request = set_headers(request, options)
 
     # set params
     request = set_params(request, params, options)
@@ -161,16 +182,22 @@ returns
     # http basic auth (if needed)
     request = set_basic_auth(request, options)
 
+    # add signature
+    request = set_signature(request, options)
+
     # start http call
     begin
       total_timeout = options[:total_timeout] || 60
-      Timeout.timeout(total_timeout) do
-        response = http.request(request)
-        return process(request, response, uri, count, params, options)
+
+      handled_open_timeout(options[:open_socket_tries]) do
+        Timeout.timeout(total_timeout) do
+          response = http.request(request)
+          return process(request, response, uri, count, params, options)
+        end
       end
     rescue => e
       log(url, request, nil, options)
-      return Result.new(
+      Result.new(
         error:   e.inspect,
         success: false,
         code:    0,
@@ -196,26 +223,34 @@ returns
 
 =end
 
-  def self.delete(url, options = {}, count = 10)
+  def self.delete(url, params = {}, options = {}, count = 10)
     uri  = URI.parse(url)
     http = get_http(uri, options)
 
     # prepare request
-    request = Net::HTTP::Delete.new(uri, { 'User-Agent' => 'VIMS User Agent' })
+    request = Net::HTTP::Delete.new(uri)
+
+    # set headers
+    request = set_headers(request, options)
 
     # http basic auth (if needed)
     request = set_basic_auth(request, options)
 
+    # add signature
+    request = set_signature(request, options)
+
     # start http call
     begin
       total_timeout = options[:total_timeout] || 60
-      Timeout.timeout(total_timeout) do
-        response = http.request(request)
-        return process(request, response, uri, count, {}, options)
+      handled_open_timeout(options[:open_socket_tries]) do
+        Timeout.timeout(total_timeout) do
+          response = http.request(request)
+          return process(request, response, uri, count, params, options)
+        end
       end
     rescue => e
       log(url, request, nil, options)
-      return Result.new(
+      Result.new(
         error:   e.inspect,
         success: false,
         code:    0,
@@ -266,7 +301,7 @@ returns
     proxy_no = options['proxy_no'] || Setting.get('proxy_no') || ''
     proxy_no = proxy_no.split(',').map(&:strip) || []
     proxy_no.push('localhost', '127.0.0.1', '::1')
-    if proxy.present? && !proxy_no.include?(uri.host.downcase)
+    if proxy.present? && proxy_no.exclude?(uri.host.downcase)
       if proxy =~ /^(.+?):(.+?)$/
         proxy_host = $1
         proxy_port = $2
@@ -295,8 +330,10 @@ returns
 
     if uri.scheme.match?(/https/i)
       http.use_ssl = true
-      # @TODO verify_mode should be configurable
-      http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+
+      if !options.fetch(:verify_ssl, false)
+        http.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      end
     end
 
     http
@@ -323,6 +360,27 @@ returns
     request
   end
 
+  def self.set_headers(request, options)
+    defaults = { 'User-Agent' => 'Zammad User Agent' }
+    headers  = defaults.merge(options.fetch(:headers, {}))
+
+    headers.each do |header, value|
+      request[header] = value
+    end
+
+    request
+  end
+
+  def self.set_signature(request, options)
+    return request if options[:signature_token].blank?
+    return request if request.body.blank?
+
+    signature = OpenSSL::HMAC.hexdigest('sha1', options[:signature_token], request.body)
+    request['X-Hub-Signature'] = "sha1=#{signature}"
+
+    request
+  end
+
   def self.log(url, request, response, options)
     return if !options[:log]
 
@@ -338,7 +396,7 @@ returns
     end
     body = request.body
     if body
-      request_data[:content] += "\n" + body
+      request_data[:content] += "\n#{body}"
     end
     request_data[:content] = request_data[:content].slice(0, 8000)
 
@@ -360,7 +418,7 @@ returns
       end
       body = response.body
       if body
-        response_data[:content] += "\n" + body
+        response_data[:content] += "\n#{body}"
       end
       response_data[:content] = response_data[:content].slice(0, 8000)
     end
@@ -488,13 +546,19 @@ returns
     )
   end
 
+  def self.handled_open_timeout(tries)
+    tries ||= 1
+
+    tries.times do |index|
+      yield
+    rescue Net::OpenTimeout
+      raise if (index + 1) == tries
+    end
+  end
+
   class Result
 
-    attr_reader :error
-    attr_reader :body
-    attr_reader :data
-    attr_reader :code
-    attr_reader :content_type
+    attr_reader :error, :body, :data, :code, :content_type
 
     def initialize(options)
       @success      = options[:success]

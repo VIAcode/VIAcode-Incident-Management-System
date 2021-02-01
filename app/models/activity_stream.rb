@@ -61,7 +61,7 @@ add a new activity entry for an object
       created_by_id:             data[:created_by_id]
     ).order(created_at: :desc).first
 
-    # resturn if old entry is really fresh
+    # return if old entry is really fresh
     if result
       activity_record_delay = 90.seconds
       return result if result.created_at.to_i >= ( data[:created_at].to_i - activity_record_delay )
@@ -112,16 +112,16 @@ return all activity entries of an user
     permission_ids = user.permissions_with_child_ids
     group_ids = user.group_ids_access('read')
 
-    stream = if group_ids.blank?
-               ActivityStream.where('(permission_id IN (?) AND group_id IS NULL)', permission_ids)
-                             .order(created_at: :desc)
-                             .limit(limit)
-             else
-               ActivityStream.where('(permission_id IN (?) AND (group_id IS NULL OR group_id IN (?))) OR (permission_id IS NULL AND group_id IN (?))', permission_ids, group_ids, group_ids)
-                             .order(created_at: :desc)
-                             .limit(limit)
-             end
-    stream
+    if group_ids.blank?
+      ActivityStream.where('(permission_id IN (?) AND group_id IS NULL)', permission_ids)
+                    .order(created_at: :desc)
+                    .limit(limit)
+    else
+      ActivityStream.where('(permission_id IN (?) AND (group_id IS NULL OR group_id IN (?))) OR (permission_id IS NULL AND group_id IN (?))', permission_ids, group_ids, group_ids)
+                    .order(created_at: :desc)
+                    .limit(limit)
+    end
+
   end
 
 =begin

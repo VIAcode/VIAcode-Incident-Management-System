@@ -3,6 +3,8 @@ module Channel::EmailBuild
 
 =begin
 
+generate email
+
   mail = Channel::EmailBuild.build(
     from: 'sender@example.com',
     to: 'recipient@example.com',
@@ -10,35 +12,37 @@ module Channel::EmailBuild
     content_type: 'text/plain',
   )
 
+generate email with S/MIME
+
+  mail = Channel::EmailBuild.build(
+    from: 'sender@example.com',
+    to: 'recipient@example.com',
+    body: 'somebody with some text',
+    content_type: 'text/plain',
+    security: {
+      type: 'S/MIME',
+      encryption: {
+        success: true,
+      },
+      sign: {
+        success: true,
+      },
+    }
+  )
+
 =end
 
   def self.build(attr, notification = false)
     mail = Mail.new
-
-    # set organization
-    organization = Setting.get('organization')
-    if organization
-      mail['Organization'] = organization.to_s
-    end
-
-    # notification
-    if notification
-      attr['X-Loop']                   = 'yes'
-      attr['Precedence']               = 'bulk'
-      attr['Auto-Submitted']           = 'auto-generated'
-      attr['X-Auto-Response-Suppress'] = 'All'
-    end
-
-    attr['X-Powered-By'] = 'VIAcode Incident Management for Azure'
-    attr['X-Mailer'] = 'VIMS Mail Service'
 
     # set headers
     attr.each do |key, value|
       next if key.to_s == 'attachments'
       next if key.to_s == 'body'
       next if key.to_s == 'content_type'
+      next if key.to_s == 'security'
 
-      mail[key.to_s] = if value && value.class != Array
+      mail[key.to_s] = if value.present? && value.class != Array
                          value.to_s
                        else
                          value
@@ -70,6 +74,7 @@ module Channel::EmailBuild
     if !html_alternative && attr[:attachments].blank?
       mail.content_type 'text/plain; charset=UTF-8'
       mail.body attr[:body]
+      SecureMailing.outgoing(mail, attr[:security])
       return mail
     end
 
@@ -83,7 +88,7 @@ module Channel::EmailBuild
 
       # place to add inline attachments related to html alternative
       attr[:attachments]&.each do |attachment|
-        next if attachment.class == Hash
+        next if attachment.instance_of?(Hash)
         next if attachment.preferences['Content-ID'].blank?
 
         attachment = Mail::Part.new do
@@ -102,7 +107,7 @@ module Channel::EmailBuild
 
     # add attachments
     attr[:attachments]&.each do |attachment|
-      if attachment.class == Hash
+      if attachment.instance_of?(Hash)
         attachment['content-id'] = nil
         mail.attachments[attachment[:filename]] = attachment
       else
@@ -119,6 +124,25 @@ module Channel::EmailBuild
         }
       end
     end
+
+    SecureMailing.outgoing(mail, attr[:security])
+
+    # set organization
+    organization = Setting.get('organization')
+    if organization.present?
+      mail['Organization'] = organization.to_s
+    end
+
+    if notification
+      mail['X-Loop']                   = 'yes'
+      mail['Precedence']               = 'bulk'
+      mail['Auto-Submitted']           = 'auto-generated'
+      mail['X-Auto-Response-Suppress'] = 'All'
+    end
+
+    mail['X-Powered-By'] = 'VIAcode Incident Management for Azure'
+    mail['X-Mailer'] = 'VIMS Mail Service'
+
     mail
   end
 
@@ -153,7 +177,7 @@ Check if string is a complete html document. If not, add head and css styles.
 
     return html if html.match?(/<html>/i)
 
-    html_email_body = File.read(Rails.root.join('app', 'views', 'mailer', 'application_wrapper.html.erb').to_s)
+    html_email_body = File.read(Rails.root.join('app/views/mailer/application_wrapper.html.erb').to_s)
 
     html_email_body.gsub!('###html_email_css_font###', Setting.get('html_email_css_font'))
 

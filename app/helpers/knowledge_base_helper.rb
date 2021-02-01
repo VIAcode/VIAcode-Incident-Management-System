@@ -1,103 +1,20 @@
 module KnowledgeBaseHelper
-  def render_breadcrumb_if_needed
-    objects = []
+  def effective_layout_name(knowledge_base, object)
+    layout_prefix = object.present? ? :category : :homepage
 
-    if @object
-      objects += calculate_breadcrumb_to_category(@category || @object&.parent)
-    end
-
-    last = if @alternative.present? && @alternative.translations.any?
-             Translation.translate(system_locale_via_uri&.locale, 'Alternative translations')
-           else
-             @object
-           end
-
-    objects << last if last.present?
-
-    return if objects.empty?
-
-    render 'knowledge_base/public/breadcrumb',
-           {
-             objects:        objects,
-             knowledge_base: @knowledge_base
-           }
+    knowledge_base.send("#{layout_prefix}_layout")
   end
 
-  def calculate_breadcrumb_to_category(category)
-    output = [category]
+  def custom_path_if_needed(path, knowledge_base, full: false)
+    return path if !knowledge_base.custom_address_matches?(request)
 
-    parent = category
-    while (parent = find_category(parent&.parent_id))
-      output << parent
-    end
+    custom_address = knowledge_base.custom_address_uri
+    return path if !custom_address
 
-    output.compact.reverse
-  end
+    custom_path = path.gsub(%r{^/help}, custom_address.path || '').presence || '/'
+    prefix      = full ? knowledge_base.custom_address_prefix(request) : ''
 
-  def visibility_note(object)
-    return if !current_user&.permissions?('knowledge_base.editor')
-
-    text = visibility_text(object)
-
-    return if text.nil?
-
-    render 'knowledge_base/public/visibility_note', text: text
-  end
-
-  def visibility_text(object)
-    case object
-    when CanBePublished
-      visiblity_text_can_be_published(object)
-    when KnowledgeBase::Category
-      visiblity_text_category(object)
-    end
-  end
-
-  def visiblity_text_can_be_published(object)
-    case object.can_be_published_aasm.current_state
-    when :internal
-      'internal'
-    when :archived
-      'archived'
-    when :draft
-      'not published'
-    end
-  end
-
-  def visiblity_text_category(object)
-    return if object.public_content?
-
-    if object.self_with_children_answers.only_internal.any?
-      'hidden, visible only internally'
-    else
-      'hidden, no published answers'
-    end
-  end
-
-  def breadcrumb_path_for(object, locale = params.fetch(:locale))
-    case object
-    when KnowledgeBase
-      help_root_path(locale: locale)
-    when KnowledgeBase::Category
-      help_category_path(object.translation, locale: locale)
-    when KnowledgeBase::Answer
-      help_answer_path(object.category.translation, object.translation, locale: locale)
-    end
-  end
-
-  def effective_layout_name
-    layout_prefix = @object.present? ? :category : :homepage
-
-    @knowledge_base.send("#{layout_prefix}_layout")
-  end
-
-  def custom_path_if_needed(path, knowledge_base = @knowledge_base)
-    return path if knowledge_base.custom_address_matches? request
-
-    prefix = knowledge_base.custom_address_uri&.path
-    return path if prefix.nil?
-
-    path.gsub(%r{^\/help}, prefix).presence || '/'
+    "#{prefix}#{custom_path}"
   end
 
   def translation_locale_code(translation)
@@ -115,43 +32,6 @@ module KnowledgeBaseHelper
              end
 
     "edit #{suffix}"
-  end
-
-  def kb_top_bar_tag(object)
-    case object
-    when KnowledgeBase::Answer
-      object.can_be_published_aasm.current_state
-    when KnowledgeBase::Category
-      kb_locale = object&.translation&.kb_locale
-      object.public_content?(kb_locale) ? 'Visible' : 'Invisible'
-    when KnowledgeBase
-      'Published'
-    end
-  end
-
-  def kb_top_bar_color(object)
-    case object
-    when KnowledgeBase::Answer
-      kb_answer_top_bar_color(object)
-    when KnowledgeBase::Category
-      kb_locale = object&.translation&.kb_locale
-      object.public_content?(kb_locale) ? 'green' : 'yellow'
-    when KnowledgeBase
-      'green'
-    end
-  end
-
-  def kb_answer_top_bar_color(answer)
-    case answer.can_be_published_aasm.current_state
-    when :draft
-      'yellow'
-    when :internal
-      'blue'
-    when :published
-      'green'
-    when :archived
-      'grey'
-    end
   end
 
   def build_kb_link(object)
@@ -178,46 +58,7 @@ module KnowledgeBaseHelper
       .to_s
   end
 
-  def kb_public_page_title
-    title = @knowledge_base.translation.title
-
-    if @page_title_error
-      suffix = case @page_title_error
-               when :not_found
-                 'Not Found'
-               when :alternatives
-                 'Alternative Translations'
-               end
-
-      title + " - #{zt(suffix)}"
-    elsif @object
-      title + " - #{@object.translation.title}"
-    else
-      title
-    end
-  end
-
-  def prepare_rich_text_links(input)
-    scrubber = Loofah::Scrubber.new do |node|
-      next if node.name != 'a'
-      next if !node.key? 'data-target-type'
-
-      case node['data-target-type']
-      when 'knowledge-base-answer'
-        if (translation = KnowledgeBase::Answer::Translation.find_by(id: node['data-target-id']))
-          path = help_answer_path(translation.answer.category.translation_preferred(translation.kb_locale),
-                                  translation,
-                                  locale: translation.kb_locale.system_locale.locale)
-
-          node['href'] = custom_path_if_needed path
-        else
-          node['href'] = '#'
-        end
-      end
-    end
-
-    parsed = Loofah.scrub_fragment(input, scrubber).to_s.html_safe # rubocop:disable Rails/OutputSafety
-
-    parsed
+  def dropdown_menu_direction
+    system_locale_via_uri.dir == 'ltr' ? 'right' : 'left'
   end
 end

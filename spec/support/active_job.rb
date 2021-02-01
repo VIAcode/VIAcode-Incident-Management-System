@@ -9,6 +9,7 @@ module ZammadActiveJobHelper
   def clear_jobs
     enqueued_jobs.clear
     performed_jobs.clear
+    ActiveJobLock.destroy_all
   end
 end
 
@@ -32,6 +33,7 @@ RSpec.configure do |config|
 
       example.run
 
+    ensure
       ::ActiveJob::Base.queue_adapter = default_queue_adapter
     end
   end

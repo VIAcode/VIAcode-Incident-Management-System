@@ -2,9 +2,9 @@ require 'rails_helper'
 require 'models/application_model_examples'
 
 RSpec.describe Job, type: :model do
-  it_behaves_like 'ApplicationModel', can_assets: { selectors: %i[condition perform] }
-
   subject(:job) { create(:job) }
+
+  it_behaves_like 'ApplicationModel', can_assets: { selectors: %i[condition perform] }
 
   describe 'Class methods:' do
     describe '.run' do
@@ -37,7 +37,7 @@ RSpec.describe Job, type: :model do
       end
 
       it 'runs all executable jobs (and no others)' do
-        expect { Job.run }
+        expect { described_class.run }
           .to change { executable_jobs.map(&:reload).map(&:last_run_at).any?(&:nil?) }.to(false)
           .and not_change { nonexecutable_jobs.map(&:reload).map(&:last_run_at).all?(&:nil?) }
       end
@@ -177,7 +177,7 @@ RSpec.describe Job, type: :model do
           end
 
           it 'updates #next_run_at' do
-            travel_to(Time.current.last_week)  # force new value for #next_run_at
+            travel_to(Time.current.last_week) # force new value for #next_run_at
 
             expect { job.run }.to change { job.reload.next_run_at }
           end
@@ -194,12 +194,41 @@ RSpec.describe Job, type: :model do
             end
 
             it 'updates #next_run_at' do
-              travel_to(Time.current.last_week)  # force new value for #next_run_at
+              travel_to(Time.current.last_week) # force new value for #next_run_at
 
               expect { job.run }.to change { job.reload.next_run_at }
             end
           end
         end
+      end
+
+      context 'when job has pre_condition:current_user.id in selector' do
+        let!(:matching_ticket) { create(:ticket, owner_id: 1) }
+        let!(:nonmatching_ticket) { create(:ticket, owner_id: create(:agent).id) }
+
+        let(:condition) do
+          {
+            'ticket.owner_id' => {
+              'operator'         => 'is',
+              'pre_condition'    => 'current_user.id',
+              'value'            => '',
+              'value_completion' => ''
+            },
+          }
+        end
+
+        before do
+          UserInfo.current_user_id = create(:admin).id
+          job
+          UserInfo.current_user_id = nil
+        end
+
+        it 'performs changes on matching tickets' do
+          expect { job.run(true) }
+            .to change { matching_ticket.reload.state }
+            .and not_change { nonmatching_ticket.reload.state }
+        end
+
       end
     end
 

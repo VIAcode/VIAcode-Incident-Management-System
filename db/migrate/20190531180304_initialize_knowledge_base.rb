@@ -6,8 +6,8 @@ class InitializeKnowledgeBase < ActiveRecord::Migration[5.0]
     create_table :knowledge_bases do |t|
       t.string :iconset, limit: 30, null: false
 
-      t.string :color_highlight, limit: 9, null: false
-      t.string :color_header,    limit: 9, null: false
+      t.string :color_highlight, limit: 25, null: false
+      t.string :color_header,    limit: 25, null: false
 
       t.string :homepage_layout, null: false
       t.string :category_layout, null: false
@@ -16,7 +16,7 @@ class InitializeKnowledgeBase < ActiveRecord::Migration[5.0]
 
       t.string :custom_address
 
-      t.timestamps null: false
+      t.timestamps null: false # rubocop:disable Zammad/ExistsDateTimePrecision
     end
 
     create_table :knowledge_base_locales do |t|
@@ -24,7 +24,7 @@ class InitializeKnowledgeBase < ActiveRecord::Migration[5.0]
       t.belongs_to :system_locale,  null: false, foreign_key: { to_table: :locales }
       t.boolean    :primary, null: false, default: false
 
-      t.timestamps null: false
+      t.timestamps null: false # rubocop:disable Zammad/ExistsDateTimePrecision
     end
 
     create_table :knowledge_base_translations do |t|
@@ -34,7 +34,7 @@ class InitializeKnowledgeBase < ActiveRecord::Migration[5.0]
       t.references :kb_locale,      null: false, foreign_key: { to_table: :knowledge_base_locales }
       t.references :knowledge_base, null: false, foreign_key: { to_table: :knowledge_bases, on_delete: :cascade }
 
-      t.timestamps null: false
+      t.timestamps null: false # rubocop:disable Zammad/ExistsDateTimePrecision
     end
 
     create_table :knowledge_base_categories do |t|
@@ -44,16 +44,16 @@ class InitializeKnowledgeBase < ActiveRecord::Migration[5.0]
       t.string  :category_icon, null: false, limit: 30
       t.integer :position,      null: false, index: true
 
-      t.timestamps null: false
+      t.timestamps null: false # rubocop:disable Zammad/ExistsDateTimePrecision
     end
 
     create_table :knowledge_base_category_translations do |t|
-      t.string :title,       limit: 250, null: false
+      t.string :title, limit: 250, null: false
 
       t.references :kb_locale, null: false, foreign_key: { to_table: :knowledge_base_locales }
       t.references :category,  null: false, foreign_key: { to_table: :knowledge_base_categories, on_delete: :cascade }
 
-      t.timestamps null: false
+      t.timestamps null: false # rubocop:disable Zammad/ExistsDateTimePrecision
     end
 
     create_table :knowledge_base_answers do |t|
@@ -70,7 +70,7 @@ class InitializeKnowledgeBase < ActiveRecord::Migration[5.0]
       t.timestamp  :published_at, limit: 3, null: true
       t.references :published_by, foreign_key: { to_table: :users }
 
-      t.timestamps null: false
+      t.timestamps null: false # rubocop:disable Zammad/ExistsDateTimePrecision
     end
 
     create_table :knowledge_base_answer_translation_contents do |t| # rubocop:disable Rails/CreateTableWithTimestamps
@@ -78,7 +78,7 @@ class InitializeKnowledgeBase < ActiveRecord::Migration[5.0]
     end
 
     create_table :knowledge_base_answer_translations do |t|
-      t.string :title,   limit: 250,  null: false
+      t.string :title, limit: 250, null: false
 
       t.references :kb_locale, null: false, foreign_key: { to_table: :knowledge_base_locales }
       t.references :answer,    null: false, foreign_key: { to_table: :knowledge_base_answers, on_delete: :cascade }
@@ -87,17 +87,18 @@ class InitializeKnowledgeBase < ActiveRecord::Migration[5.0]
       t.references :created_by, null: false, foreign_key: { to_table: :users }
       t.references :updated_by, null: false, foreign_key: { to_table: :users }
 
-      t.timestamps null: false
+      t.timestamps null: false # rubocop:disable Zammad/ExistsDateTimePrecision
     end
 
     create_table :knowledge_base_menu_items do |t|
       t.references :kb_locale, null: false, foreign_key: { to_table: :knowledge_base_locales, on_delete: :cascade }
+      t.string     :location,  null: false, index: true
       t.integer    :position,  null: false, index: true
       t.string     :title,     null: false, limit: 100
       t.string     :url,       null: false, limit: 500
       t.boolean    :new_tab,   null: false, default: false
 
-      t.timestamps
+      t.timestamps # rubocop:disable Zammad/ExistsDateTimePrecision
     end
 
     Setting.create_if_not_exists(
@@ -141,7 +142,7 @@ class InitializeKnowledgeBase < ActiveRecord::Migration[5.0]
       frontend:    true
     )
 
-    return if !Setting.find_by(name: 'system_init_done')
+    return if !Setting.exists?(name: 'system_init_done')
 
     Permission.create_if_not_exists(
       name:        'admin.knowledge_base',

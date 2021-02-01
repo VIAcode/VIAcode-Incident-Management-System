@@ -36,7 +36,7 @@ return possible lookup keys for model
 
 returns
 
-  [:id, :name] # or fror users [:id, :login, :email]
+  [:id, :name] # or, for users: [:id, :login, :email]
 
 =end
 
@@ -46,16 +46,42 @@ returns
 
     private
 
-    def find_and_save_to_cache_by(attr)
-      if !Rails.application.config.db_case_sensitive && string_key?(attr.keys.first)
-        where(attr).find { |r| r[attr.keys.first] == attr.values.first }
+    def find_and_save_to_cache_by(args)
+      attribute    = args.keys.first
+      lookup_value = args.values.first.to_s
+
+      # rollbacks can invalidate cache entry
+      # therefore we don't write it
+      if ActiveRecord::Base.connection.transaction_open?
+        result = find_by(attribute => lookup_value)
+        # enforce case-sensitivity on MySQL
+        result = nil if !key_sensitive_match?(result, attribute, lookup_value)
       else
-        find_by(attr)
-      end.tap { |r| cache_set(attr.values.first, r) }
+        # get the record via an `FOR UPDATE` DB lock inside of
+        # a transaction to ensure that we don't write obsolete
+        # data into the cache
+        transaction do
+          result = lock.find_by(attribute => lookup_value)
+          # enforce case-sensitivity on MySQL
+          if key_sensitive_match?(result, attribute, lookup_value)
+            # cache only if we got a key-sensitive match
+            cache_set(lookup_value, result)
+          else
+            # no key-sensitive match - no result
+            result = nil
+          end
+        end
+      end
+
+      result
     end
 
-    def string_key?(key)
-      type_for_attribute(key.to_s).type == :string
+    def key_sensitive_match?(record, attribute, lookup_value)
+      return false if record.blank?
+      return true if type_for_attribute(attribute.to_s).type != :string
+
+      record[attribute] == lookup_value
     end
+
   end
 end

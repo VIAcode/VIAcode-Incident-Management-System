@@ -2,7 +2,7 @@ require 'rails_helper'
 
 RSpec.describe Auth do
 
-  context '.can_login?' do
+  describe '.can_login?' do
     it 'responds to can_login?' do
       expect(described_class).to respond_to(:can_login?)
     end
@@ -32,9 +32,23 @@ RSpec.describe Auth do
         expect(result).to be false
       end
     end
+
+    context 'given default password_max_login_failed' do
+      it 'passes with 5 attempts' do
+        user   = create(:user, login_failed: 5)
+        result = described_class.can_login?(user)
+        expect(result).to be true
+      end
+
+      it 'fails with 6 attempts' do
+        user   = create(:user, login_failed: 6)
+        result = described_class.can_login?(user)
+        expect(result).to be false
+      end
+    end
   end
 
-  context '.valid?' do
+  describe '.valid?' do
     it 'responds to valid?' do
       expect(described_class).to respond_to(:valid?)
     end
@@ -47,7 +61,7 @@ RSpec.describe Auth do
     end
   end
 
-  context '.backends' do
+  describe '.backends' do
     it 'responds to backends' do
       expect(described_class).to respond_to(:backends)
     end

@@ -25,7 +25,7 @@ class ObjectManager::Attribute < ApplicationModel
   belongs_to :object_lookup, optional: true
 
   validates :name, presence: true
-  validates :data_type, inclusion: { in: DATA_TYPES, msg: '%{value} is not a valid data type' }
+  validates :data_type, inclusion: { in: DATA_TYPES, msg: '%{value} is not a valid data type' } # rubocop:disable Style/FormatStringToken
   validate :data_option_must_have_appropriate_values
   validate :data_type_must_not_change, on: :update
 
@@ -133,6 +133,7 @@ possible types
     maxlength: 200,
     null: true,
     note: 'some additional comment', # optional
+    link_template: '',               # optional
   },
 
 # select
@@ -150,6 +151,7 @@ possible types
     multiple: false, # currently only "false" supported
     translate: true, # optional
     note: 'some additional comment', # optional
+    link_template: '',               # optional
   },
 
 # tree_select
@@ -391,7 +393,7 @@ use "force: true" to delete also not editable fields
     elsif data[:object_lookup_id]
       data[:object] = ObjectLookup.by_id(data[:object_lookup_id])
     else
-      raise 'ERROR: need object or object_lookup_id param!'
+      raise 'need object or object_lookup_id param!'
     end
 
     data[:name].downcase!
@@ -402,17 +404,17 @@ use "force: true" to delete also not editable fields
       name:             data[:name],
     )
     if !record
-      raise "ERROR: No such field #{data[:object]}.#{data[:name]}"
+      raise "No such field #{data[:object]}.#{data[:name]}"
     end
 
     if !data[:force] && !record.editable
-      raise "ERROR: #{data[:object]}.#{data[:name]} can't be removed!"
+      raise "#{data[:object]}.#{data[:name]} can't be removed!"
     end
 
     # check to make sure that no triggers, overviews, or schedulers references this attribute
     if ObjectManager::Attribute.attribute_used_by_references?(data[:object], data[:name])
       text = ObjectManager::Attribute.attribute_used_by_references_humaniced(data[:object], data[:name])
-      raise "ERROR: #{data[:object]}.#{data[:name]} is referenced by #{text} and thus cannot be deleted!"
+      raise "#{data[:object]}.#{data[:name]} is referenced by #{text} and thus cannot be deleted!"
     end
 
     # if record is to create, just destroy it
@@ -449,103 +451,6 @@ get the attribute model based on object and name
       object_lookup_id: data[:object_lookup_id],
       name:             data[:name],
     )
-  end
-
-=begin
-
-get user based list of used object attributes
-
-  attribute_list = ObjectManager::Attribute.by_object('Ticket', user)
-
-returns:
-
-  [
-    { name: 'api_key', display: 'API KEY', tag: 'input', null: true, edit: true, maxlength: 32 },
-    { name: 'api_ip_regexp', display: 'API IP RegExp', tag: 'input', null: true, edit: true },
-    { name: 'api_ip_max', display: 'API IP Max', tag: 'input', null: true, edit: true },
-  ]
-
-=end
-
-  def self.by_object(object, user)
-
-    # lookups
-    if object
-      object_lookup_id = ObjectLookup.by_name(object)
-    end
-
-    # get attributes in right order
-    result = ObjectManager::Attribute.where(
-      object_lookup_id: object_lookup_id,
-      active:           true,
-      to_create:        false,
-      to_delete:        false,
-    ).order('position ASC, name ASC')
-    attributes = []
-    result.each do |item|
-      data = {
-        name:    item.name,
-        display: item.display,
-        tag:     item.data_type,
-        #:null     => item.null,
-      }
-      if item.data_option[:permission]&.any?
-        next if !user
-
-        hint = false
-        item.data_option[:permission].each do |permission|
-          next if !user.permissions?(permission)
-
-          hint = true
-          break
-        end
-        next if !hint
-      end
-
-      if item.screens
-        data[:screen] = {}
-        item.screens.each do |screen, permission_options|
-          data[:screen][screen] = {}
-          permission_options.each do |permission, options|
-            if permission == '-all-'
-              data[:screen][screen] = options
-            elsif user&.permissions?(permission)
-              data[:screen][screen] = options
-            end
-          end
-        end
-      end
-      if item.data_option
-        data = data.merge(item.data_option.symbolize_keys)
-      end
-      attributes.push data
-    end
-    attributes
-  end
-
-=begin
-
-get user based list of object attributes as hash
-
-  attribute_list = ObjectManager::Attribute.by_object_as_hash('Ticket', user)
-
-returns:
-
-  {
-    'api_key'       => { name: 'api_key', display: 'API KEY', tag: 'input', null: true, edit: true, maxlength: 32 },
-    'api_ip_regexp' => { name: 'api_ip_regexp', display: 'API IP RegExp', tag: 'input', null: true, edit: true },
-    'api_ip_max'    => { name: 'api_ip_max', display: 'API IP Max', tag: 'input', null: true, edit: true },
-  }
-
-=end
-
-  def self.by_object_as_hash(object, user)
-    list = by_object(object, user)
-    hash = {}
-    list.each do |item|
-      hash[ item[:name] ] = item
-    end
-    hash
   end
 
 =begin
@@ -662,21 +567,23 @@ to send no browser reload event, pass false
       end
 
       data_type = nil
-      if attribute.data_type.match?(/^input|select|tree_select|richtext|textarea|checkbox$/)
+      case attribute.data_type
+      when /^input|select|tree_select|richtext|textarea|checkbox$/
         data_type = :string
-      elsif attribute.data_type.match?(/^integer|user_autocompletion$/)
+      when /^integer|user_autocompletion$/
         data_type = :integer
-      elsif attribute.data_type.match?(/^boolean|active$/)
+      when /^boolean|active$/
         data_type = :boolean
-      elsif attribute.data_type.match?(/^datetime$/)
+      when /^datetime$/
         data_type = :datetime
-      elsif attribute.data_type.match?(/^date$/)
+      when /^date$/
         data_type = :date
       end
 
       # change field
       if model.column_names.include?(attribute.name)
-        if attribute.data_type.match?(/^input|select|tree_select|richtext|textarea|checkbox$/)
+        case attribute.data_type
+        when /^input|select|tree_select|richtext|textarea|checkbox$/
           ActiveRecord::Migration.change_column(
             model.table_name,
             attribute.name,
@@ -684,7 +591,7 @@ to send no browser reload event, pass false
             limit: attribute.data_option[:maxlength],
             null:  true
           )
-        elsif attribute.data_type.match?(/^integer|user_autocompletion|datetime|date$/)
+        when /^integer|user_autocompletion|datetime|date$/
           ActiveRecord::Migration.change_column(
             model.table_name,
             attribute.name,
@@ -692,7 +599,7 @@ to send no browser reload event, pass false
             default: attribute.data_option[:default],
             null:    true
           )
-        elsif attribute.data_type.match?(/^boolean|active$/)
+        when /^boolean|active$/
           ActiveRecord::Migration.change_column(
             model.table_name,
             attribute.name,
@@ -715,7 +622,8 @@ to send no browser reload event, pass false
       end
 
       # create field
-      if attribute.data_type.match?(/^input|select|tree_select|richtext|textarea|checkbox$/)
+      case attribute.data_type
+      when /^input|select|tree_select|richtext|textarea|checkbox$/
         ActiveRecord::Migration.add_column(
           model.table_name,
           attribute.name,
@@ -723,7 +631,7 @@ to send no browser reload event, pass false
           limit: attribute.data_option[:maxlength],
           null:  true
         )
-      elsif attribute.data_type.match?(/^integer|user_autocompletion$/)
+      when /^integer|user_autocompletion$/
         ActiveRecord::Migration.add_column(
           model.table_name,
           attribute.name,
@@ -731,7 +639,7 @@ to send no browser reload event, pass false
           default: attribute.data_option[:default],
           null:    true
         )
-      elsif attribute.data_type.match?(/^boolean|active$/)
+      when /^boolean|active$/
         ActiveRecord::Migration.add_column(
           model.table_name,
           attribute.name,
@@ -739,7 +647,7 @@ to send no browser reload event, pass false
           default: attribute.data_option[:default],
           null:    true
         )
-      elsif attribute.data_type.match?(/^datetime|date$/)
+      when /^datetime|date$/
         ActiveRecord::Migration.add_column(
           model.table_name,
           attribute.name,
@@ -895,34 +803,49 @@ is certain attribute used by triggers, overviews or schedulers
   def check_name
     return if !name
 
-    raise 'Name can\'t get used, *_id and *_ids are not allowed' if name.match?(/.+?_(id|ids)$/i)
-    raise 'Spaces in name are not allowed' if name.match?(/\s/)
-    raise 'Only letters from a-z, numbers from 0-9, and _ are allowed' if !name.match?(/^[a-z0-9_]+$/)
-    raise 'At least one letters is needed' if !name.match?(/[a-z]/)
+    if name.match?(/.+?_(id|ids)$/i)
+      errors.add(:name, "can't get used because *_id and *_ids are not allowed")
+    end
+    if name.match?(/\s/)
+      errors.add(:name, 'spaces are not allowed')
+    end
+    if !name.match?(/^[a-z0-9_]+$/)
+      errors.add(:name, 'Only letters from a-z because numbers from 0-9 and _ are allowed')
+    end
+    if !name.match?(/[a-z]/)
+      errors.add(:name, 'At least one letters is needed')
+    end
 
     # do not allow model method names as attributes
     reserved_words = %w[destroy true false integer select drop create alter index table varchar blob date datetime timestamp url icon initials avatar permission validate subscribe unsubscribe translate search _type _doc _id id]
-    raise "#{name} is a reserved word, please choose a different one" if name.match?(/^(#{reserved_words.join('|')})$/)
+    if name.match?(/^(#{reserved_words.join('|')})$/)
+      errors.add(:name, "#{name} is a reserved word! (1)")
+    end
 
     # fixes issue #2236 - Naming an attribute "attribute" causes ActiveRecord failure
     begin
       ObjectLookup.by_id(object_lookup_id).constantize.instance_method_already_implemented? name
-    rescue  ActiveRecord::DangerousAttributeError
-      raise "#{name} is a reserved word, please choose a different one"
+    rescue ActiveRecord::DangerousAttributeError
+      errors.add(:name, "#{name} is a reserved word! (2)")
     end
 
     record = object_lookup.name.constantize.new
-    return true if !record.respond_to?(name.to_sym)
-    raise "#{name} already exists!" if record.attributes.key?(name) && new_record?
-    return true if record.attributes.key?(name)
+    if record.respond_to?(name.to_sym) && record.attributes.key?(name) && new_record?
+      errors.add(:name, "#{name} already exists!")
+    end
 
-    raise "#{name} is a reserved word, please choose a different one"
+    if errors.present?
+      raise ActiveRecord::RecordInvalid, self
+    end
+
+    true
   end
 
   def check_editable
     return if editable
 
-    raise 'Attribute not editable!'
+    errors.add(:name, 'Attribute not editable!')
+    raise ActiveRecord::RecordInvalid, self
   end
 
   private

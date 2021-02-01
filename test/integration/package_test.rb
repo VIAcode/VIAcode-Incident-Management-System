@@ -302,11 +302,12 @@ class PackageTest < ActiveSupport::TestCase
 
     ]
     tests.each do |test|
-      if test[:action] == 'install'
+      case test[:action]
+      when 'install'
         begin
           package = Package.install(string: test[:zpm])
         rescue => e
-          puts 'ERROR: ' + e.inspect
+          puts "ERROR: #{e.inspect}"
         end
         if test[:result]
           assert(package, 'install package not successful')
@@ -315,7 +316,7 @@ class PackageTest < ActiveSupport::TestCase
         else
           assert_not(package, 'install package successful but should not')
         end
-      elsif test[:action] == 'reinstall'
+      when 'reinstall'
         begin
           package = Package.reinstall(test[:name])
         rescue
@@ -328,7 +329,7 @@ class PackageTest < ActiveSupport::TestCase
         else
           assert_not(package, 'reinstall package successful but should not')
         end
-      elsif test[:action] == 'uninstall'
+      when 'uninstall'
         if test[:zpm]
           begin
             package = Package.uninstall(string: test[:zpm])
@@ -347,12 +348,12 @@ class PackageTest < ActiveSupport::TestCase
         else
           assert_not(package, 'uninstall package successful but should not')
         end
-      elsif test[:action] == 'auto_install'
+      when 'auto_install'
         if test[:zpm]
-          if !File.exist?(Rails.root.to_s + '/auto_install/')
-            Dir.mkdir(Rails.root.to_s + '/auto_install/', 0o755)
+          if !File.exist?(Rails.root.join('auto_install'))
+            Dir.mkdir(Rails.root.join('auto_install'), 0o755)
           end
-          location = Rails.root.to_s + '/auto_install/unittest.zpm'
+          location = Rails.root.join('auto_install/unittest.zpm')
           file = File.new(location, 'wb')
           file.write(test[:zpm])
           file.close

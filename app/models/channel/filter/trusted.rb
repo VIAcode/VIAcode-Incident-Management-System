@@ -3,12 +3,12 @@
 # delete all X-Zammad header if channel is not trusted
 module Channel::Filter::Trusted
 
-  def self.run(channel, mail)
+  def self.run(channel, mail, _transaction_params)
 
     # check if trust x-headers
-    if !channel[:trusted]
+    if !trusted(channel)
       mail.each_key do |key|
-        next if key !~ /^x-zammad/i
+        next if !key.match?(/^x-zammad/i)
 
         mail.delete(key)
       end
@@ -17,7 +17,7 @@ module Channel::Filter::Trusted
 
     # verify values
     mail.each do |key, value|
-      next if key !~ /^x-zammad/i
+      next if !key.match?(/^x-zammad/i)
 
       # no assoc exists, remove header
       next if Channel::EmailParser.check_attributes_by_x_headers(key, value)
@@ -25,5 +25,12 @@ module Channel::Filter::Trusted
       mail.delete(key.to_sym)
     end
 
+  end
+
+  def self.trusted(channel)
+    return true if channel[:trusted]
+    return true if channel.instance_of?(Channel) && channel.options[:inbound] && channel.options[:inbound][:trusted]
+
+    false
   end
 end

@@ -399,9 +399,8 @@ broadcase also not to sender
         next if session[:user]['id'].blank?
       end
 
-      if sender_user_id
-        next if session[:user] && session[:user]['id'] && session[:user]['id'].to_i == sender_user_id.to_i
-      end
+      next if sender_user_id && session[:user] && session[:user]['id'] && session[:user]['id'].to_i == sender_user_id.to_i
+
       Sessions.send(client_id, data)
       recipients.push client_id
     end
@@ -440,7 +439,7 @@ returns
       files.push entry
     end
     files.sort.each do |entry|
-      next if entry !~ /^send/
+      next if !entry.start_with?('send')
 
       message = Sessions.queue_file_read(path, entry)
       next if !message
@@ -462,10 +461,10 @@ returns
     return if message.blank?
 
     begin
-      return JSON.parse(message)
+      JSON.parse(message)
     rescue => e
       log('error', "can't parse queue message: #{message}, #{e.inspect}")
-      return
+      nil
     end
   end
 
@@ -519,6 +518,7 @@ get spool messages
   def self.spool_list(timestamp, current_user_id)
     path = "#{@path}/spool/"
     FileUtils.mkpath path
+
     data      = []
     to_delete = []
     files     = []
@@ -615,11 +615,47 @@ delete spool messages
 
     # just make sure that spool path exists
     if !File.exist?(@path)
-      FileUtils.mkpath @path
+      FileUtils.mkpath(@path)
     end
 
     # dispatch sessions
-    if node_id&.zero?
+    if node_id.blank? && ENV['ZAMMAD_SESSION_JOBS_CONCURRENT'].to_i.positive?
+
+      previous_nodes_sessions = Sessions::Node.stats
+      if previous_nodes_sessions.present?
+        log('info', "Cleaning up previous Sessions::Node sessions: #{previous_nodes_sessions}")
+        Sessions::Node.cleanup
+      end
+
+      dispatcher_pid = Process.pid
+      node_count     = ENV['ZAMMAD_SESSION_JOBS_CONCURRENT'].to_i
+      node_pids      = []
+      (1..node_count).each do |worker_node_id|
+        node_pids << fork do
+          title         = "Zammad Session Jobs Node ##{worker_node_id}: dispatch_pid:#{dispatcher_pid} -> worker_pid:#{Process.pid}"
+          $PROGRAM_NAME = title
+
+          log('info', "#{title} started.")
+
+          ::Sessions.jobs(worker_node_id)
+          sleep node_count
+        rescue Interrupt
+          nil
+        end
+      end
+
+      Signal.trap 'SIGTERM' do
+
+        node_pids.each do |node_pid|
+          Process.kill 'TERM', node_pid
+        end
+
+        Process.waitall
+
+        raise SignalException, 'SIGTERM'
+      end
+
+      # dispatch client_ids to nodes
       loop do
 
         # nodes
@@ -631,7 +667,7 @@ delete spool messages
           # ask nodes for nodes
           next if nodes_stats[client_id]
 
-          # assigne to node
+          # assign to node
           Sessions::Node.session_assigne(client_id)
           sleep 1
         end
@@ -763,9 +799,10 @@ returns
   # we use it in rails and non rails context
   def self.log(level, message)
     if defined?(Rails)
-      if level == 'debug'
+      case level
+      when 'debug'
         Rails.logger.debug { message }
-      elsif level == 'notice'
+      when 'notice'
         Rails.logger.notice message
       else
         Rails.logger.error message

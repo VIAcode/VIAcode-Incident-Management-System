@@ -17,7 +17,7 @@ returns
 
   def subject_build(subject, prefix_mode = nil)
 
-    # clena subject
+    # clean subject
     subject_parts = [subject_clean(subject)]
 
     # add hook
@@ -71,7 +71,7 @@ returns
 
     # resize subject based on config
     if subject.length > ticket_subject_size.to_i
-      subject = subject[ 0, ticket_subject_size.to_i ] + '[...]'
+      subject = "#{subject[ 0, ticket_subject_size.to_i ]}[...]"
     end
 
     subject.strip!

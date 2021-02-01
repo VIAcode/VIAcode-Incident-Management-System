@@ -6,16 +6,16 @@ class Observer::Sla::TicketRebuildEscalation < ActiveRecord::Observer
   def after_commit(record)
     return if _check(record)
 
-    _rebuild(record)
+    _rebuild
   end
 
   private
 
-  def _rebuild(record)
+  def _rebuild
     Cache.delete('SLA::List::Active')
 
     # send background job
-    SlaTicketRebuildEscalationJob.perform_later(record.id)
+    SlaTicketRebuildEscalationJob.perform_later
   end
 
   def _check(record)
@@ -25,7 +25,7 @@ class Observer::Sla::TicketRebuildEscalation < ActiveRecord::Observer
 
     # check if condition has changed
     changed = false
-    fields_to_check = if record.class == Sla
+    fields_to_check = if record.instance_of?(Sla)
                         %w[condition calendar_id first_response_time update_time solution_time]
                       else
                         %w[timezone business_hours default ical_url public_holidays]

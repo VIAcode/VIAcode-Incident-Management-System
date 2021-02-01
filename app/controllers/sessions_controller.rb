@@ -1,113 +1,54 @@
 # Copyright (C) 2012-2016 Zammad Foundation, http://zammad-foundation.org/
 
 class SessionsController < ApplicationController
-  prepend_before_action :authentication_check, only: %i[switch_to_user list delete]
-  skip_before_action :verify_csrf_token, only: %i[show destroy create_omniauth failure_omniauth create_sso]
+  prepend_before_action -> { authentication_check && authorize! }, only: %i[switch_to_user list delete]
+  skip_before_action :verify_csrf_token, only: %i[show destroy create_omniauth failure_omniauth]
+  skip_before_action :user_device_check, only: %i[create_sso]
 
   # "Create" a login, aka "log the user in"
   def create
-
-    # in case, remove switched_from_user_id
-    session[:switched_from_user_id] = nil
-
-    # authenticate user
-    user = User.authenticate(params[:username], params[:password])
-
-    # check maintenance mode
-    check_maintenance(user)
-
-    # auth failed
-    raise Exceptions::NotAuthorized, 'Wrong Username or Password combination.' if !user
-
-    # remember me - set session cookie to expire later
-    expire_after = nil
-    if params[:remember_me]
-      expire_after = 1.year
-    end
-    request.env['rack.session.options'][:expire_after] = expire_after
-
-    # set session user
-    current_user_set(user)
-
-    # log device
-    return if !user_device_log(user, 'session')
-
-    # log new session
-    user.activity_stream_log('session started', user.id, true)
-
-    # add session user assets
-    assets = {}
-    assets = user.assets(assets)
-
-    # auto population of default collections
-    collections, assets = SessionHelper.default_collections(user, assets)
-
-    # get models
-    models = SessionHelper.models(user)
-
-    # sessions created via this
-    # controller are persistent
-    session[:persistent] = true
+    user = authenticate_with_password
+    initiate_session_for(user)
 
     # return new session data
-    render  status: :created,
-            json:   {
-              session:     user,
-              config:      config_frontend,
-              models:      models,
-              collections: collections,
-              assets:      assets,
-            }
+    render status: :created,
+           json:   SessionHelper.json_hash(user).merge(config: config_frontend)
+  end
+
+  def create_sso
+    raise Exceptions::NotAuthorized, 'SSO authentication disabled!' if !Setting.get('auth_sso')
+
+    user = begin
+      login = request.env['REMOTE_USER'] ||
+              request.env['HTTP_REMOTE_USER'] ||
+              request.headers['X-Forwarded-User']
+
+      User.lookup(login: login&.downcase)
+    end
+
+    raise Exceptions::NotAuthorized, 'Missing SSO ENV REMOTE_USER or X-Forwarded-User header' if login.blank?
+    raise Exceptions::NotAuthorized, "No such user '#{login}' found!" if user.blank?
+
+    session.delete(:switched_from_user_id)
+    authentication_check_prerequesits(user, 'SSO', {})
+
+    redirect_to '/#'
   end
 
   def show
+    user = authentication_check_only
+    raise Exceptions::NotAuthorized, 'no valid session' if user.blank?
 
-    user_id = nil
-
-    # no valid sessions
-    if session[:user_id]
-      user_id = session[:user_id]
-    end
-
-    if !user_id || !User.exists?(user_id)
-      # get models
-      models = SessionHelper.models()
-
-      render json: {
-        error:       'no valid session',
-        config:      config_frontend,
-        models:      models,
-        collections: {
-          Locale.to_app_model => Locale.where(active: true)
-        },
-      }
-      return
-    end
-
-    # Save the user ID in the session so it can be used in
-    # subsequent requests
-    user = User.find(user_id)
-
-    # log device
-    return if !user_device_log(user, 'session')
-
-    # add session user assets
-    assets = {}
-    assets = user.assets(assets)
-
-    # auto population of default collections
-    collections, assets = SessionHelper.default_collections(user, assets)
-
-    # get models
-    models = SessionHelper.models(user)
+    initiate_session_for(user)
 
     # return current session
+    render json: SessionHelper.json_hash(user).merge(config: config_frontend)
+  rescue Exceptions::NotAuthorized => e
     render json: {
-      session:     user,
+      error:       e.message,
       config:      config_frontend,
-      models:      models,
-      collections: collections,
-      assets:      assets,
+      models:      SessionHelper.models,
+      collections: { Locale.to_app_model => Locale.where(active: true) }
     }
   end
 
@@ -146,8 +87,7 @@ class SessionsController < ApplicationController
       authorization = Authorization.create_from_hash(auth, current_user)
     end
 
-    # check maintenance mode
-    if check_maintenance_only(authorization.user)
+    if in_maintenance_mode?(authorization.user)
       redirect_to '/#'
       return
     end
@@ -169,40 +109,8 @@ class SessionsController < ApplicationController
     raise Exceptions::UnprocessableEntity, "Message from #{params[:strategy]}: #{params[:message]}"
   end
 
-  def create_sso
-
-    # in case, remove switched_from_user_id
-    session[:switched_from_user_id] = nil
-
-    user = User.sso(params)
-
-    # Log the authorizing user in.
-    if user
-
-      # check maintenance mode
-      if check_maintenance_only(user)
-        redirect_to '/#'
-        return
-      end
-
-      # set current session user
-      current_user_set(user)
-
-      # log new session
-      user.activity_stream_log('session started', user.id, true)
-
-      # remember last login date
-      user.update_last_login
-    end
-
-    # redirect to app
-    redirect_to '/#'
-  end
-
   # "switch" to user
   def switch_to_user
-    permission_check(['admin.session', 'admin.user'])
-
     # check user
     if !params[:id]
       render(
@@ -241,7 +149,7 @@ class SessionsController < ApplicationController
   # "switch" back to user
   def switch_back_to_user
 
-    # check if it's a swich back
+    # check if it's a switch back
     raise Exceptions::NotAuthorized if !session[:switched_from_user_id]
 
     user = User.lookup(id: session[:switched_from_user_id])
@@ -253,7 +161,7 @@ class SessionsController < ApplicationController
       return false
     end
 
-    # rememeber current user
+    # remember current user
     current_session_user = current_user
 
     # remove switched_from_user_id
@@ -280,7 +188,6 @@ class SessionsController < ApplicationController
   end
 
   def list
-    permission_check('admin.session')
     assets = {}
     sessions_clean = []
     SessionHelper.list.each do |session|
@@ -301,12 +208,17 @@ class SessionsController < ApplicationController
   end
 
   def delete
-    permission_check('admin.session')
     SessionHelper.destroy(params[:id])
     render json: {}
   end
 
   private
+
+  def initiate_session_for(user)
+    request.env['rack.session.options'][:expire_after] = 1.year if params[:remember_me]
+    session[:persistent] = true
+    user.activity_stream_log('session started', user.id, true)
+  end
 
   def config_frontend
 
@@ -321,7 +233,7 @@ class SessionsController < ApplicationController
       config[setting.name] = value
     end
 
-    # remember if we can to swich back to user
+    # remember if we can switch back to user
     if session[:switched_from_user_id]
       config['switch_back_to_possible'] = true
     end
@@ -333,4 +245,5 @@ class SessionsController < ApplicationController
 
     config
   end
+
 end

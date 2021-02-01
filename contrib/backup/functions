@@ -51,7 +51,8 @@ function backup_db () {
     ln -sfn ${BACKUP_DIR}/${TIMESTAMP}_zammad_db.mysql.gz ${BACKUP_DIR}/latest_zammad_db.mysql.gz
   elif [ "${DB_ADAPTER}" == "postgresql" ]; then
     echo "creating postgresql backup..."
-    su -c "pg_dump -c ${DB_NAME} | gzip > /tmp/${TIMESTAMP}_zammad_db.psql.gz" postgres
+    su -c "pg_dump --no-privileges --no-owner -c ${DB_NAME} | \
+      gzip > /tmp/${TIMESTAMP}_zammad_db.psql.gz" postgres
     mv /tmp/${TIMESTAMP}_zammad_db.psql.gz ${BACKUP_DIR}
     ln -sfn ${BACKUP_DIR}/${TIMESTAMP}_zammad_db.psql.gz ${BACKUP_DIR}/latest_zammad_db.psql.gz
   else
@@ -153,18 +154,66 @@ function stop_zammad () {
 }
 
 function restore_zammad () {
-  echo "# Restoring Files"
-  tar -C / --overwrite -xzf ${BACKUP_DIR}/${RESTORE_FILE_DATE}_zammad_files.tar.gz
-  echo "# Ensuring correct file rights ..."
-  chown -R zammad:zammad ${ZAMMAD_DIR}
+  if ! command -v zammad > /dev/null; then
+    # See #3160 for the reasons of this :>
+    restore_files
+  fi
 
   if [ "${DB_ADAPTER}" == "postgresql" ]; then
+    echo "# Checking requirements"
+
+    if ! id "zammad" &> /dev/null; then
+      echo "# ERROR: User 'zammad' is not present, but should be by default! #"
+      echo "# Restoration was NOT successfull, exitting ..."
+      exit 1
+    fi
+    
+    echo "# ... Dropping current database ${DB_NAME}"
+
+    # This step is only needed for some pgsql dumps, as they don't provide a drop table statement which will cause
+    # relation errors during restoration (as on package installation there's always an initialised database)
+    if command -v zammad > /dev/null; then
+      zammad config:set DISABLE_DATABASE_ENVIRONMENT_CHECK=1
+      zammad run rake db:drop
+      zammad config:set DISABLE_DATABASE_ENVIRONMENT_CHECK=0
+    else
+      ${ZAMMAD_DIR}/bin/rake db:drop
+    fi
+
+    echo "# ... Creating database ${DB_NAME} for owner ${DB_USER}"
+    if command -v zammad > /dev/null; then
+      # We'll skip this part for docker installations
+      su -c "psql -c \"CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};\"" postgres
+    else
+      ${ZAMMAD_DIR}/bin/rake db:create
+    fi
+
     echo "# Restoring PostgrSQL DB"
-    zcat ${BACKUP_DIR}/${RESTORE_DB_DATE}_zammad_db.${DB_FILE_EXT}.gz | su -c "psql -d ${DB_NAME}" postgres
+    zcat ${BACKUP_DIR}/${RESTORE_DB_DATE}_zammad_db.${DB_FILE_EXT}.gz | su -c "psql -d ${DB_NAME}" zammad
   elif [ "${DB_ADAPTER}" == "mysql2" ]; then
     echo "# Restoring MySQL DB"
     zcat ${BACKUP_DIR}/${RESTORE_DB_DATE}_zammad_db.${DB_FILE_EXT}.gz | mysql -u${DB_USER} -p${DB_PASS} ${DB_NAME}
   fi
+
+  if command -v zammad > /dev/null; then
+    # See #3160 for the reasons of this :>
+    restore_files
+  fi
+
+  # Ensure all data is loaded from the restored database and not the cache of the previous system state
+  echo "# Clearing Cache ..."
+  if command -v zammad > /dev/null; then
+    zammad run rails r "Cache.clear"
+  else
+    ${ZAMMAD_DIR}/bin/rails r "Cache.clear"
+  fi
+}
+
+function restore_files () {
+  echo "# Restoring Files"
+  tar -C / --overwrite -xzf ${BACKUP_DIR}/${RESTORE_FILE_DATE}_zammad_files.tar.gz
+  echo "# Ensuring correct file rights ..."
+  chown -R zammad:zammad ${ZAMMAD_DIR}
 }
 
 function start_backup_message () {

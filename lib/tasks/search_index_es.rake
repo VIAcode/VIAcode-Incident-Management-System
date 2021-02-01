@@ -2,7 +2,7 @@ $LOAD_PATH << './lib'
 require 'rubygems'
 
 namespace :searchindex do
-  task :drop, [:opts] => :environment do |_t, _args|
+  task :drop, [:opts] => %i[environment searchindex:configured searchindex:version_supported] do |_t, _args|
     print 'drop indexes...'
 
     # drop indexes
@@ -23,7 +23,7 @@ namespace :searchindex do
     Rake::Task['searchindex:drop_pipeline'].execute
   end
 
-  task :create, [:opts] => :environment do |_t, _args|
+  task :create, [:opts] => %i[environment searchindex:configured searchindex:version_supported] do |_t, _args|
     print 'create indexes...'
 
     if es_multi_index?
@@ -67,7 +67,7 @@ namespace :searchindex do
     Rake::Task['searchindex:create_pipeline'].execute
   end
 
-  task :create_pipeline, [:opts] => :environment do |_t, _args|
+  task :create_pipeline, [:opts] => %i[environment searchindex:configured searchindex:version_supported] do |_t, _args|
     if !es_pipeline?
       Setting.set('es_pipeline', '')
       next
@@ -116,6 +116,17 @@ namespace :searchindex do
                   }.merge(pipeline_field_attributes),
                 }
               }.merge(pipeline_field_attributes),
+            },
+            {
+              foreach: {
+                field:     'attachment',
+                processor: {
+                  attachment: {
+                    target_field: '_ingest._value',
+                    field:        '_ingest._value._content',
+                  }.merge(pipeline_field_attributes),
+                }
+              }.merge(pipeline_field_attributes),
             }
           ]
         }
@@ -124,7 +135,7 @@ namespace :searchindex do
     puts 'done'
   end
 
-  task :drop_pipeline, [:opts] => :environment do |_t, _args|
+  task :drop_pipeline, [:opts] => %i[environment searchindex:configured searchindex:version_supported] do |_t, _args|
     next if !es_pipeline?
 
     # update processors
@@ -142,8 +153,7 @@ namespace :searchindex do
     puts 'done'
   end
 
-  task :reload, [:opts] => :environment do |_t, _args|
-
+  task :reload, [:opts] => %i[environment searchindex:configured searchindex:version_supported] do |_t, _args|
     puts 'reload data...'
     Models.indexable.each do |model_class|
       puts " reload #{model_class}"
@@ -156,10 +166,28 @@ namespace :searchindex do
 
   end
 
-  task :rebuild, [:opts] => :environment do |_t, _args|
+  task :refresh, [:opts] => %i[environment searchindex:configured searchindex:version_supported] do |_t, _args|
+    print 'refresh all indexes...'
+
+    SearchIndexBackend.refresh
+  end
+
+  task :rebuild, [:opts] => %i[environment searchindex:configured searchindex:version_supported] do |_t, _args|
     Rake::Task['searchindex:drop'].execute
     Rake::Task['searchindex:create'].execute
     Rake::Task['searchindex:reload'].execute
+  end
+
+  task :version_supported, [:opts] => :environment do |_t, _args|
+    next if es_version_supported?
+
+    abort "Your Elasticsearch version is not supported! Please update your version to a greater equal than 5.6.0 (Your current version: #{es_version})."
+  end
+
+  task :configured, [:opts] => :environment do |_t, _args|
+    next if es_configured?
+
+    abort "You have not configured Elasticsearch (Setting.get('es_url'))."
   end
 end
 
@@ -200,7 +228,7 @@ def get_mapping_properties_object(object)
 
   # for elasticsearch 6.x and later
   string_type = 'text'
-  string_raw  = { 'type': 'keyword' }
+  string_raw  = { 'type': 'keyword', 'ignore_above': 5012 }
   boolean_raw = { 'type': 'boolean' }
 
   # for elasticsearch 5.6 and lower
@@ -215,7 +243,7 @@ def get_mapping_properties_object(object)
       result[name][:properties][key] = {
         type:   string_type,
         fields: {
-          raw: string_raw,
+          keyword: string_raw,
         }
       }
     elsif value.type == :integer
@@ -230,7 +258,7 @@ def get_mapping_properties_object(object)
       result[name][:properties][key] = {
         type:   'boolean',
         fields: {
-          raw: boolean_raw,
+          keyword: boolean_raw,
         }
       }
     elsif value.type == :binary
@@ -277,6 +305,23 @@ def get_mapping_properties_object(object)
     end
   end
 
+  if object.name == 'KnowledgeBase::Answer::Translation'
+    # do not server attachments if document is requested
+    result[name][:_source] = {
+      excludes: ['attachment']
+    }
+
+    # for elasticsearch 5.5 and lower
+    if !es_pipeline?
+      result[name][:_source] = {
+        excludes: ['attachment']
+      }
+      result[name][:properties][:attachment] = {
+        type: 'attachment',
+      }
+    end
+  end
+
   return result if es_type_in_mapping?
 
   result[name]
@@ -284,29 +329,41 @@ end
 
 # get es version
 def es_version
-  info = SearchIndexBackend.info
-  number = nil
-  if info.present?
-    number = info['version']['number'].to_s
+  @es_version ||= begin
+    info = SearchIndexBackend.info
+    number = nil
+    if info.present?
+      number = info['version']['number'].to_s
+    end
+    number
   end
-  number
+end
+
+def es_version_supported?
+  version_split = es_version.split('.')
+  version       = "#{version_split[0]}#{format('%<minor>03d', minor: version_split[1])}#{format('%<patch>03d', patch: version_split[2])}".to_i
+
+  # only versions greater/equal than 5.6.0 are supported
+  return if version < 5_006_000
+
+  true
 end
 
 # no es_pipeline for elasticsearch 5.5 and lower
 def es_pipeline?
   number = es_version
   return false if number.blank?
-  return false if number =~ /^[2-4]\./
-  return false if number =~ /^5\.[0-5]\./
+  return false if number.match?(/^[2-4]\./)
+  return false if number.match?(/^5\.[0-5]\./)
 
   true
 end
 
-# no mulit index for elasticsearch 5.6 and lower
+# no multi index for elasticsearch 5.6 and lower
 def es_multi_index?
   number = es_version
   return false if number.blank?
-  return false if number =~ /^[2-5]\./
+  return false if number.match?(/^[2-5]\./)
 
   true
 end
@@ -315,7 +372,14 @@ end
 def es_type_in_mapping?
   number = es_version
   return true if number.blank?
-  return true if number =~ /^[2-6]\./
+  return true if number.match?(/^[2-6]\./)
 
   false
+end
+
+# is es configured?
+def es_configured?
+  return false if Setting.get('es_url').blank?
+
+  true
 end

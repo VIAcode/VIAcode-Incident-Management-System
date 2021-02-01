@@ -1,6 +1,6 @@
 require 'rails_helper'
 
-RSpec.describe 'QUnit', type: :system, authenticated: false, set_up: true, websocket: false do
+RSpec.describe 'QUnit', type: :system, authenticated_as: false, set_up: true, websocket: false do
 
   def q_unit_tests(test_name)
 
@@ -14,8 +14,8 @@ RSpec.describe 'QUnit', type: :system, authenticated: false, set_up: true, webso
 
   def async_q_unit_tests(*args)
     q_unit_tests(*args) do
-      wait(10, interval: 4).until_constant do
-        find('.total').text
+      wait(120, interval: 3).until_constant do
+        page.has_css?('.total', wait: 0) ? find('.total').text : nil
       end
     end
   end
@@ -24,10 +24,18 @@ RSpec.describe 'QUnit', type: :system, authenticated: false, set_up: true, webso
     async_q_unit_tests('core')
   end
 
+  it 'I18n' do
+    async_q_unit_tests('i18n')
+  end
+
   context 'UI' do
 
     it 'Base' do
       q_unit_tests('ui')
+    end
+
+    it 'Local storage' do
+      q_unit_tests('local_storage')
     end
 
     it 'Model' do
@@ -54,6 +62,10 @@ RSpec.describe 'QUnit', type: :system, authenticated: false, set_up: true, webso
     it 'Ticket selector' do
       q_unit_tests('ticket_selector')
     end
+
+    it 'Image Service' do
+      q_unit_tests('image_service')
+    end
   end
 
   context 'Form' do
@@ -72,6 +84,10 @@ RSpec.describe 'QUnit', type: :system, authenticated: false, set_up: true, webso
 
     it 'Timer' do
       q_unit_tests('form_timer')
+    end
+
+    it 'Color' do
+      q_unit_tests('form_color')
     end
 
     it 'Extended' do
@@ -94,8 +110,35 @@ RSpec.describe 'QUnit', type: :system, authenticated: false, set_up: true, webso
       q_unit_tests('form_ticket_perform_action')
     end
 
+    it 'Ticket macro' do
+      q_unit_tests('ticket_macro')
+    end
+
     it 'Validation' do
       q_unit_tests('form_validation')
+    end
+
+    it 'Skip rendering' do
+      q_unit_tests('form_skip_rendering')
+    end
+
+    it 'SLA times' do
+      q_unit_tests('form_sla_times')
+    end
+
+    it 'DateTime' do
+      q_unit_tests('form_datetime')
+    end
+  end
+
+  context 'Form AJAX', searchindex: true do
+    before do
+      configure_elasticsearch
+      rebuild_searchindex
+    end
+
+    it 'autocompletion ajax' do
+      async_q_unit_tests('form_autocompletion_ajax')
     end
   end
 
@@ -115,6 +158,12 @@ RSpec.describe 'QUnit', type: :system, authenticated: false, set_up: true, webso
 
     it 'Taskbar' do
       q_unit_tests('taskbar')
+    end
+  end
+
+  context 'Knowlede Base Editor' do
+    it 'Vdeo Embeding' do
+      q_unit_tests('kb_video_embeding')
     end
   end
 end

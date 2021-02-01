@@ -39,7 +39,7 @@ class ImportOtrsController < ApplicationController
     end
 
     result = {}
-    if response.body.match?(/zammad migrator/)
+    if response.body.include?('zammad migrator')
 
       migrator_response = JSON.parse(response.body)
 
@@ -115,7 +115,7 @@ class ImportOtrsController < ApplicationController
     end
 
     # start migration
-    Import::OTRS.delay.start_bg
+    AsyncOtrsImportJob.perform_later
 
     render json: {
       result: 'ok',

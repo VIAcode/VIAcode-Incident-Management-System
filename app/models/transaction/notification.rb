@@ -51,7 +51,7 @@ class Transaction::Notification
     recipients_reason = {}
 
     # loop through all users
-    possible_recipients = User.group_access(ticket.group_id, 'full').sort_by(&:login)
+    possible_recipients = possible_recipients_of_group(ticket.group_id)
 
     # apply owner
     if ticket.owner_id != 1
@@ -124,15 +124,13 @@ class Transaction::Notification
         if !identifier || identifier == ''
           identifier = user.login
         end
-        already_notified = false
-        History.list('Ticket', ticket.id).each do |history|
-          next if history['type'] != 'notification'
-          next if history['value_to'] !~ /\(#{Regexp.escape(@item[:type])}:/
-          next if history['value_to'] !~ /#{Regexp.escape(identifier)}\(/
-          next if !history['created_at'].today?
 
-          already_notified = true
-        end
+        already_notified = History.where(
+          history_type_id:   History.type_lookup('notification').id,
+          history_object_id: History.object_lookup('Ticket').id,
+          o_id:              ticket.id
+        ).where('created_at > ?', Time.zone.now.beginning_of_day).exists?(['value_to LIKE ?', "%#{identifier}(#{@item[:type]}:%"])
+
         next if already_notified
       end
 
@@ -173,8 +171,8 @@ class Transaction::Notification
         Rails.logger.debug { "sent ticket online notifiaction to agent (#{@item[:type]}/#{ticket.id}/#{user.email})" }
       end
 
-      # ignore email channel notificaiton and empty emails
-      if !channels['email'] || !user.email || user.email == ''
+      # ignore email channel notification and empty emails
+      if !channels['email'] || user.email.blank?
         add_recipient_list(ticket, user, used_channels, @item[:type])
         next
       end
@@ -185,15 +183,16 @@ class Transaction::Notification
       # get user based notification template
       # if create, send create message / block update messages
       template = nil
-      if @item[:type] == 'create'
+      case @item[:type]
+      when 'create'
         template = 'ticket_create'
-      elsif @item[:type] == 'update'
+      when 'update'
         template = 'ticket_update'
-      elsif @item[:type] == 'reminder_reached'
+      when 'reminder_reached'
         template = 'ticket_reminder_reached'
-      elsif @item[:type] == 'escalation'
+      when 'escalation'
         template = 'ticket_escalation'
-      elsif @item[:type] == 'escalation_warning'
+      when 'escalation_warning'
         template = 'ticket_escalation_warning'
       else
         raise "unknown type for notification #{@item[:type]}"
@@ -250,10 +249,10 @@ class Transaction::Notification
 
     return {} if !@item[:changes]
 
-    locale = user.preferences[:locale] || Setting.get('locale_default') || 'en-us'
+    locale = user.locale
 
     # only show allowed attributes
-    attribute_list = ObjectManager::Attribute.by_object_as_hash('Ticket', user)
+    attribute_list = ObjectManager::Object.new('Ticket').attributes(user).index_by { |item| item[:name] }
 
     user_related_changes = {}
     @item[:changes].each do |key, value|
@@ -283,7 +282,7 @@ class Transaction::Notification
         changes[attribute_name] = value
       end
 
-      # if changed item is an _id field/reference, do an lookup for the realy values
+      # if changed item is an _id field/reference, look up the real values
       value_id  = []
       value_str = [ value[0], value[1] ]
       if key.to_s[-3, 3] == '_id'
@@ -315,7 +314,7 @@ class Transaction::Notification
         end
       end
 
-      # check if we have an dedcated display name for it
+      # check if we have a dedicated display name for it
       display = attribute_name
       if object_manager_attribute && object_manager_attribute[:display]
 
@@ -360,4 +359,12 @@ class Transaction::Notification
     )
   end
 
+  def possible_recipients_of_group(group_id)
+    cache = Cache.get("Transaction::Notification.group_access.full::#{group_id}")
+    return cache if cache
+
+    possible_recipients = User.group_access(group_id, 'full').sort_by(&:login)
+    Cache.write("Transaction::Notification.group_access.full::#{group_id}", possible_recipients, expires_in: 20.seconds)
+    possible_recipients
+  end
 end

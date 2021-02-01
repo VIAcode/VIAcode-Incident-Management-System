@@ -1,4 +1,11 @@
 class TicketUserTicketCounterJob < ApplicationJob
+  include HasActiveJobLock
+
+  def lock_key
+    # "TicketUserTicketCounterJob/23/42"
+    "#{self.class.name}/#{arguments[0]}/#{arguments[1]}"
+  end
+
   def perform(customer_id, updated_by_id)
 
     # check if update is needed
@@ -25,7 +32,7 @@ class TicketUserTicketCounterJob < ApplicationJob
 
     needs_update = false
     ticket_count.each_key do |ticket_state_category|
-      preferences_key = ('tickets_' + ticket_state_category.to_s).to_sym
+      preferences_key = :"tickets_#{ticket_state_category}"
       next if customer[:preferences][preferences_key] == ticket_count[ticket_state_category]
 
       needs_update = true

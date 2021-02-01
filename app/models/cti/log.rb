@@ -304,7 +304,7 @@ returns
       assets = list.map(&:preferences)
                    .map { |p| p.slice(:from, :to) }
                    .map(&:values).flatten
-                   .map { |caller_id| caller_id[:user_id] }.compact
+                   .pluck(:user_id).compact
                    .map { |user_id| User.lookup(id: user_id) }.compact
                    .each.with_object({}) { |user, a| user.assets(a) }
 
@@ -356,7 +356,7 @@ Cti::Log.process(
       user    = params['user']
       queue   = params['queue']
       call_id = params['callId'] || params['call_id']
-      if user.class == Array
+      if user.instance_of?(Array)
         user = user.join(', ')
       end
 
@@ -512,7 +512,7 @@ optional you can put the max oldest chat entries as argument
 
 =begin
 
-returnes queues of user
+returns queues of user
 
   ['queue1', 'queue2'] = Cti::Log.queues_of_user(User.find(123), config)
 
@@ -522,13 +522,13 @@ returnes queues of user
       queues = []
       config[:notify_map]&.each do |row|
         next if row[:user_ids].blank?
-        next if !row[:user_ids].include?(user.id.to_s) && !row[:user_ids].include?(user.id)
+        next if row[:user_ids].exclude?(user.id.to_s) && row[:user_ids].exclude?(user.id)
 
         queues.push row[:queue]
       end
       if user.phone.present?
         caller_ids = Cti::CallerId.extract_numbers(user.phone)
-        queues = queues.concat(caller_ids)
+        queues.concat(caller_ids)
       end
       queues
     end

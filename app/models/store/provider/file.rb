@@ -19,7 +19,7 @@ class Store::Provider::File
 
     # write file to file system
     if !File.exist?(location)
-      Rails.logger.debug { "storge write '#{location}' (#{permission})" }
+      Rails.logger.debug { "storage write '#{location}' (#{permission})" }
       file = File.new(location, 'wb')
       file.write(data)
       file.close
@@ -29,7 +29,7 @@ class Store::Provider::File
     # check sha
     local_sha = Digest::SHA256.hexdigest(get(sha))
     if sha != local_sha
-      raise "ERROR: Corrupt file in fs #{location}, sha should be #{sha} but is #{local_sha}"
+      raise "Corrupt file in fs #{location}, sha should be #{sha} but is #{local_sha}"
     end
 
     true
@@ -40,7 +40,7 @@ class Store::Provider::File
     location = get_location(sha)
     Rails.logger.debug { "read from fs #{location}" }
     if !File.exist?(location)
-      raise "ERROR: No such file #{location}"
+      raise "No such file #{location}"
     end
 
     data    = File.open(location, 'rb')
@@ -49,7 +49,7 @@ class Store::Provider::File
     # check sha
     local_sha = Digest::SHA256.hexdigest(content)
     if local_sha != sha
-      raise "ERROR: Corrupt file in fs #{location}, sha should be #{sha} but is #{local_sha}"
+      raise "Corrupt file in fs #{location}, sha should be #{sha} but is #{local_sha}"
     end
 
     content
@@ -59,7 +59,7 @@ class Store::Provider::File
   def self.delete(sha)
     location = get_location(sha)
     if File.exist?(location)
-      Rails.logger.info "storge remove '#{location}'"
+      Rails.logger.info "storage remove '#{location}'"
       File.delete(location)
     end
 
@@ -79,12 +79,14 @@ class Store::Provider::File
   def self.get_location(sha)
 
     # generate directory
-    base = Rails.root.join('storage', 'fs').to_s
+    base = Rails.root.join('storage/fs').to_s
     parts = []
     length1 = 4
     length2 = 5
     length3 = 7
     last_position = 0
+
+    # rubocop:disable Style/CombinableLoops
     (0..1).each do |_count|
       end_position = last_position + length1
       parts.push sha[last_position, length1]
@@ -100,7 +102,9 @@ class Store::Provider::File
       parts.push sha[last_position, length3]
       last_position = end_position
     end
-    path     = parts[ 0..6 ].join('/') + '/'
+    # rubocop:enable Style/CombinableLoops
+
+    path     = "#{parts[ 0..6 ].join('/')}/"
     file     = sha[last_position, sha.length]
     location = "#{base}/#{path}"
 

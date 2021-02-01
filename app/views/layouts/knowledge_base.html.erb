@@ -1,16 +1,18 @@
 <!DOCTYPE HTML>
 <html lang="<%= system_locale_via_uri.locale %>"
+      dir="<%= system_locale_via_uri.dir %>"
+      adir="ltr"
       data-id='<%= @knowledge_base.id %>'
       data-iconset='<%= @knowledge_base.iconset %>'
       data-available-locales='<%= all_locales.map(&:locale).join(',') %>'
-      data-base-path='<%= custom_path_if_needed help_root_path(locale: '{locale}') %>'
+      data-base-path='<%= custom_path_if_needed help_root_path(locale: '{locale}'), @knowledge_base %>'
       data-primary-locale="<%= (filter_primary_kb_locale || all_locales.first)&.locale %>">
 
 <meta charset="utf-8">
-<title><%= kb_public_page_title %></title>
+<title><%= kb_public_page_title(@knowledge_base, @object, @page_title_error) %></title>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
 <%= stylesheet_link_tag "knowledge_base.css", :media => 'all' %>
-<%= render 'knowledge_base/public/inline_stylesheet', knowledge_base: @knowledge_base %>
+<%= render 'knowledge_base/public/inline_stylesheet', knowledge_base: @knowledge_base, locale: system_locale_via_uri  %>
 
 <div class="wrapper js-wrapper">
   <%= render 'knowledge_base/public/top_banner', object: @object || @knowledge_base if editor? %>
@@ -18,12 +20,12 @@
   <header class="header js-header">
     <div class="container">
       <h1 class="logo">
-        <%= link_to custom_path_if_needed(help_root_path(locale: params[:locale])) do %>
+        <%= link_to custom_path_if_needed(help_root_path(locale: params[:locale]), @knowledge_base) do %>
           <img src="/assets/images/<%= Setting.get('product_logo') %>">
         <% end %>
       </h1>
       <nav class="menu">
-        <% menu_items.each do |menu_item| %>
+        <% menu_items.location_header.each do |menu_item| %>
           <%= link_to menu_item.title, menu_item.url, class: 'menu-item', target: menu_item.new_tab ? '_blank' : nil %>
         <% end %>
       </nav>
@@ -39,7 +41,7 @@
     </div>
   </header>
 
-  <%= render_breadcrumb_if_needed %>
+  <%= render_breadcrumb_if_needed(@knowledge_base, @object, @alternative) %>
 
   <%= yield %>
 
@@ -49,15 +51,22 @@
         <div class="copyright">
           <%= @knowledge_base.translation.footer_note %>
         </div>
+
+        <nav class="menu">
+          <% menu_items.location_footer.each do |menu_item| %>
+            <%= link_to menu_item.title, menu_item.url, class: 'menu-item', target: menu_item.new_tab ? '_blank' : nil %>
+          <% end %>
+        </nav>
+
         <div class="language-picker">
           <a class="btn btn--action" href="#" data-toggle="dropdown" aria-expanded="false">
             <%= system_locale_via_uri.name %>
             <%= icon 'arrow-down' %>
           </a>
-          <ul class="dropdown-menu dropdown-menu-right dropdown-menu-up" role="menu">
+          <ul class="dropdown-menu dropdown-menu-<%= dropdown_menu_direction %> dropdown-menu-up" role="menu">
             <% @object_locales&.each do |locale| %>
               <li class="<%= 'is-selected' if locale.name == system_locale_via_uri.name %>">
-                <%= link_to custom_path_if_needed(url_for(locale: locale.locale)), hreflang: locale.locale do %>
+                <%= link_to custom_path_if_needed(url_for(locale: locale.locale), @knowledge_base), hreflang: locale.locale do %>
                   <%= icon 'checkmark' %>
                   <%= locale.name %>
                 <% end %>
@@ -70,10 +79,13 @@
   </footer>
 </div>
 
-<script type='text/javascript'>
+<%= javascript_tag nonce: true do -%>
   if(window.fetch === undefined || window.Promise === undefined || Element.prototype.prepend === undefined){
-    document.write('<script src="<%= path_to_javascript('knowledge_base_public_polyfills') %>"><\/script>')
+    var polyfillScriptTag = document.createElement('script');
+    polyfillScriptTag.setAttribute('src', '<%= path_to_javascript('knowledge_base_public_polyfills') %>');
+    polyfillScriptTag.setAttribute('nonce', '<%= content_security_policy_nonce %>');
+    document.body.appendChild(polyfillScriptTag);
   }
-</script>
+<% end -%>
 
-<%= javascript_include_tag 'knowledge_base_public' %>
+<%= javascript_include_tag 'knowledge_base_public', nonce: true %>

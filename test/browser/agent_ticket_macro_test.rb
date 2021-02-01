@@ -15,7 +15,7 @@ class AgentTicketMacroTest < TestCase
       data: {
         customer: 'nico',
         group:    'Users',
-        title:    'some subject - macro "Close & Tag as Spam" default',
+        title:    'macro "Close & Tag as Spam" default',
         body:     'some body - macro "Close & Tag as Spam" default',
       },
     )
@@ -66,7 +66,7 @@ class AgentTicketMacroTest < TestCase
       data: {
         customer: 'nico',
         group:    'Users',
-        title:    "some subject - macro #{macro_name}",
+        title:    "macro #{macro_name}",
         body:     "some body - macro #{macro_name}",
       },
     )
@@ -105,7 +105,7 @@ class AgentTicketMacroTest < TestCase
       data: {
         customer: 'nico',
         group:    'Users',
-        title:    "some subject - macro #{macro_name}",
+        title:    "macro #{macro_name}",
         body:     "some body - macro #{macro_name}",
       },
     )
@@ -134,7 +134,7 @@ class AgentTicketMacroTest < TestCase
       ux_flow_next_up: ux_flow_next_up,
     )
 
-    title_prefix = "some subject - macro #{macro_name}"
+    title_prefix = "macro #{macro_name}"
     ticket1      = ticket_create(
       data: {
         customer: 'nico',
@@ -157,6 +157,8 @@ class AgentTicketMacroTest < TestCase
     # otherwise the Zoom view won't change in "Overview"-mode
     # when we re-enter the Zoom view for a ticket via the overview
     tasks_close_all()
+
+    sleep 8 # to update overview list to open correct/next ticket in overview
 
     ticket_open_by_overview(
       title: ticket1[:title],

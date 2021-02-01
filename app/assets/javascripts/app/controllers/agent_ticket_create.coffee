@@ -1,11 +1,14 @@
 class App.TicketCreate extends App.Controller
+  @include App.SecurityOptions
+
   elements:
     '.tabsSidebar': 'sidebar'
 
   events:
-    'click .type-tabs .tab': 'changeFormType'
-    'submit form':           'submit'
-    'click .js-cancel':      'cancel'
+    'click .type-tabs .tab':   'changeFormType'
+    'submit form':             'submit'
+    'click .js-cancel':        'cancel'
+    'click .js-active-toggle': 'toggleButton'
 
   types: {
     'phone-in': {
@@ -121,11 +124,24 @@ class App.TicketCreate extends App.Controller
     # force changing signature
     @$('[name="group_id"]').trigger('change')
 
+    # add observer to change options
+    @$('[name="cc"], [name="group_id"], [name="customer_id"]').bind('change', =>
+      @updateSecurityOptions()
+    )
+    @updateSecurityOptions()
+
     # show cc
     if type is 'email-out'
       @$('[name="cc"]').closest('.form-group').removeClass('hide')
+
+      if @securityEnabled()
+        @securityOptionsShow()
+
     else
       @$('[name="cc"]').closest('.form-group').addClass('hide')
+
+      if @securityEnabled()
+        @securityOptionsHide()
 
     # show notice
     @$('.js-note').addClass('hide')
@@ -164,6 +180,13 @@ class App.TicketCreate extends App.Controller
     diff = difference(@formDefault, formCurrent)
     return false if !diff || _.isEmpty(diff)
     return true
+
+  updateSecurityOptions: =>
+    params = @params()
+    if params.customer_id_completion
+      params.to = params.customer_id_completion
+
+    @updateSecurityOptionsRemote(@taskKey, params, params, @paramsSecurity())
 
   autosaveStop: =>
     @clearDelay('ticket-create-form-update')
@@ -344,6 +367,10 @@ class App.TicketCreate extends App.Controller
       params:         params
       taskKey:        @taskKey
     )
+
+    # convert remote images into data urls
+    App.Utils.htmlImage2DataUrlAsyncInline(@$('[contenteditable=true]'))
+
     App.Ticket.configure_attributes.pop()
 
     # set type selector
@@ -380,6 +407,9 @@ class App.TicketCreate extends App.Controller
     App.TaskManager.touch(@taskKey)
 
     @tokanice()
+
+  toggleButton: (event) ->
+    @$(event.currentTarget).toggleClass('btn--active')
 
   tokanice: ->
     App.Utils.tokanice('.content.active input[name=cc]', 'email')
@@ -443,7 +473,7 @@ class App.TicketCreate extends App.Controller
 
     # create article
     if sender.name is 'Customer'
-      params['article'] = {
+      params.article = {
         to:           (group && group.name) || ''
         from:         params.customer_id_completion
         cc:           params.cc
@@ -455,7 +485,7 @@ class App.TicketCreate extends App.Controller
         content_type: 'text/html'
       }
     else
-      params['article'] = {
+      params.article = {
         from:         (group && group.name) || ''
         to:           params.customer_id_completion
         cc:           params.cc
@@ -466,6 +496,11 @@ class App.TicketCreate extends App.Controller
         form_id:      @formId
         content_type: 'text/html'
       }
+
+      # add security params
+      if @securityOptionsShown()
+        params.article.preferences ||= {}
+        params.article.preferences.security = @paramsSecurity()
 
     ticket.load(params)
 

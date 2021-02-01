@@ -187,7 +187,7 @@ class Admin extends App.WizardFullScreen
 
     @html App.view('getting_started/admin')()
 
-    new App.ControllerForm(
+    @form = new App.ControllerForm(
       el:        @$('.js-admin-form')
       model:     App.User
       screen:    'signup'
@@ -208,9 +208,16 @@ class Admin extends App.WizardFullScreen
     )
     if errors
       @log 'error new', errors
+
+      # Only highlight, but don't add message. Error text breaks layout.
+      Object.keys(errors).forEach (key) ->
+        errors[key] = null
+
       @formValidate(form: e.target, errors: errors)
       @formEnable(e)
       return false
+    else
+      @formValidate(form: e.target, errors: errors)
 
     # save user
     user.save(
@@ -231,11 +238,7 @@ class Admin extends App.WizardFullScreen
 
       fail: (settings, details) =>
         @formEnable(e)
-        App.Event.trigger 'notify', {
-          type:    'error'
-          msg:     App.i18n.translateContent(details.error_human || 'Can\'t create user!')
-          timeout: 2500
-        }
+        @form.showAlert(details.error_human || details.error || 'Unable to create user!')
     )
 
   relogin: (data, status, xhr) =>
@@ -766,15 +769,8 @@ class ChannelEmail extends App.WizardFullScreen
               @account[key] = value
 
           if data.content_messages && data.content_messages > 0 && (!@account['inbound']['options'] || @account['inbound']['options']['keep_on_server'] isnt true)
-            message = App.i18n.translateContent('We have already found %s email(s) in your mailbox. VIMS will move it all from your mailbox into VIMS.', data.content_messages)
-            @$('.js-inbound-acknowledge .js-message').html(message)
-            @$('.js-inbound-acknowledge .js-back').attr('data-slide', 'js-intro')
-            @$('.js-inbound-acknowledge .js-next').attr('data-slide', '')
-            @$('.js-inbound-acknowledge .js-next').unbind('click.verify').bind('click.verify', (e) =>
-              e.preventDefault()
-              @verify(@account)
-            )
-            @showSlide('js-inbound-acknowledge')
+            @probeInboundMessagesFound(data, true)
+            @probeInboundArchive(data)
           else
             @verify(@account)
 
@@ -815,11 +811,8 @@ class ChannelEmail extends App.WizardFullScreen
           @account.inbound = params
 
           if data.content_messages && data.content_messages > 0 && (!@account['inbound']['options'] || @account['inbound']['options']['keep_on_server'] isnt true)
-            message = App.i18n.translateContent('We have already found %s emails in your mailbox. VIMS will move it all from your mailbox into VIMS.', data.content_messages)
-            @$('.js-inbound-acknowledge .js-message').html(message)
-            @$('.js-inbound-acknowledge .js-back').attr('data-slide', 'js-inbound')
-            @$('.js-inbound-acknowledge .js-next').unbind('click.verify')
-            @showSlide('js-inbound-acknowledge')
+            @probeInboundMessagesFound(data, true)
+            @probeInboundArchive(data)
           else
             @showSlide('js-outbound')
 
@@ -844,6 +837,65 @@ class ChannelEmail extends App.WizardFullScreen
         @showInvalidField('js-inbound', data.invalid_field)
         @enable(e)
     )
+
+  probeInboundMessagesFound: (data, verify) =>
+    message = App.i18n.translateContent('We have already found %s email(s) in your mailbox. VIMS will move it all from your mailbox into VIMS.', data.content_messages)
+    @$('.js-inbound-acknowledge .js-messageFound').html(message)
+
+    if !verify
+      @$('.js-inbound-acknowledge .js-back').attr('data-slide', 'js-inbound')
+      @$('.js-inbound-acknowledge .js-next').unbind('click.verify')
+    else
+      @$('.js-inbound-acknowledge .js-back').attr('data-slide', 'js-intro')
+      @$('.js-inbound-acknowledge .js-next').attr('data-slide', '')
+      @$('.js-inbound-acknowledge .js-next').unbind('click.verify').bind('click.verify', (e) =>
+        e.preventDefault()
+        @verify(@account)
+      )
+    @showSlide('js-inbound-acknowledge')
+
+  probeInboundArchive: (data) =>
+    if data.archive_possible isnt true
+      @$('.js-archiveMessage').addClass('hide')
+      return
+
+    @$('.js-archiveMessage').removeClass('hide')
+    message = App.i18n.translateContent('In addition, we have found emails in your mailbox that are older than %s weeks. You can import such emails as an "archive", which means that no notifications are sent and the tickets have the status "closed". However, you can find them in Zammad anytime using the search function.', data.archive_week_range)
+    @$('.js-inbound-acknowledge .js-archiveMessageCount').html(message)
+
+    configureAttributesAcknowledge = [
+      {
+        name: 'archive'
+        tag: 'boolean'
+        null: true
+        default: no
+        options: {
+          true: 'archive'
+          false: 'regular'
+        }
+        translate: true
+      },
+    ]
+
+    new App.ControllerForm(
+      elReplace: @$('.js-importTypeSelect'),
+      model:
+        configure_attributes: configureAttributesAcknowledge
+        className: ''
+      noFieldset: true
+    )
+    @$('.js-importTypeSelect select[name=archive]').on('change', (e) =>
+      value                      = $(e.target).val()
+      @account.inbound         ||= {}
+      @account.inbound.options ||= {}
+      if value is 'true'
+        @account.inbound.options.archive        = true
+        @account.inbound.options.archive_before = (new Date()).toISOString()
+      else
+        delete @account.inbound.options.archive
+        delete @account.inbound.options.archive_before
+    )
+    @$('.js-importTypeSelect select[name=archive]').trigger('change')
 
   probleOutbound: (e) =>
     e.preventDefault()
@@ -959,7 +1011,7 @@ class Agent extends App.WizardFullScreen
 
     @html App.view('getting_started/agent')()
 
-    new App.ControllerForm(
+    @form = new App.ControllerForm(
       el:        @$('.js-agent-form')
       model:     App.User
       screen:    'invite_agent'
@@ -1006,11 +1058,7 @@ class Agent extends App.WizardFullScreen
 
       fail: (settings, details) =>
         @formEnable(e)
-        App.Event.trigger 'notify', {
-          type:    'error'
-          msg:     App.i18n.translateContent(details.error_human || 'Can\'t create user!')
-          timeout: 2500
-        }
+        @form.showAlert details.error_human || 'Can\'t create user!'
     )
 
 App.Config.set('getting_started/agents', Agent, 'Routes')

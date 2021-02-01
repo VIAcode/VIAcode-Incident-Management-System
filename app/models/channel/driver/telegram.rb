@@ -9,7 +9,7 @@ class Channel::Driver::Telegram
     {
       adapter: 'telegram',
       auth: {
-        api_key:       api_key
+        api_key: api_key
       },
     },
     telegram_attributes,
@@ -26,8 +26,8 @@ class Channel::Driver::Telegram
     options = check_external_credential(options)
 
     @client = Telegram.new(options[:auth][:api_key])
-    message = @client.from_article(article)
-    message
+    @client.from_article(article)
+
   end
 
 =begin

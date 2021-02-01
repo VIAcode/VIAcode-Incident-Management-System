@@ -4,7 +4,7 @@ class App.Controller extends Spine.Controller
 
   constructor: (params) ->
 
-    # unbind old bindlings
+    # unbind old bindings
     if params && params.el && params.el.unbind
       params.el.unbind()
 
@@ -52,6 +52,14 @@ class App.Controller extends Spine.Controller
       @controllerId
     )
 
+  one: (event, callback) =>
+    App.Event.bind(
+      event
+      callback
+      @controllerId
+      true
+    )
+
   unbind: (event, callback) =>
     App.Event.unbind(
       event
@@ -93,7 +101,7 @@ class App.Controller extends Spine.Controller
     @off()
     @stopListening()
 
-  # add @title methode to set title
+  # add @title method to set title
   title: (name, translate = false) ->
 #    $('html head title').html(@Config.get(product_name) + ' - ' + App.i18n.translateInline(name))
     title = name
@@ -115,18 +123,18 @@ class App.Controller extends Spine.Controller
     App.Interval.reset()
     App.WebSocket.close(force: true)
 
-  # add @notify methode to create notification
+  # add @notify method to create notification
   notify: (data) ->
     App.Event.trigger 'notify', data
 
-  # add @notifyDesktop methode to create desktop notification
+  # add @notifyDesktop method to create desktop notification
   notifyDesktop: (data) ->
     App.Event.trigger 'notifyDesktop', data
 
-  # add @navupdate methode to update navigation
+  # add @navupdate method to update navigation
   navupdate: (url, force = false) ->
 
-    # ignore navupdate untill #clues are gone
+    # ignore navupdate until #clues are gone
     return if !force && window.location.hash is '#clues'
 
     App.Event.trigger 'navupdate', url
@@ -273,11 +281,6 @@ class App.Controller extends Spine.Controller
     return true if @Session.get()
     false
 
-  frontendTime: (timestamp, row = {}) ->
-    if !row['subclass']
-      row['subclass'] = ''
-    "<span class=\"humanTimeFromNow #{row.subclass}\" data-time=\"#{timestamp}\">?</span>"
-
   frontendTimeUpdate: =>
     update = =>
       @frontendTimeUpdateElement($('#app'))
@@ -291,7 +294,7 @@ class App.Controller extends Spine.Controller
     )
 
   frontendTimeUpdateItem: (item, currentVal) =>
-    timestamp = item.data('time')
+    timestamp = item.attr('datetime')
     time      = @humanTime(timestamp, item.hasClass('escalation'))
 
     # only do dom updates on changes
@@ -444,6 +447,7 @@ class App.ControllerModal extends App.Controller
   keyboard: true
   large: false
   small: false
+  veryLarge: false
   head: '?'
   autoFocusOnFirstInput: true
   container: null
@@ -609,7 +613,17 @@ class App.ControllerModal extends App.Controller
 
   onShown: (e) =>
     if @autoFocusOnFirstInput
-      @$('input:not([disabled]):not([type="hidden"]):not(".btn"):not([type="radio"]:not(:checked)), textarea').first().focus()
+
+      # select generated form
+      form = @$('.form-group').first()
+
+      # if not exists, use whole @el
+      if !form.get(0)
+        form = @el
+
+      # focus first input, select or textarea
+      form.find('input:not([disabled]):not([type="hidden"]):not(".btn"), select:not([disabled]), textarea:not([disabled])').first().focus()
+
     @initalFormParams = @formParams()
 
   localOnClose: (e) =>
@@ -648,6 +662,14 @@ class App.ControllerModal extends App.Controller
     e.preventDefault()
     @clearAlerts()
     @onSubmit(e)
+
+  startLoading: =>
+    @$('.modal-body').addClass('hide')
+    @$('.modal-loader').removeClass('hide')
+
+  stopLoading: =>
+    @$('.modal-body').removeClass('hide')
+    @$('.modal-loader').addClass('hide')
 
 class App.SessionMessage extends App.ControllerModal
   showTrySupport: true

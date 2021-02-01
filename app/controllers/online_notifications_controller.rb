@@ -1,6 +1,7 @@
 # Copyright (C) 2012-2016 Zammad Foundation, http://zammad-foundation.org/
 
 class OnlineNotificationsController < ApplicationController
+  prepend_before_action -> { authorize! }, only: %i[show update destroy]
   prepend_before_action :authentication_check
 
 =begin
@@ -102,8 +103,6 @@ curl http://localhost/api/v1/online_notifications/#{id} -v -u #{login}:#{passwor
 =end
 
   def show
-    return if !access?
-
     model_show_render(OnlineNotification, params)
   end
 
@@ -131,8 +130,6 @@ curl http://localhost/api/v1/online_notifications -v -u #{login}:#{password} -H 
 =end
 
   def update
-    return if !access?
-
     model_update_render(OnlineNotification, params)
   end
 
@@ -150,8 +147,6 @@ curl http://localhost/api/v1/online_notifications/{id}.json -v -u #{login}:#{pas
 =end
 
   def destroy
-    return if !access?
-
     model_destroy_render(OnlineNotification, params)
   end
 
@@ -174,20 +169,10 @@ curl http://localhost/api/v1/online_notifications/mark_all_as_read -v -u #{login
   def mark_all_as_read
     notifications = OnlineNotification.list(current_user, 200)
     notifications.each do |notification|
-      if !notification['seen']
-        OnlineNotification.seen(id: notification['id'])
-      end
+      next if notification['seen']
+
+      OnlineNotification.find(notification['id']).update!(seen: true)
     end
     render json: {}, status: :ok
   end
-
-  private
-
-  def access?
-    notification = OnlineNotification.find(params[:id])
-    return true if notification.user_id == current_user.id
-
-    raise Exceptions::NotAuthorized
-  end
-
 end

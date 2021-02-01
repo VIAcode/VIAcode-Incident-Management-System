@@ -21,14 +21,15 @@ class Sessions::Event::Base
   end
 
   def self.inherited(subclass)
+    super
     subclass.instance_variable_set(:@database_connection, @database_connection)
   end
 
   def websocket_send(recipient_client_id, data)
-    msg = if data.class != Array
-            "[#{data.to_json}]"
-          else
+    msg = if data.instance_of?(Array)
             data.to_json
+          else
+            "[#{data.to_json}]"
           end
     if @clients[recipient_client_id]
       log 'debug', "ws send #{msg}", recipient_client_id
@@ -66,7 +67,7 @@ class Sessions::Event::Base
   def current_user_id
     if !@session
       error = {
-        event: "#{event}_error",
+        event: "#{@event}_error",
         data:  {
           state: 'no_session',
         },
@@ -76,7 +77,7 @@ class Sessions::Event::Base
     end
     if @session['id'].blank?
       error = {
-        event: "#{event}_error",
+        event: "#{@event}_error",
         data:  {
           state: 'no_session_user_id',
         },
@@ -105,6 +106,14 @@ class Sessions::Event::Base
     user
   end
 
+  def remote_ip
+    @headers&.fetch('X-Forwarded-For', nil).presence
+  end
+
+  def origin
+    @headers&.fetch('Origin', nil).presence
+  end
+
   def permission_check(key, event)
     user = current_user
     return if !user
@@ -123,9 +132,8 @@ class Sessions::Event::Base
   end
 
   def log(level, data, client_id = nil)
-    if !@options[:v]
-      return if level == 'debug'
-    end
+    return if !@options[:v] && level == 'debug'
+
     if !client_id
       client_id = @client_id
     end

@@ -117,11 +117,11 @@ class Graph extends App.ControllerContent
         dataNew[key] = value
       @ui.storeParams()
 
-    if !@lastNewData
-      @lastNewData = {}
+    if !@lastParams
+      @lastParams = {}
 
-    return if @lastNewData && JSON.stringify(dataNew) is JSON.stringify(@lastNewData)
-    @lastNewData = dataNew
+    return if @lastParams && JSON.stringify(@params) is JSON.stringify(@lastParams)
+    @lastParams = $.extend(true, {}, @params)
 
     @draw(dataNew)
     t = new Date
@@ -456,6 +456,7 @@ class TimePicker extends App.Controller
   selectTimeYear: (e) =>
     e.preventDefault()
     @ui.params.year = $(e.target).data('type')
+    @_timeSlotPicker()
     $(e.target).parent().parent().find('li').removeClass('active')
     $(e.target).parent().addClass('active')
     App.Event.trigger('ui:report:rerender')
@@ -523,7 +524,10 @@ class TimePicker extends App.Controller
     ]
 
     @timeRangeWeek = []
-    for item in [1..52]
+
+    numberOfWeeks = App.PrettyDate.getISOWeeks(@ui.params.year)
+
+    for item in [1..numberOfWeeks]
       record = {
         display: item
         value: item

@@ -1,8 +1,8 @@
 source 'https://rubygems.org'
 
 # core - base
-ruby '2.5.5'
-gem 'rails', '5.2.3'
+ruby '2.6.6'
+gem 'rails', '5.2.4.4'
 
 # core - rails additions
 gem 'activerecord-import'
@@ -13,7 +13,7 @@ gem 'json'
 gem 'rails-observers'
 
 # core - application servers
-gem 'puma', group: :puma
+gem 'puma', '~>3.12', group: :puma
 gem 'unicorn', group: :unicorn
 
 # core - supported ORMs
@@ -35,6 +35,12 @@ gem 'argon2'
 # core - state machine
 gem 'aasm'
 
+# core - authorization
+gem 'pundit'
+
+# core - image processing
+gem 'rszr', '0.5.2'
+
 # performance - Memcached
 gem 'dalli'
 
@@ -49,7 +55,7 @@ gem 'eco'
 gem 'sassc-rails'
 
 # asset handling - pipeline
-gem 'sprockets'
+gem 'sprockets', '~> 3.7.2'
 gem 'uglifier'
 
 gem 'autoprefixer-rails'
@@ -74,10 +80,12 @@ gem 'omniauth-google-oauth2'
 gem 'omniauth-linkedin-oauth2'
 gem 'omniauth-microsoft-office365'
 gem 'omniauth-oauth2'
+gem 'omniauth-saml'
 gem 'omniauth-twitter'
 gem 'omniauth-weibo-oauth2'
 
 # channels
+gem 'gmail_xoauth'
 gem 'koala'
 gem 'telegramAPI'
 gem 'twitter', git: 'https://github.com/sferik/twitter.git'
@@ -125,8 +133,8 @@ gem 'autodiscover', git: 'https://github.com/zammad-deps/autodiscover'
 gem 'rubyntlm', git: 'https://github.com/wimm/rubyntlm'
 gem 'viewpoint'
 
-# image processing
-gem 'rszr', '0.5.2'
+# integrations - S/MIME
+gem 'openssl'
 
 # Gems used only for develop/test and not required
 # in production environments by default.
@@ -150,8 +158,8 @@ group :development, :test do
   gem 'shoulda-matchers'
   gem 'test-unit'
 
-  # test DB
-  gem 'sqlite3'
+  # for testing Pundit authorisation policies in RSpec
+  gem 'pundit-matchers'
 
   # code coverage
   gem 'coveralls', require: false
@@ -176,7 +184,8 @@ group :development, :test do
   gem 'pre-commit'
   gem 'rubocop'
   gem 'rubocop-performance'
-  gem 'rubocop-rspec'
+  gem 'rubocop-rails'
+  gem 'rubocop-rspec', '2.0.0.pre' # see: https://github.com/rubocop-hq/rubocop-rspec/issues/1051
 
   # changelog generation
   gem 'github_changelog_generator'
@@ -191,6 +200,12 @@ group :development, :test do
   # record and replay TCP/HTTP transactions
   gem 'tcr', git: 'https://github.com/zammad-deps/tcr'
   gem 'vcr'
+
+  # handle deprecations in core and addons
+  gem 'deprecation_toolkit'
+
+  # image comparison in tests
+  gem 'chunky_png'
 end
 
 # Want to extend Zammad with additional gems?

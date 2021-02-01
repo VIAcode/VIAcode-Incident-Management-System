@@ -14,19 +14,8 @@ info about used search index machine
     url = Setting.get('es_url').to_s
     return if url.blank?
 
-    Rails.logger.info "# curl -X GET \"#{url}\""
-    response = UserAgent.get(
-      url,
-      {},
-      {
-        json:         true,
-        open_timeout: 8,
-        read_timeout: 14,
-        user:         Setting.get('es_user'),
-        password:     Setting.get('es_password'),
-      }
-    )
-    Rails.logger.info "# #{response.code}"
+    response = make_request(url)
+
     if response.success?
       installed_version = response.data.dig('version', 'number')
       raise "Unable to get elasticsearch version from response: #{response.inspect}" if installed_version.blank?
@@ -78,18 +67,8 @@ update processors
 
       items.each do |item|
         if item[:action] == 'delete'
-          Rails.logger.info "# curl -X DELETE \"#{url}\""
-          response = UserAgent.delete(
-            url,
-            {
-              json:         true,
-              open_timeout: 8,
-              read_timeout: 60,
-              user:         Setting.get('es_user'),
-              password:     Setting.get('es_password'),
-            }
-          )
-          Rails.logger.info "# #{response.code}"
+          response = make_request(url, method: :delete)
+
           next if response.success?
           next if response.code.to_s == '404'
 
@@ -99,29 +78,10 @@ update processors
             response: response,
           )
         end
-        Rails.logger.info "# curl -X PUT \"#{url}\" \\"
-        Rails.logger.debug { "-d '#{data.to_json}'" }
-        item.delete(:action)
-        response = UserAgent.put(
-          url,
-          item,
-          {
-            json:         true,
-            open_timeout: 8,
-            read_timeout: 60,
-            user:         Setting.get('es_user'),
-            password:     Setting.get('es_password'),
-          }
-        )
-        Rails.logger.info "# #{response.code}"
-        next if response.success?
 
-        raise humanized_error(
-          verb:     'PUT',
-          url:      url,
-          payload:  item,
-          response: response,
-        )
+        item.delete(:action)
+
+        make_request_and_validate(url, data: item, method: :put)
       end
     end
     true
@@ -159,42 +119,14 @@ create/update/delete index
 
   def self.index(data)
 
-    url = build_url(data[:name], nil, false, false)
+    url = build_url(type: data[:name], with_pipeline: false, with_document_type: false)
     return if url.blank?
 
     if data[:action] && data[:action] == 'delete'
       return SearchIndexBackend.remove(data[:name])
     end
 
-    Rails.logger.info "# curl -X PUT \"#{url}\" \\"
-    Rails.logger.debug { "-d '#{data[:data].to_json}'" }
-
-    # note that we use a high read timeout here because
-    # otherwise the request will be retried (underhand)
-    # which leads to an "index_already_exists_exception"
-    # HTTP 400 status error
-    # see: https://github.com/ankane/the-ultimate-guide-to-ruby-timeouts/issues/8
-    # Improving the Elasticsearch config is probably the proper solution
-    response = UserAgent.put(
-      url,
-      data[:data],
-      {
-        json:         true,
-        open_timeout: 8,
-        read_timeout: 60,
-        user:         Setting.get('es_user'),
-        password:     Setting.get('es_password'),
-      }
-    )
-    Rails.logger.info "# #{response.code}"
-    return true if response.success?
-
-    raise humanized_error(
-      verb:     'PUT',
-      url:      url,
-      payload:  data[:data],
-      response: response,
-    )
+    make_request_and_validate(url, data: data[:data], method: :put)
   end
 
 =begin
@@ -207,32 +139,52 @@ add new object to search index
 
   def self.add(type, data)
 
-    url = build_url(type, data['id'])
+    url = build_url(type: type, object_id: data['id'])
     return if url.blank?
 
-    Rails.logger.info "# curl -X POST \"#{url}\" \\"
-    Rails.logger.debug { "-d '#{data.to_json}'" }
+    make_request_and_validate(url, data: data, method: :post)
+  end
 
-    response = UserAgent.post(
-      url,
-      data,
-      {
-        json:         true,
-        open_timeout: 8,
-        read_timeout: 60,
-        user:         Setting.get('es_user'),
-        password:     Setting.get('es_password'),
-      }
-    )
-    Rails.logger.info "# #{response.code}"
-    return true if response.success?
+=begin
 
-    raise humanized_error(
-      verb:     'POST',
-      url:      url,
-      payload:  data,
-      response: response,
-    )
+This function updates specifc attributes of an index based on a query.
+
+  data = {
+    organization: {
+      name: "Zammad Foundation"
+    }
+  }
+  where = {
+    organization_id: 1
+  }
+  SearchIndexBackend.update_by_query('Ticket', data, where)
+
+=end
+
+  def self.update_by_query(type, data, where)
+    return if data.blank?
+    return if where.blank?
+
+    url = build_url(type: type, action: '_update_by_query', with_pipeline: false, with_document_type: false, url_params: { conflicts: 'proceed' })
+    return if url.blank?
+
+    script_list = []
+    data.each do |key, _value|
+      script_list.push("ctx._source.#{key}=params.#{key}")
+    end
+
+    data = {
+      script: {
+        lang:   'painless',
+        source: script_list.join(';'),
+        params: data,
+      },
+      query:  {
+        term: where,
+      },
+    }
+
+    make_request_and_validate(url, data: data, method: :post, read_timeout: 10.minutes)
   end
 
 =begin
@@ -247,25 +199,15 @@ remove whole data from index
 
   def self.remove(type, o_id = nil)
     url = if o_id
-            build_url(type, o_id, false, true)
+            build_url(type: type, object_id: o_id, with_pipeline: false, with_document_type: true)
           else
-            build_url(type, o_id, false, false)
+            build_url(type: type, object_id: o_id, with_pipeline: false, with_document_type: false)
           end
 
     return if url.blank?
 
-    Rails.logger.info "# curl -X DELETE \"#{url}\""
+    response = make_request(url, method: :delete)
 
-    response = UserAgent.delete(
-      url,
-      {
-        open_timeout: 8,
-        read_timeout: 60,
-        user:         Setting.get('es_user'),
-        password:     Setting.get('es_password'),
-      }
-    )
-    Rails.logger.info "# #{response.code}"
     return true if response.success?
     return true if response.code.to_s == '400'
 
@@ -274,7 +216,7 @@ remove whole data from index
       url:      url,
       response: response,
     )
-    Rails.logger.info "NOTICE: can't delete index: #{humanized_error}"
+    Rails.logger.warn "Can't delete index: #{humanized_error}"
     false
   end
 
@@ -337,10 +279,8 @@ remove whole data from index
   def self.search_by_index(query, index, options = {})
     return [] if query.blank?
 
-    url = build_url
+    url = build_url(type: index, action: '_search', with_pipeline: false, with_document_type: true)
     return [] if url.blank?
-
-    url += build_search_url(index)
 
     # real search condition
     condition = {
@@ -363,22 +303,8 @@ remove whole data from index
       query_data[:highlight] = { fields: fields_for_highlight }
     end
 
-    Rails.logger.info "# curl -X POST \"#{url}\" \\"
-    Rails.logger.debug { " -d'#{query_data.to_json}'" }
+    response = make_request(url, data: query_data)
 
-    response = UserAgent.get(
-      url,
-      query_data,
-      {
-        json:         true,
-        open_timeout: 5,
-        read_timeout: 14,
-        user:         Setting.get('es_user'),
-        password:     Setting.get('es_password'),
-      }
-    )
-
-    Rails.logger.info "# #{response.code}"
     if !response.success?
       Rails.logger.error humanized_error(
         verb:     'GET',
@@ -415,9 +341,9 @@ remove whole data from index
       next if value.blank?
       next if order_by&.at(index).blank?
 
-      # for sorting values use .raw values (no analyzer is used - plain values)
+      # for sorting values use .keyword values (no analyzer is used - plain values)
       if value !~ /\./ && value !~ /_(time|date|till|id|ids|at)$/
-        value += '.raw'
+        value += '.keyword'
       end
       result.push(
         value => {
@@ -503,29 +429,13 @@ example for aggregations within one year
   def self.selectors(index, selectors = nil, options = {}, aggs_interval = nil)
     raise 'no selectors given' if !selectors
 
-    url = build_url(nil, nil, false, false)
+    url = build_url(type: index, action: '_search', with_pipeline: false, with_document_type: true)
     return if url.blank?
-
-    url += build_search_url(index)
 
     data = selector2query(selectors, options, aggs_interval)
 
-    Rails.logger.info "# curl -X POST \"#{url}\" \\"
-    Rails.logger.debug { " -d'#{data.to_json}'" }
+    response = make_request(url, data: data)
 
-    response = UserAgent.get(
-      url,
-      data,
-      {
-        json:         true,
-        open_timeout: 5,
-        read_timeout: 14,
-        user:         Setting.get('es_user'),
-        password:     Setting.get('es_password'),
-      }
-    )
-
-    Rails.logger.info "# #{response.code}"
     if !response.success?
       raise humanized_error(
         verb:     'GET',
@@ -541,8 +451,15 @@ example for aggregations within one year
       response.data['hits']['hits'].each do |item|
         ticket_ids.push item['_id']
       end
+
+      # in lower ES 6 versions, we get total count directly, in higher
+      # versions we need to pick it from total has
+      count = response.data['hits']['total']
+      if response.data['hits']['total'].class != Integer
+        count = response.data['hits']['total']['value']
+      end
       return {
-        count:      response.data['hits']['total'],
+        count:      count,
         ticket_ids: ticket_ids,
       }
     end
@@ -556,6 +473,12 @@ example for aggregations within one year
   def self.selector2query(selector, options, aggs_interval)
     options = DEFAULT_QUERY_OPTIONS.merge(options.deep_symbolize_keys)
 
+    current_user = options[:current_user]
+    current_user_id = UserInfo.current_user_id
+    if current_user
+      current_user_id = current_user.id
+    end
+
     query_must = []
     query_must_not = []
     relative_map = {
@@ -568,55 +491,101 @@ example for aggregations within one year
     if selector.present?
       selector.each do |key, data|
         key_tmp = key.sub(/^.+?\./, '')
+        wildcard_or_term = 'term'
+        if data['value'].is_a?(Array)
+          wildcard_or_term = 'terms'
+        end
         t = {}
 
-        # use .raw in cases where query contains ::
-        if data['value'].is_a?(Array)
-          data['value'].each do |value|
-            if value.is_a?(String) && value =~ /::/
-              key_tmp += '.raw'
+        # use .keyword in case of compare exact values
+        if data['operator'] == 'is' || data['operator'] == 'is not'
+
+          case data['pre_condition']
+          when 'not_set'
+            data['value'] = if key_tmp.match?(/^(created_by|updated_by|owner|customer|user)_id/)
+                              1
+                            else
+                              'NULL'
+                            end
+          when 'current_user.id'
+            raise "Use current_user.id in selector, but no current_user is set #{data.inspect}" if !current_user_id
+
+            data['value']    = []
+            wildcard_or_term = 'terms'
+
+            if key_tmp == 'out_of_office_replacement_id'
+              data['value'].push User.find(current_user_id).out_of_office_agent_of.pluck(:id)
+            else
+              data['value'].push current_user_id
+            end
+          when 'current_user.organization_id'
+            raise "Use current_user.id in selector, but no current_user is set #{data.inspect}" if !current_user_id
+
+            user = User.find_by(id: current_user_id)
+            data['value'] = user.organization_id
+          end
+
+          if data['value'].is_a?(Array)
+            data['value'].each do |value|
+              next if !value.is_a?(String) || value !~ /[A-z]/
+
+              key_tmp += '.keyword'
               break
             end
+          elsif data['value'].is_a?(String) && /[A-z]/.match?(data['value'])
+            key_tmp += '.keyword'
           end
-        elsif data['value'].is_a?(String)
-          if /::/.match?(data['value'])
-            key_tmp += '.raw'
+        end
+
+        # use .keyword and wildcard search in cases where query contains non A-z chars
+        if data['operator'] == 'contains' || data['operator'] == 'contains not'
+          if data['value'].is_a?(Array)
+            data['value'].each_with_index do |value, index|
+              next if !value.is_a?(String) || value !~ /[A-z]/ || value !~ /\W/
+
+              data['value'][index] = "*#{value}*"
+              key_tmp += '.keyword'
+              wildcard_or_term = 'wildcards'
+              break
+            end
+          elsif data['value'].is_a?(String) && /[A-z]/.match?(data['value']) && data['value'] =~ /\W/
+            data['value'] = "*#{data['value']}*"
+            key_tmp += '.keyword'
+            wildcard_or_term = 'wildcard'
           end
         end
 
         # is/is not/contains/contains not
-        if data['operator'] == 'is' || data['operator'] == 'is not' || data['operator'] == 'contains' || data['operator'] == 'contains not'
-          if data['value'].is_a?(Array)
-            t[:terms] = {}
-            t[:terms][key_tmp] = data['value']
-          else
-            t[:term] = {}
-            t[:term][key_tmp] = data['value']
-          end
-          if data['operator'] == 'is' || data['operator'] == 'contains'
+        case data['operator']
+        when 'is', 'is not', 'contains', 'contains not'
+          t[wildcard_or_term] = {}
+          t[wildcard_or_term][key_tmp] = data['value']
+          case data['operator']
+          when 'is', 'contains'
             query_must.push t
-          elsif data['operator'] == 'is not' || data['operator'] == 'contains not'
+          when 'is not', 'contains not'
             query_must_not.push t
           end
-        elsif data['operator'] == 'contains all' || data['operator'] == 'contains one' || data['operator'] == 'contains all not' || data['operator'] == 'contains one not'
+        when 'contains all', 'contains one', 'contains all not', 'contains one not'
           values = data['value'].split(',').map(&:strip)
           t[:query_string] = {}
-          if data['operator'] == 'contains all'
+          case data['operator']
+          when 'contains all'
             t[:query_string][:query] = "#{key_tmp}:\"#{values.join('" AND "')}\""
             query_must.push t
-          elsif data['operator'] == 'contains one not'
+          when 'contains one not'
             t[:query_string][:query] = "#{key_tmp}:\"#{values.join('" OR "')}\""
             query_must_not.push t
-          elsif data['operator'] == 'contains one'
+          when 'contains one'
             t[:query_string][:query] = "#{key_tmp}:\"#{values.join('" OR "')}\""
             query_must.push t
-          elsif data['operator'] == 'contains all not'
+          when 'contains all not'
             t[:query_string][:query] = "#{key_tmp}:\"#{values.join('" AND "')}\""
             query_must_not.push t
           end
 
         # within last/within next (relative)
-        elsif data['operator'] == 'within last (relative)' || data['operator'] == 'within next (relative)'
+        when 'within last (relative)', 'within next (relative)'
           range = relative_map[data['range'].to_sym]
           if range.blank?
             raise "Invalid relative_map for range '#{data['range']}'."
@@ -632,7 +601,7 @@ example for aggregations within one year
           query_must.push t
 
         # before/after (relative)
-        elsif data['operator'] == 'before (relative)' || data['operator'] == 'after (relative)'
+        when 'before (relative)', 'after (relative)'
           range = relative_map[data['range'].to_sym]
           if range.blank?
             raise "Invalid relative_map for range '#{data['range']}'."
@@ -648,7 +617,7 @@ example for aggregations within one year
           query_must.push t
 
         # before/after (absolute)
-        elsif data['operator'] == 'before (absolute)' || data['operator'] == 'after (absolute)'
+        when 'before (absolute)', 'after (absolute)'
           t[:range] = {}
           t[:range][key_tmp] = {}
           if data['operator'] == 'before (absolute)'
@@ -709,6 +678,8 @@ example for aggregations within one year
       }
       sort[1] = '_score'
       data['sort'] = sort
+    else
+      data['sort'] = search_by_index_sort(options[:sort_by], options[:order_by])
     end
 
     data
@@ -728,10 +699,28 @@ return true if backend is configured
     true
   end
 
-  def self.build_index_name(index)
+  def self.build_index_name(index = nil)
     local_index = "#{Setting.get('es_index')}_#{Rails.env}"
+    return local_index if index.blank?
+    return "#{local_index}/#{index}" if lower_equal_es56?
 
     "#{local_index}_#{index.underscore.tr('/', '_')}"
+  end
+
+=begin
+
+return true if the elastic search version is lower equal 5.6
+
+  result = SearchIndexBackend.lower_equal_es56?
+
+returns
+
+  result = true
+
+=end
+
+  def self.lower_equal_es56?
+    Setting.get('es_multi_index') == false
   end
 
 =begin
@@ -739,74 +728,57 @@ return true if backend is configured
 generate url for index or document access (only for internal use)
 
   # url to access single document in index (in case with_pipeline or not)
-  url = SearchIndexBackend.build_url('User', 123, with_pipeline)
+  url = SearchIndexBackend.build_url(type: 'User', object_id: 123, with_pipeline: true)
 
   # url to access whole index
-  url = SearchIndexBackend.build_url('User')
+  url = SearchIndexBackend.build_url(type: 'User')
 
   # url to access document definition in index (only es6 and higher)
-  url = SearchIndexBackend.build_url('User', nil, false, true)
+  url = SearchIndexBackend.build_url(type: 'User', with_pipeline: false, with_document_type: true)
 
   # base url
   url = SearchIndexBackend.build_url
 
 =end
 
-  def self.build_url(type = nil, o_id = nil, with_pipeline = true, with_document_type = true)
+  # rubocop:disable Metrics/ParameterLists
+  def self.build_url(type: nil, action: nil, object_id: nil, with_pipeline: true, with_document_type: true, url_params: {})
+    # rubocop:enable  Metrics/ParameterLists
     return if !SearchIndexBackend.enabled?
 
-    # for elasticsearch 5.6 and lower
-    index = "#{Setting.get('es_index')}_#{Rails.env}"
-    if Setting.get('es_multi_index') == false
-      url = Setting.get('es_url')
-      url = if type
-              if with_pipeline == true
-                url_pipline = Setting.get('es_pipeline')
-                if url_pipline.present?
-                  url_pipline = "?pipeline=#{url_pipline}"
-                end
-              end
-              if o_id
-                "#{url}/#{index}/#{type}/#{o_id}#{url_pipline}"
-              else
-                "#{url}/#{index}/#{type}#{url_pipline}"
-              end
-            else
-              "#{url}/#{index}"
-            end
-      return url
-    end
+    # set index
+    index = build_index_name(type)
 
-    # for elasticsearch 6.x and higher
-    url = Setting.get('es_url')
-    if with_pipeline == true
+    # add pipeline if needed
+    if index && with_pipeline == true
       url_pipline = Setting.get('es_pipeline')
       if url_pipline.present?
-        url_pipline = "?pipeline=#{url_pipline}"
+        url_params['pipeline'] = url_pipline
       end
     end
-    if type
-      index = build_index_name(type)
 
+    # prepare url params
+    params_string = ''
+    if url_params.present?
+      params_string = "?#{URI.encode_www_form(url_params)}"
+    end
+
+    url = Setting.get('es_url')
+    return "#{url}#{params_string}" if index.blank?
       # access (e. g. creating or dropping) whole index
       if with_document_type == false
-        return "#{url}/#{index}"
-      end
 
-      # access single document in index (e. g. drop or add document)
-      if o_id
-        return "#{url}/#{index}/_doc/#{o_id}#{url_pipline}"
-      end
+    # add type information
+    url = "#{url}/#{index}"
 
-      # access document type (e. g. creating or dropping document mapping)
-      return "#{url}/#{index}/_doc#{url_pipline}"
+    # add document type
+    if with_document_type && !lower_equal_es56?
+      url = "#{url}/_doc"
     end
-    "#{url}/"
-  end
 
-=begin
-
-generate url searchaccess (only for internal use)
+    # add action
+    if action
+      url = "#{url}/#{action}"
 
   # url search access with single index
   url = SearchIndexBackend.build_search_url('User')
@@ -817,26 +789,25 @@ generate url searchaccess (only for internal use)
 =end
 
   def self.build_search_url(index = nil)
-
-    # for elasticsearch 5.6 and lower
-    if Setting.get('es_multi_index') == false
-      if index
-        return "/#{index}/_search"
-      end
-
-      return '/_search'
     end
 
-    # for elasticsearch 6.x and higher
-    "#{build_index_name(index)}/_doc/_search"
+    # add object id
+    if object_id.present?
+      url = "#{url}/#{object_id}"
+    end
+
+    "#{url}#{params_string}"
   end
 
-  def self.humanized_error(verb:, url:, payload: nil, response:)
+  def self.humanized_error(verb:, url:, response:, payload: nil)
     prefix = "Unable to process #{verb} request to elasticsearch URL '#{url}'."
-    suffix = "\n\nResponse:\n#{response.inspect}\n\nPayload:\n#{payload.inspect}"
+    suffix = "\n\nResponse:\n#{response.inspect}\n\n"
 
     if payload.respond_to?(:to_json)
+      suffix += "Payload:\n#{payload.to_json}"
       suffix += "\n\nPayload size: #{payload.to_json.bytesize / 1024 / 1024}M"
+    else
+      suffix += "Payload:\n#{payload.inspect}"
     end
 
     message = if response&.error&.match?('Connection refused')
@@ -855,7 +826,7 @@ generate url searchaccess (only for internal use)
   # add * on simple query like "somephrase23"
   def self.append_wildcard_to_simple_query(query)
     query.strip!
-    query += '*' if !query.match?(/:/)
+    query += '*' if query.exclude?(':')
     query
   end
 
@@ -890,13 +861,87 @@ generate url searchaccess (only for internal use)
       }
     }
 
-    if (extension = options.dig(:query_extension))
+    if (extension = options[:query_extension])
       data[:query].deep_merge! extension.deep_dup
     end
 
     data[:query][:bool][:must].push condition
 
     data
+  end
+
+=begin
+
+refreshes all indexes to make previous request data visible in future requests
+
+  SearchIndexBackend.refresh
+
+=end
+
+  def self.refresh
+    return if !enabled?
+
+    url = "#{Setting.get('es_url')}/_all/_refresh"
+
+    make_request_and_validate(url, method: :post)
+  end
+
+=begin
+
+helper method for making HTTP calls
+
+@param url [String] url
+@option params [Hash] :data is a payload hash
+@option params [Symbol] :method is a HTTP method
+@option params [Integer] :open_timeout is HTTP request open timeout
+@option params [Integer] :read_timeout is HTTP request read timeout
+
+@return UserAgent response
+
+=end
+  def self.make_request(url, data: {}, method: :get, open_timeout: 8, read_timeout: 180)
+    Rails.logger.info "# curl -X #{method} \"#{url}\" "
+    Rails.logger.debug { "-d '#{data.to_json}'" } if data.present?
+
+    options = {
+      json:              true,
+      open_timeout:      open_timeout,
+      read_timeout:      read_timeout,
+      total_timeout:     (open_timeout + read_timeout + 60),
+      open_socket_tries: 3,
+      user:              Setting.get('es_user'),
+      password:          Setting.get('es_password'),
+    }
+
+    response = UserAgent.send(method, url, data, options)
+
+    Rails.logger.info "# #{response.code}"
+
+    response
+  end
+
+=begin
+
+helper method for making HTTP calls and raising error if response was not success
+
+@param url [String] url
+@option args [Hash] see {make_request}
+
+@return [Boolean] always returns true. Raises error if something went wrong.
+
+=end
+
+  def self.make_request_and_validate(url, **args)
+    response = make_request(url, args)
+
+    return true if response.success?
+
+    raise humanized_error(
+      verb:     args[:method],
+      url:      url,
+      payload:  args[:data],
+      response: response
+    )
   end
 
 end

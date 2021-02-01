@@ -13,21 +13,24 @@ RSpec.describe Import::OTRS::ArticleCustomer do
   let(:start_import_test) { described_class.new(object_structure) }
 
   it 'finds customers by email' do
-    expect(import_object).to receive(:find_by).with(email: 'kunde2@kunde.de').and_return(existing_object)
+    allow(import_object).to receive(:find_by).with(email: 'kunde2@kunde.de').and_return(existing_object)
+
     expect(import_object).not_to receive(:create)
     start_import_test
   end
 
   it 'finds customers by login' do
-    expect(import_object).to receive(:find_by).with(email: 'kunde2@kunde.de')
-    expect(import_object).to receive(:find_by).with(login: 'kunde2@kunde.de').and_return(existing_object)
+    allow(import_object).to receive(:find_by)
+    allow(import_object).to receive(:find_by).with(login: 'kunde2@kunde.de').and_return(existing_object)
+
     expect(import_object).not_to receive(:create)
     start_import_test
   end
 
   it 'creates customers' do
+    allow(import_object).to receive(:create).and_return(existing_object)
+
     expect(import_object).to receive(:find_by).at_least(:once)
-    expect(import_object).to receive(:create).and_return(existing_object)
     start_import_test
   end
 
@@ -48,14 +51,14 @@ RSpec.describe Import::OTRS::ArticleCustomer do
     expect(User.last.login).to eq('user@example.com')
   end
 
-  context '.find' do
+  describe '.find' do
 
     it 'returns nil if no email could be found' do
       expect(described_class.find({})).to be nil
     end
   end
 
-  context '.local_email' do
+  describe '.local_email' do
 
     it 'returns nil if no email could be found' do
       expect(described_class.local_email(nil)).to be nil

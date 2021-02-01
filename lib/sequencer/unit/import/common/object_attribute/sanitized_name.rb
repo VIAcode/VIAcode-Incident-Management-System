@@ -4,6 +4,9 @@ class Sequencer
       module Common
         module ObjectAttribute
           class SanitizedName < Sequencer::Unit::Common::Provider::Named
+            prepend ::Sequencer::Unit::Import::Common::Model::Mixin::Skip::Action
+
+            skip_action :skipped, :failed
 
             private
 
@@ -12,6 +15,8 @@ class Sequencer
               # model_nos
               # model_name
               # model_name
+              # model_name
+              # model_name_
               # model_name
               without_double_underscores.gsub(/_id(s?)$/, '_no\1')
             end
@@ -22,16 +27,31 @@ class Sequencer
               # model_name
               # model_name
               # model_name
-              without_spaces_and_slashes.gsub(/_{2,}/, '_')
+              # model_name_
+              # model_name
+              only_supported_chars.gsub(/_{2,}/, '_')
             end
 
-            def without_spaces_and_slashes
+            def only_supported_chars
               # model_id
               # model_ids
               # model___name
               # model_name
+              # model__name
+              # model_name_
               # model_name
-              transliterated.gsub(%r{[\s\/]}, '_').underscore
+              downcased.split('').map { |char| char.match?(/[a-z0-9_]/) ? char : '_' }.join
+            end
+
+            def downcased
+              # model id
+              # model ids
+              # model / name
+              # model name
+              # model::name
+              # model name?
+              # model name
+              transliterated.downcase
             end
 
             def transliterated
@@ -39,6 +59,8 @@ class Sequencer
               # Model IDs
               # Model / Name
               # Model Name
+              # Model::Name
+              # Model Name?
               # Model Name
               ::ActiveSupport::Inflector.transliterate(unsanitized_name, '_'.freeze)
             end
@@ -48,6 +70,8 @@ class Sequencer
               # Model IDs
               # Model / Name
               # Model Name
+              # Model::Name
+              # Model Name?
               # rubocop:disable Style/AsciiComments
               # Mödel Nâmé
               # rubocop:enable Style/AsciiComments

@@ -4,10 +4,6 @@ class User
   module Search
     extend ActiveSupport::Concern
 
-    included do
-      include HasSearchSortable
-    end
-
     # methods defined here are going to extend the class, not the instance of it
     class_methods do
 
@@ -83,11 +79,13 @@ returns
         offset = params[:offset] || 0
         current_user = params[:current_user]
 
+        sql_helper = ::SqlHelper.new(object: self)
+
         # check sort - positions related to order by
-        sort_by = search_get_sort_by(params, %w[active updated_at])
+        sort_by = sql_helper.get_sort_by(params, %w[active updated_at])
 
         # check order - positions related to sort by
-        order_by = search_get_order_by(params, %w[desc desc])
+        order_by = sql_helper.get_order_by(params, %w[desc desc])
 
         # enable search only for agents and admins
         return [] if !search_preferences(current_user)
@@ -129,27 +127,27 @@ returns
           return users
         end
 
-        order_sql = search_get_order_sql(sort_by, order_by, 'users.updated_at DESC')
+        order_sql = sql_helper.get_order(sort_by, order_by, 'users.updated_at DESC')
 
         # fallback do sql query
         # - stip out * we already search for *query* -
         query.delete! '*'
-        users = if params[:role_ids]
-                  User.joins(:roles).where('roles.id' => params[:role_ids]).where(
-                    '(users.firstname LIKE ? OR users.lastname LIKE ? OR users.email LIKE ? OR users.login LIKE ?) AND users.id != 1', "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%"
-                  )
-                  .order(Arel.sql(order_sql))
-                  .offset(offset)
-                  .limit(limit)
-                else
-                  User.where(
-                    '(firstname LIKE ? OR lastname LIKE ? OR email LIKE ? OR login LIKE ?) AND id != 1', "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%"
-                  )
-                  .order(Arel.sql(order_sql))
-                  .offset(offset)
-                  .limit(limit)
-                end
-        users
+        if params[:role_ids]
+          User.joins(:roles).where('roles.id' => params[:role_ids]).where(
+            '(users.firstname LIKE ? OR users.lastname LIKE ? OR users.email LIKE ? OR users.login LIKE ?) AND users.id != 1', "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%"
+          )
+          .order(Arel.sql(order_sql))
+          .offset(offset)
+          .limit(limit)
+        else
+          User.where(
+            '(firstname LIKE ? OR lastname LIKE ? OR email LIKE ? OR login LIKE ?) AND id != 1', "%#{query}%", "%#{query}%", "%#{query}%", "%#{query}%"
+          )
+          .order(Arel.sql(order_sql))
+          .offset(offset)
+          .limit(limit)
+        end
+
       end
     end
   end

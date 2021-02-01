@@ -2,6 +2,7 @@
 require_dependency 'karma/user'
 
 class User < ApplicationModel
+  include CanBeAuthorized
   include CanBeImported
   include HasActivityStreamLog
   include ChecksClientNotification
@@ -12,28 +13,47 @@ class User < ApplicationModel
   include HasGroups
   include HasRoles
   include HasObjectManagerAttributesValidation
-
-  include User::ChecksAccess
+  include HasTicketCreateScreenImpact
+  include HasTaskbars
+  include User::HasTicketCreateScreenImpact
   include User::Assets
   include User::Search
   include User::SearchIndex
 
-  has_and_belongs_to_many :roles,          after_add: %i[cache_update check_notifications], after_remove: :cache_update, before_add: %i[validate_agent_limit_by_role validate_roles], before_remove: :last_admin_check_by_role, class_name: 'Role'
-  has_and_belongs_to_many :organizations,  after_add: :cache_update, after_remove: :cache_update, class_name: 'Organization'
-  has_many                :tokens,         after_add: :cache_update, after_remove: :cache_update
-  has_many                :authorizations, after_add: :cache_update, after_remove: :cache_update
-  belongs_to              :organization,   inverse_of: :members, optional: true
+  has_and_belongs_to_many :organizations,          after_add: :cache_update, after_remove: :cache_update, class_name: 'Organization'
+  has_and_belongs_to_many :overviews,              dependent: :nullify
+  has_many                :tokens,                 after_add: :cache_update, after_remove: :cache_update, dependent: :destroy
+  has_many                :authorizations,         after_add: :cache_update, after_remove: :cache_update, dependent: :destroy
+  has_many                :online_notifications,   dependent: :destroy
+  has_many                :templates,              dependent: :destroy
+  has_many                :taskbars,               dependent: :destroy
+  has_many                :user_devices,           dependent: :destroy
+  has_one                 :chat_agent_created_by,  class_name: 'Chat::Agent', foreign_key: :created_by_id, dependent: :destroy, inverse_of: :created_by
+  has_one                 :chat_agent_updated_by,  class_name: 'Chat::Agent', foreign_key: :updated_by_id, dependent: :destroy, inverse_of: :updated_by
+  has_many                :chat_sessions,          class_name: 'Chat::Session', dependent: :destroy
+  has_many                :karma_user,             class_name: 'Karma::User', dependent: :destroy
+  has_many                :karma_activity_logs,    class_name: 'Karma::ActivityLog', dependent: :destroy
+  has_many                :cti_caller_ids,         class_name: 'Cti::CallerId', dependent: :destroy
+  has_many                :text_modules,           dependent: :destroy
+  has_many                :customer_tickets,       class_name: 'Ticket', foreign_key: :customer_id, dependent: :destroy, inverse_of: :customer
+  has_many                :owner_tickets,          class_name: 'Ticket', foreign_key: :owner_id, inverse_of: :owner
+  has_many                :created_recent_views,   class_name: 'RecentView', foreign_key: :created_by_id, dependent: :destroy, inverse_of: :created_by
+  has_many                :permissions,            -> { where(roles: { active: true }, active: true) }, through: :roles
+  has_many                :data_privacy_tasks,     as: :deletable
+  belongs_to              :organization,           inverse_of: :members, optional: true
 
   before_validation :check_name, :check_email, :check_login, :ensure_uniq_email, :ensure_password, :ensure_roles, :ensure_identifier
   before_validation :check_mail_delivery_failed, on: :update
   before_create     :check_preferences_default, :validate_preferences, :validate_ooo, :domain_based_assignment, :set_locale
-  before_update     :check_preferences_default, :validate_preferences, :validate_ooo, :reset_login_failed, :validate_agent_limit_by_attributes, :last_admin_check_by_attribute
   after_create      :avatar_for_email_check, unless: -> { BulkImportInfo.enabled? }
+  before_update     :check_preferences_default, :validate_preferences, :validate_ooo, :reset_login_failed, :validate_agent_limit_by_attributes, :last_admin_check_by_attribute
   after_update      :avatar_for_email_check, unless: -> { BulkImportInfo.enabled? }
+  before_destroy    :destroy_longer_required_objects, :destroy_move_dependency_ownership
   after_commit      :update_caller_id
-  before_destroy    :destroy_longer_required_objects
 
   store :preferences
+
+  association_attributes_ignored :online_notifications, :templates, :taskbars, :user_devices, :chat_sessions, :karma_activity_logs, :cti_caller_ids, :text_modules, :customer_tickets, :owner_tickets, :created_recent_views, :chat_agents, :data_privacy_tasks, :overviews
 
   activity_stream_permission 'admin.user'
 
@@ -42,6 +62,8 @@ class User < ApplicationModel
                                      :image,
                                      :image_source,
                                      :preferences
+
+  association_attributes_ignored :permissions
 
   history_attributes_ignored :password,
                              :last_login,
@@ -333,27 +355,6 @@ returns
 
 =begin
 
-authenticate user agains sso
-
-  result = User.sso(sso_params)
-
-returns
-
-  result = user_model # user model if authentication was successfully
-
-=end
-
-  def self.sso(params)
-
-    # try to login against configure auth backends
-    user_auth = Sso.check(params)
-    return if !user_auth
-
-    user_auth
-  end
-
-=begin
-
 create user from from omni auth hash
 
   result = User.create_from_hash!(hash)
@@ -399,73 +400,6 @@ returns
 
 =begin
 
-get all permissions of user
-
-  user = User.find(123)
-  user.permissions
-
-returns
-
-  {
-    'permission.key' => true,
-    # ...
-  }
-
-=end
-
-  def permissions
-    list = {}
-    ::Permission.select('permissions.name, permissions.preferences').joins(:roles).where('roles.id IN (?) AND permissions.active = ?', role_ids, true).pluck(:name, :preferences).each do |permission|
-      next if permission[1]['selectable'] == false
-
-      list[permission[0]] = true
-    end
-    list
-  end
-
-=begin
-
-true or false for permission
-
-  user = User.find(123)
-  user.permissions?('permission.key') # access to certain permission.key
-  user.permissions?(['permission.key1', 'permission.key2']) # access to permission.key1 or permission.key2
-
-  user.permissions?('permission') # access to all sub keys
-
-  user.permissions?('permission.*') # access if one sub key access exists
-
-returns
-
-  true|false
-
-=end
-
-  def permissions?(key)
-    keys = key
-    if key.class == String
-      keys = [key]
-    end
-    keys.each do |local_key|
-      list = []
-      if local_key.match?(/\.\*$/)
-        local_key.sub!('.*', '.%')
-        permissions = ::Permission.with_parents(local_key)
-        list = ::Permission.select('preferences').joins(:roles).where('roles.id IN (?) AND roles.active = ? AND (permissions.name IN (?) OR permissions.name LIKE ?) AND permissions.active = ?', role_ids, true, permissions, local_key, true).pluck(:preferences)
-      else
-        permission = ::Permission.lookup(name: local_key)
-        break if permission&.active == false
-
-        permissions = ::Permission.with_parents(local_key)
-        list = ::Permission.select('preferences').joins(:roles).where('roles.id IN (?) AND roles.active = ? AND permissions.name IN (?) AND permissions.active = ?', role_ids, true, permissions, true).pluck(:preferences)
-      end
-      return true if list.present?
-    end
-    false
-  end
-
-=begin
-
 returns all accessable permission ids of user
 
   user = User.find(123)
@@ -480,7 +414,7 @@ returns
   def permissions_with_child_ids
     where = ''
     where_bind = [true]
-    permissions.each_key do |permission_name|
+    permissions.pluck(:name).each do |permission_name|
       where += ' OR ' if where != ''
       where += 'permissions.name = ? OR permissions.name LIKE ?'
       where_bind.push permission_name
@@ -612,7 +546,7 @@ returns
     return if !user
 
     # reset password
-    user.update!(password: password)
+    user.update!(password: password, verified: true)
 
     # delete token
     Token.find_by(action: 'PasswordReset', name: token).destroy
@@ -725,7 +659,7 @@ returns
     # to prevent any unexpected regressions.)
     User.find(user_id_of_duplicate_user)
 
-    # merge missing attibutes
+    # merge missing attributes
     Models.merge('User', id, user_id_of_duplicate_user)
 
     true
@@ -759,7 +693,7 @@ returns
 
 =begin
 
-update/sync default preferences of users in a dedecated permissions
+update/sync default preferences of users with dedicated permissions
 
   result = User.update_default_preferences_by_permission('ticket.agent', force)
 
@@ -796,7 +730,7 @@ returns
 
 =begin
 
-update/sync default preferences of users in a dedecated role
+update/sync default preferences of users in a dedicated role
 
   result = User.update_default_preferences_by_role('Agent', force)
 
@@ -849,13 +783,12 @@ returns
   end
 
   def check_preferences_default
-    if @preferences_default.blank?
-      if id
-        roles.each do |role|
-          check_notifications(role, false)
-        end
+    if @preferences_default.blank? && id
+      roles.each do |role|
+        check_notifications(role, false)
       end
     end
+
     return if @preferences_default.blank?
 
     preferences_tmp = @preferences_default.merge(preferences)
@@ -918,7 +851,7 @@ try to find correct name
 
     # -no name- "firstname.lastname@example.com"
     if string.blank? && email.present?
-      scan = email.scan(/^(.+?)\.(.+?)\@.+?$/)
+      scan = email.scan(/^(.+?)\.(.+?)@.+?$/)
       if scan[0].present?
         if scan[0][0].present?
           firstname = scan[0][0].strip
@@ -937,9 +870,9 @@ try to find correct name
     firstname.blank? && lastname.blank?
   end
 
-  # get locale of user or system if user's own is not set
+  # get locale identifier of user or system if user's own is not set
   def locale
-    preferences.fetch(:locale) { Setting.get('locale_default') }
+    preferences.fetch(:locale) { Locale.default }
   end
 
   private
@@ -980,8 +913,11 @@ try to find correct name
 
     self.email = email.downcase.strip
     return true if id == 1
-    raise Exceptions::UnprocessableEntity, 'Invalid email' if email !~ /@/
-    raise Exceptions::UnprocessableEntity, 'Invalid email' if email.match?(/\s/)
+
+    email_address_validation = EmailAddressValidation.new(email)
+    if !email_address_validation.valid_format?
+      raise Exceptions::UnprocessableEntity, "Invalid email '#{email}'"
+    end
 
     true
   end
@@ -994,10 +930,8 @@ try to find correct name
     end
 
     # if email has changed, login is old email, change also login
-    if changes && changes['email']
-      if changes['email'][0] == login
-        self.login = email
-      end
+    if changes && changes['email'] && changes['email'][0] == login
+      self.login = email
     end
 
     # generate auto login
@@ -1044,9 +978,9 @@ try to find correct name
     return true if email.blank?
     return true if !changes
     return true if !changes['email']
-    return true if !User.find_by(email: email.downcase.strip)
+    return true if !User.exists?(email: email.downcase.strip)
 
-    raise Exceptions::UnprocessableEntity, 'Email address is already used for other user.'
+    raise Exceptions::UnprocessableEntity, "Email address '#{email.downcase.strip}' is already used for other user."
   end
 
   def validate_roles(role)
@@ -1069,7 +1003,7 @@ try to find correct name
     raise Exceptions::UnprocessableEntity, 'out of office end is required' if out_of_office_end_at.blank?
     raise Exceptions::UnprocessableEntity, 'out of office end is before start' if out_of_office_start_at > out_of_office_end_at
     raise Exceptions::UnprocessableEntity, 'out of office replacement user is required' if out_of_office_replacement_id.blank?
-    raise Exceptions::UnprocessableEntity, 'out of office no such replacement user' if !User.find_by(id: out_of_office_replacement_id)
+    raise Exceptions::UnprocessableEntity, 'out of office no such replacement user' if !User.exists?(id: out_of_office_replacement_id)
 
     true
   end
@@ -1081,9 +1015,10 @@ try to find correct name
     return true if !preferences[:notification_sound]
     return true if !preferences[:notification_sound][:enabled]
 
-    if preferences[:notification_sound][:enabled] == 'true'
+    case preferences[:notification_sound][:enabled]
+    when 'true'
       preferences[:notification_sound][:enabled] = true
-    elsif preferences[:notification_sound][:enabled] == 'false'
+    when 'false'
       preferences[:notification_sound][:enabled] = false
     end
     class_name = preferences[:notification_sound][:enabled].class.to_s
@@ -1152,7 +1087,7 @@ raise 'Minimum one user need to have admin permissions'
       # if user already has a ticket.agent role
       hint = false
       role_ids.each do |locale_role_id|
-        next if !ticket_agent_role_ids.include?(locale_role_id)
+        next if ticket_agent_role_ids.exclude?(locale_role_id)
 
         hint = true
         break
@@ -1203,7 +1138,10 @@ raise 'Minimum one user need to have admin permissions'
   def avatar_for_email_check
     return true if Setting.get('import_mode')
     return true if email.blank?
-    return true if email !~ /@/
+
+    email_address_validation = EmailAddressValidation.new(email)
+    return true if !email_address_validation.valid_format?
+
     return true if !saved_change_to_attribute?('email') && updated_at > Time.zone.now - 10.days
 
     # save/update avatar
@@ -1225,20 +1163,37 @@ raise 'Minimum one user need to have admin permissions'
   end
 
   def destroy_longer_required_objects
-    ::Authorization.where(user_id: id).destroy_all
-    ::Avatar.remove('User', id)
-    ::Cti::CallerId.where(user_id: id).destroy_all
-    ::Taskbar.where(user_id: id).destroy_all
-    ::Karma::ActivityLog.where(user_id: id).destroy_all
-    ::Karma::User.where(user_id: id).destroy_all
-    ::OnlineNotification.where(user_id: id).destroy_all
-    ::RecentView.where(created_by_id: id).destroy_all
+    ::Avatar.remove(self.class.to_s, id)
     ::UserDevice.remove(id)
-    ::Token.where(user_id: id).destroy_all
-    ::StatsStore.remove(
-      object: 'User',
-      o_id:   id,
-    )
+    ::StatsStore.where(stats_storable: self).destroy_all
+  end
+
+  def destroy_move_dependency_ownership
+    result = Models.references(self.class.to_s, id)
+
+    user_columns = %w[created_by_id updated_by_id origin_by_id owner_id archived_by_id published_by_id internal_by_id]
+    result.each do |class_name, references|
+      next if class_name.blank?
+      next if references.blank?
+
+      ref_class = class_name.constantize
+      references.each do |column, reference_found|
+        next if !reference_found
+
+        if user_columns.include?(column)
+          ref_class.where(column => id).find_in_batches(batch_size: 1000) do |batch_list|
+            batch_list.each do |record|
+              record.update!(column => 1)
+            rescue => e
+              Rails.logger.error e
+            end
+          end
+        elsif ref_class.exists?(column => id)
+          raise "Failed deleting references! Check logic for #{class_name}->#{column}."
+        end
+      end
+    end
+
     true
   end
 
@@ -1254,7 +1209,7 @@ raise 'Minimum one user need to have admin permissions'
     # don't permit empty password update for existing users
     return password_was if password.blank?
 
-    # don't re-hash an already hashed passsword
+    # don't re-hash passwords
     return password if PasswordHash.crypted?(password)
 
     # hash the plaintext password

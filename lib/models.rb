@@ -27,7 +27,7 @@ returns
   def self.all
     @all ||= begin
       all    = {}
-      dir    = Rails.root.join('app', 'models').to_s
+      dir    = Rails.root.join('app/models').to_s
       tables = ActiveRecord::Base.connection.tables
       Dir.glob("#{dir}/**/*.rb") do |entry|
         next if entry.match?(/application_model/i)
@@ -44,7 +44,7 @@ returns
         next if !model_class.respond_to? :table_name
 
         table_name = model_class.table_name # handle models where not table exists, pending migrations
-        next if !tables.include?(table_name)
+        next if tables.exclude?(table_name)
 
         model_object = model_class.new
         next if !model_object.respond_to? :attributes
@@ -114,7 +114,7 @@ returns
 
 =end
 
-  def self.references(object_name, object_id)
+  def self.references(object_name, object_id, include_zero = false)
     object_name = object_name.to_s
 
     # check if model exists
@@ -140,10 +140,10 @@ returns
       next if !model_attributes[:attributes]
 
       ref_attributes.each do |item|
-        next if !model_attributes[:attributes].include?(item)
+        next if model_attributes[:attributes].exclude?(item)
 
         count = model_class.where("#{item} = ?", object_id).count
-        next if count.zero?
+        next if count.zero? && !include_zero
 
         if !references[model_class.to_s][item]
           references[model_class.to_s][item] = 0
@@ -154,7 +154,7 @@ returns
     end
 
     # find relations via reflections
-    list.each do |model_class, model_attributes|
+    list.each do |model_class, model_attributes| # rubocop:disable Style/CombinableLoops
       next if !model_attributes[:reflections]
 
       model_attributes[:reflections].each_value do |reflection_value|
@@ -166,7 +166,7 @@ returns
 
         if reflection_value.options[:class_name] == object_name
           count = model_class.where("#{col_name} = ?", object_id).count
-          next if count.zero?
+          next if count.zero? && !include_zero
 
           if !references[model_class.to_s][col_name]
             references[model_class.to_s][col_name] = 0
@@ -179,7 +179,7 @@ returns
         next if reflection_value.name != object_name.downcase.to_sym
 
         count = model_class.where("#{col_name} = ?", object_id).count
-        next if count.zero?
+        next if count.zero? && !include_zero
 
         if !references[model_class.to_s][col_name]
           references[model_class.to_s][col_name] = 0
@@ -266,6 +266,9 @@ returns
         items_to_update.each_value(&:save!)
       end
     end
+
+    ExternalSync.migrate(object_name, object_id_primary, object_id_to_merge)
+
     true
   end
 end

@@ -1,7 +1,8 @@
 # Copyright (C) 2012-2016 Zammad Foundation, http://zammad-foundation.org/
 
 class OrganizationsController < ApplicationController
-  prepend_before_action :authentication_check
+  prepend_before_action -> { authorize! }, except: %i[index show]
+  prepend_before_action { authentication_check }
 
 =begin
 
@@ -47,56 +48,7 @@ curl http://localhost/api/v1/organizations -v -u #{login}:#{password}
 =end
 
   def index
-    offset = 0
-    per_page = 500
-
-    if params[:page] && params[:per_page]
-      offset = (params[:page].to_i - 1) * params[:per_page].to_i
-      per_page = params[:per_page].to_i
-    end
-
-    if per_page > 500
-      per_page = 500
-    end
-
-    # only allow customer to fetch his own organization
-    organizations = []
-    if !current_user.permissions?(['admin.organization', 'ticket.agent'])
-      if current_user.organization_id
-        organizations = Organization.where(id: current_user.organization_id).order(id: :asc).offset(offset).limit(per_page)
-      end
-    else
-      organizations = Organization.all.order(id: :asc).offset(offset).limit(per_page)
-    end
-
-    if response_expand?
-      list = []
-      organizations.each do |organization|
-        list.push organization.attributes_with_association_names
-      end
-      render json: list, status: :ok
-      return
-    end
-
-    if response_full?
-      assets = {}
-      item_ids = []
-      organizations.each do |item|
-        item_ids.push item.id
-        assets = item.assets(assets)
-      end
-      render json: {
-        record_ids: item_ids,
-        assets:     assets,
-      }, status: :ok
-      return
-    end
-
-    list = []
-    organizations.each do |organization|
-      list.push organization.attributes_with_association_ids
-    end
-    render json: list
+    model_index_render(policy_scope(Organization), params)
   end
 
 =begin
@@ -117,14 +69,17 @@ curl http://localhost/api/v1/organizations/#{id} -v -u #{login}:#{password}
 =end
 
   def show
+    begin
+      authorize!
+    rescue Pundit::NotAuthorizedError
+      # we have a special case here where Users that have no
+      # organization can request any organization_id but get
+      # an empty response. However, users with an organization_id
+      # get that error
+      raise if current_user.organization_id
 
-    # only allow customer to fetch his own organization
-    if !current_user.permissions?(['admin.organization', 'ticket.agent'])
-      if !current_user.organization_id
-        render json: {}
-        return
-      end
-      raise Exceptions::NotAuthorized if params[:id].to_i != current_user.organization_id
+      render json: {}
+      return
     end
 
     if response_expand?
@@ -168,7 +123,6 @@ curl http://localhost/api/v1/organizations -v -u #{login}:#{password} -H "Conten
 =end
 
   def create
-    permission_check(['admin.organization', 'ticket.agent'])
     model_create_render(Organization, params)
   end
 
@@ -199,7 +153,6 @@ curl http://localhost/api/v1/organizations -v -u #{login}:#{password} -H "Conten
 =end
 
   def update
-    permission_check(['admin.organization', 'ticket.agent'])
     model_update_render(Organization, params)
   end
 
@@ -217,15 +170,12 @@ curl http://localhost/api/v1/organization/{id} -v -u #{login}:#{password} -H "Co
 =end
 
   def destroy
-    permission_check(['admin.organization', 'ticket.agent'])
     model_references_check(Organization, params)
     model_destroy_render(Organization, params)
   end
 
   # GET /api/v1/organizations/search
   def search
-    raise Exceptions::NotAuthorized if !current_user.permissions?(['admin.organization', 'ticket.agent'])
-
     per_page = params[:per_page] || params[:limit] || 100
     per_page = per_page.to_i
     if per_page > 500
@@ -301,8 +251,6 @@ curl http://localhost/api/v1/organization/{id} -v -u #{login}:#{password} -H "Co
 
   # GET /api/v1/organizations/history/1
   def history
-    raise Exceptions::NotAuthorized if !current_user.permissions?(['admin.organization', 'ticket.agent'])
-
     # get organization data
     organization = Organization.find(params[:id])
 
@@ -319,7 +267,6 @@ curl http://localhost/api/v1/organization/{id} -v -u #{login}:#{password} -H "Co
   # @response_message 200 File download.
   # @response_message 401 Invalid session.
   def import_example
-    permission_check('admin.organization')
     send_data(
       Organization.csv_example,
       filename:    'organization-example.csv',
@@ -338,7 +285,6 @@ curl http://localhost/api/v1/organization/{id} -v -u #{login}:#{password} -H "Co
   # @response_message 201 Import started.
   # @response_message 401 Invalid session.
   def import_start
-    permission_check('admin.user')
     string = params[:data]
     if string.blank? && params[:file].present?
       string = params[:file].read.force_encoding('utf-8')

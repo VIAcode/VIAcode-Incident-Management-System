@@ -7,17 +7,17 @@ class Cti::Driver::Placetel < Cti::Driver::Base
   def mapping(params)
 
     # do event mapping
-    if params['event'] == 'IncomingCall'
+    case params['event']
+    when 'IncomingCall'
       params['direction'] = 'in'
       params['event'] = 'newCall'
-    elsif params['event'] == 'HungUp'
+    when 'HungUp'
       params['event'] = 'hangup'
-    elsif params['event'] == 'CallAccepted'
+    when 'OutgoingCall'
+      params['direction'] = 'out'
+      params['event'] = 'newCall'
+    when 'CallAccepted'
       params['event'] = 'answer'
-    end
-
-    if params['user'].blank? && params['peer'].present?
-      params['user'] = get_voip_user_by_peer(params['peer'])
     end
 
     # lookup current direction if not given
@@ -28,14 +28,28 @@ class Cti::Driver::Placetel < Cti::Driver::Base
       end
     end
 
+    # lookup caller if not given
+    if params['user'].blank?
+      # by from parameter for outgoing calls
+      if params['direction'] == 'out' && params['from']&.include?('@')
+        params['user'] = get_voip_user_by_peer(params['from'])
+      end
+
+      # by peer parameter for incoming calls
+      if params['direction'] == 'in' && params['peer'].present?
+        params['user'] = get_voip_user_by_peer(params['peer'])
+      end
+    end
+
     # do case mapping
-    if params['type'] == 'missed'
+    case params['type']
+    when 'missed'
       params['cause'] = 'cancel'
-    elsif params['type'] == 'voicemail'
+    when 'voicemail'
       params['cause'] = 'voicemail'
-    elsif params['type'] == 'blocked'
+    when 'blocked'
       params['cause'] = 'blocked'
-    elsif params['type'] == 'accepted'
+    when 'accepted'
       params['cause'] = 'normalClearing'
     end
 

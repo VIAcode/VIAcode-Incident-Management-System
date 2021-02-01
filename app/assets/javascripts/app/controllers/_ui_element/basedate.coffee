@@ -37,11 +37,13 @@ class App.UiElement.basedate
       rtl: App.i18n.dir() is 'rtl'
       container: item
       language: 'custom'
+      orientation: attribute.orientation
+      disableScroll: attribute.disableScroll
     )
 
     @setNewTimeInitial(item, attribute)
 
-  # observer changes / update needed to forece rerender to get correct today shown
+  # observer changes / update needed to force rerender to get correct today shown
   @bindEvents: (item, attribute) ->
     item
       .find('input')

@@ -35,7 +35,7 @@ returns
       assoc_name = assoc.name
       next if association_attributes_ignored.include?(assoc_name)
 
-      real_ids = assoc_name[0, assoc_name.length - 1] + '_ids'
+      real_ids = "#{assoc_name[0, assoc_name.length - 1]}_ids"
       real_ids = real_ids.to_sym
       next if !params.key?(real_ids)
 
@@ -51,7 +51,7 @@ returns
 
         # complain if we found no reference
         if !lookup
-          raise ArgumentError, "No value found for '#{assoc_name}' with id #{item_id.inspect}"
+          raise Exceptions::UnprocessableEntity, "No value found for '#{assoc_name}' with id #{item_id.inspect}"
         end
 
         list.push item_id
@@ -64,10 +64,10 @@ returns
       assoc_name = assoc.name
       next if association_attributes_ignored.include?(assoc_name)
 
-      real_ids = assoc_name[0, assoc_name.length - 1] + '_ids'
+      real_ids = "#{assoc_name[0, assoc_name.length - 1]}_ids"
       next if !respond_to?(real_ids)
 
-      real_values = assoc_name[0, assoc_name.length - 1] + 's'
+      real_values = "#{assoc_name[0, assoc_name.length - 1]}s"
       real_values = real_values.to_sym
       next if !respond_to?(real_values)
       next if !params[real_values]
@@ -94,7 +94,7 @@ returns
 
         # complain if we found no reference
         if !lookup
-          raise ArgumentError, "No lookup value found for '#{assoc_name}': #{value.inspect}"
+          raise Exceptions::UnprocessableEntity, "No lookup value found for '#{assoc_name}': #{value.inspect}"
         end
 
         list.push lookup.id
@@ -235,10 +235,8 @@ returns
   end
 
   def filter_attributes(attributes)
-    # remove forbitten attributes
-    %w[password token tokens token_ids].each do |item|
-      attributes.delete(item)
-    end
+    # remove forbidden attributes
+    attributes.except!('password', 'token', 'tokens', 'token_ids')
   end
 
 =begin
@@ -291,7 +289,7 @@ returns
 
 =begin
 
-serve methode to ignore model attribute associations
+serve method to ignore model attribute associations
 
 class Model < ApplicationModel
   include AssociationConcern
@@ -365,7 +363,7 @@ returns
           lookup = nil
           if class_object == User
             if !value.instance_of?(String)
-              raise ArgumentError, "String is needed as ref value #{value.inspect} for '#{assoc_name}'"
+              raise Exceptions::UnprocessableEntity, "String is needed as ref value #{value.inspect} for '#{assoc_name}'"
             end
 
             if !lookup
@@ -380,7 +378,7 @@ returns
 
           # complain if we found no reference
           if !lookup
-            raise ArgumentError, "No lookup value found for '#{assoc_name}': #{value.inspect}"
+            raise Exceptions::UnprocessableEntity, "No lookup value found for '#{assoc_name}': #{value.inspect}"
           end
 
           # release data value
@@ -410,7 +408,7 @@ returns
           lookup = nil
           if class_object == User
             if !item.instance_of?(String)
-              raise ArgumentError, "String is needed in array ref as ref value #{value.inspect} for '#{assoc_name}'"
+              raise Exceptions::UnprocessableEntity, "String is needed in array ref as ref value #{value.inspect} for '#{assoc_name}'"
             end
 
             if !lookup
@@ -425,7 +423,7 @@ returns
 
           # complain if we found no reference
           if !lookup
-            raise ArgumentError, "No lookup value found for '#{assoc_name}': #{item.inspect}"
+            raise Exceptions::UnprocessableEntity, "No lookup value found for '#{assoc_name}': #{item.inspect}"
           end
 
           lookup_ids.push lookup.id

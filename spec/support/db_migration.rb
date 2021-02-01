@@ -1,5 +1,5 @@
 # require all database migrations so we can test them without manual require
-Rails.root.join('db', 'migrate').children.each do |migration|
+Rails.root.join('db/migrate').children.each do |migration|
   require migration.to_s
 end
 
@@ -53,6 +53,27 @@ module DbMigrationHelper
     end
   end
 
+  # Helper method for setting up specs on DB migrations that add columns.
+  # Make sure to define type: :db_migration in your RSpec.describe call
+  # and add `self.use_transactional_tests = false` to your context.
+  #
+  # @param [Symbol] from_table the name of the table with the indexed column
+  # @param [Symbol] name(s) of indexed column(s)
+  #
+  # @example
+  #  without_column(:online_notifications, column: :user_id)
+  #
+  # @return [nil]
+  def without_column(from_table, column:)
+    suppress_messages do
+      Array(column).each do |elem|
+        next if !column_exists?(from_table, elem)
+
+        remove_column(from_table, elem)
+      end
+    end
+  end
+
   # Helper method for setting up specs on DB migrations that add indices.
   # Make sure to define type: :db_migration in your RSpec.describe call
   # and add `self.use_transactional_tests = false` to your context.
@@ -94,7 +115,7 @@ module DbMigrationHelper
   #  remove_foreign_key(:online_notifications, :users)
   #
   # @return [nil]
-  def respond_to_missing?(*)
+  def respond_to_missing?(*) # rubocop:disable Lint/MissingSuper
     true
   end
 

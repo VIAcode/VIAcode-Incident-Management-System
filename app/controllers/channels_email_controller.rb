@@ -1,7 +1,7 @@
 # Copyright (C) 2012-2016 Zammad Foundation, http://zammad-foundation.org/
 
 class ChannelsEmailController < ApplicationController
-  prepend_before_action { authentication_check(permission: 'admin.channel_email') }
+  prepend_before_action { authentication_check && authorize! }
 
   def index
     system_online_service = Setting.get('system_online_service')
@@ -19,12 +19,11 @@ class ChannelsEmailController < ApplicationController
         end
         next
       end
+      assets = channel.assets(assets)
       if channel.area == 'Email::Account'
         account_channel_ids.push channel.id
-        assets = channel.assets(assets)
       elsif channel.area == 'Email::Notification' && channel.active
         notification_channel_ids.push channel.id
-        assets = channel.assets(assets)
       end
     end
     EmailAddress.all.each do |email_address|
@@ -32,7 +31,7 @@ class ChannelsEmailController < ApplicationController
 
       email_address_ids.push email_address.id
       assets = email_address.assets(assets)
-      if !email_address.channel_id || !email_address.active || !Channel.find_by(id: email_address.channel_id)
+      if !email_address.channel_id || !email_address.active || !Channel.exists?(id: email_address.channel_id)
         not_used_email_address_ids.push email_address.id
       end
     end
@@ -62,9 +61,7 @@ class ChannelsEmailController < ApplicationController
     )
 
     # verify if user+host already exists
-    if result[:result] == 'ok'
-      return if account_duplicate?(result)
-    end
+    return if result[:result] == 'ok' && account_duplicate?(result)
 
     render json: result
   end
@@ -104,7 +101,7 @@ class ChannelsEmailController < ApplicationController
     # check account duplicate
     return if account_duplicate?({ setting: { inbound: params[:inbound] } }, channel_id)
 
-    # check delivery for 30 sek.
+    # check delivery for 30 sec.
     result = EmailHelper::Verify.email(
       outbound: params[:outbound].to_h,
       inbound:  params[:inbound].to_h,
@@ -158,7 +155,7 @@ class ChannelsEmailController < ApplicationController
     # remember address && set channel for email address
     address = EmailAddress.find_by(email: email)
 
-    # if we are on initial setup, use already exisiting dummy email address
+    # on initial setup, use placeholder email address
     if Channel.count == 1
       address = EmailAddress.first
     end

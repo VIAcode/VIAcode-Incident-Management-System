@@ -83,7 +83,7 @@ class App.Model extends Spine.Model
 
   @validate: (data = {}) ->
 
-    # based on model attrbutes
+    # based on model attributes
     if App[ data['model'] ] && App[ data['model'] ].attributesGet
       attributes = App[ data['model'] ].attributesGet(data['screen'])
 
@@ -338,7 +338,7 @@ set new attributes of model (remove already available attributes)
 
   # localOrServer can be:
   #  change -> has changed local
-  #  destroy -> has beed removed local or remote
+  #  destroy -> has been removed local or remote
   #  refresh -> has been changed remote
 
   params =
@@ -456,7 +456,7 @@ set new attributes of model (remove already available attributes)
         'change'
         (items) =>
 
-          # check if result is array or singel item
+          # check if result is array or single item
           if !_.isArray(items)
             items = [items]
           App.Log.debug('Model', "local change #{@className}", items)
@@ -468,7 +468,7 @@ set new attributes of model (remove already available attributes)
         'destroy'
         (items) =>
 
-          # check if result is array or singel item
+          # check if result is array or single item
           if !_.isArray(items)
             items = [items]
           App.Log.debug('Model', "local destroy #{@className}", items)
@@ -482,7 +482,7 @@ set new attributes of model (remove already available attributes)
         'refresh'
         (items) =>
 
-          # check if result is array or singel item
+          # check if result is array or single item
           if !_.isArray(items)
             items = [items]
           App.Log.debug('Model', "local refresh #{@className}", items)
@@ -563,7 +563,7 @@ set new attributes of model (remove already available attributes)
   App.Model.fetchFull(
     @callback
     clear: true
-    force: false # only do server call if no record exsits
+    force: false # only do server call if no record exists
   )
 
 
@@ -606,7 +606,7 @@ set new attributes of model (remove already available attributes)
         if data.assets
           App.Collection.loadAssets(data.assets, targetModel: @className)
 
-          # in case of no record_ids are there, no inital render is fired
+          # if no record_ids are found, no initial render is fired
           if data.record_ids && _.isEmpty(data.record_ids)
             App[@className].trigger('refresh', [])
 
@@ -618,6 +618,74 @@ set new attributes of model (remove already available attributes)
 
       error: (xhr, statusText, error) =>
         @fetchFullActive = false
+        App.Log.error('Model', statusText, error, url)
+    )
+
+  ###
+
+  index full collection (with assets)
+
+  App.Model.indexFull(@callback)
+
+  App.Model.indexFull(
+    @callback
+    page: 1
+    per_page: 10
+    sort_by: 'name'
+    order_by: 'ASC'
+  )
+
+
+  ###
+  @indexFull: (callback, params = {}) ->
+    url = "#{@url}?full=true"
+    for key in ['page', 'per_page', 'sort_by', 'order_by']
+      continue if !params[key]
+      url += "&#{key}=#{params[key]}"
+
+    App.Log.debug('Model', "indexFull collection #{@className}", url)
+
+    # request already active, queue callback
+    queueManagerName = "#{@className}::indexFull"
+
+    if params.refresh is undefined
+      params.refresh = true
+
+    App.Ajax.request(
+      type:  'GET'
+      url:   url
+      processData: true,
+      success: (data, status, xhr) =>
+        App.Log.debug('Model', "got indexFull collection #{@className}", data)
+
+        recordIds = data.record_ids
+        if data.record_ids is undefined
+          recordIds = data[ @className.toLowerCase() + '_ids' ]
+
+        # full / load assets
+        if data.assets
+          App.Collection.loadAssets(data.assets, targetModel: @className)
+
+          # if no record_ids are found, no initial render is fired
+          if data.record_ids && _.isEmpty(data.record_ids) && params.refresh
+            App[@className].trigger('refresh', [])
+
+        # find / load object
+        else if params.refresh
+          App[@className].refresh(data)
+
+        if callback
+          localCallback = =>
+            collection = []
+            for id in recordIds
+              collection.push App[@className].find(id)
+            callback(collection, data)
+          App.QueueManager.add(queueManagerName, localCallback)
+
+        App.QueueManager.run(queueManagerName)
+
+      error: (xhr, statusText, error) =>
+        @indexFullActive = false
         App.Log.error('Model', statusText, error, url)
     )
 
@@ -667,8 +735,9 @@ set new attributes of model (remove already available attributes)
 
       # just show this values in result, all filters need to match to get shown
       filter:
-        some_attribute1: ['only_this_value1', 'only_that_value1']
-        some_attribute2: ['only_this_value2', 'only_that_value2']
+
+        # check single value
+        some_attribute1: 'only_this_value1'
 
       # just show this values in result, all filters need to match to get shown
       filterExtended:
@@ -802,11 +871,11 @@ set new attributes of model (remove already available attributes)
 
   @tagGet: (id, key, callback) ->
     App.Ajax.request(
-      id:    key
-      type:  'GET'
-      url:   "#{@apiPath}/tags"
+      id:   key
+      type: 'GET'
+      url:  "#{@apiPath}/tags"
       data:
-        object: @.className
+        object: @serverClassName || @className
         o_id:   id
       processData: true
       success: (data, status, xhr) ->
@@ -815,10 +884,10 @@ set new attributes of model (remove already available attributes)
 
   @tagAdd: (id, item) ->
     App.Ajax.request(
-      type:  'GET'
-      url:   "#{@apiPath}/tags/add"
-      data:
-        object: @.className
+      type: 'POST'
+      url:  "#{@apiPath}/tags/add"
+      data: JSON.stringify
+        object: @serverClassName || @className
         o_id:   id
         item:   item
       processData: true
@@ -826,10 +895,10 @@ set new attributes of model (remove already available attributes)
 
   @tagRemove: (id, item) ->
     App.Ajax.request(
-      type:  'GET'
-      url:   "#{@apiPath}/tags/remove"
-      data:
-        object: @.className
+      type: 'DELETE'
+      url:  "#{@apiPath}/tags/remove"
+      data: JSON.stringify
+        object: @serverClassName || @className
         o_id:   id
         item:   item
       processData: true

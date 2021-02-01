@@ -44,8 +44,8 @@ class AgentTicketAttachmentTest < TestCase
     # add attachment, attachment check should quiet
     file_upload(
       css:   '.content.active .attachmentPlaceholder-inputHolder input',
-      files: [Rails.root.join('test', 'data', 'upload', 'upload1.txt'),
-              Rails.root.join('test', 'data', 'upload', 'upload2.jpg')],
+      files: [Rails.root.join('test/data/upload/upload1.txt'),
+              Rails.root.join('test/data/upload/upload2.jpg')],
     )
 
     # upload might take a while
@@ -98,7 +98,7 @@ class AgentTicketAttachmentTest < TestCase
     # add attachment, attachment check should quiet
     file_upload(
       css:   '.content.active .attachmentPlaceholder-inputHolder input',
-      files: [Rails.root.join('test', 'data', 'upload', 'upload1.txt')],
+      files: [Rails.root.join('test/data/upload/upload1.txt')],
     )
 
     # upload might take a while
@@ -145,8 +145,8 @@ class AgentTicketAttachmentTest < TestCase
     # add attachment without body
     file_upload(
       css:   '.content.active .attachmentPlaceholder-inputHolder input',
-      files: [Rails.root.join('test', 'data', 'upload', 'upload1.txt'),
-              Rails.root.join('test', 'data', 'upload', 'upload2.jpg')],
+      files: [Rails.root.join('test/data/upload/upload1.txt'),
+              Rails.root.join('test/data/upload/upload2.jpg')],
     )
 
     # upload might take a while
@@ -218,13 +218,14 @@ class AgentTicketAttachmentTest < TestCase
     tasks_close_all(
       browser: browser2,
     )
-    random     = 'ticket-actions-6-test-' + rand(999_999).to_s
-    user_email = random + '@example.com'
+
+    random     = "ticket-actions-6-test-#{rand(999_999)}"
+    user_email = "#{random}@example.com"
     user_create(
       browser: browser2,
       data:    {
-        firstname: 'Action6 Firstname' + random,
-        lastname:  'Action6 Lastname' + random,
+        firstname: "Action6 Firstname#{random}",
+        lastname:  "Action6 Lastname#{random}",
         email:     user_email,
         password:  'some-pass',
       },

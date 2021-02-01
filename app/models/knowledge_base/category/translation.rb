@@ -7,7 +7,7 @@ class KnowledgeBase::Category::Translation < ApplicationModel
 
   AGENT_ALLOWED_ATTRIBUTES = %i[title kb_locale_id].freeze
 
-  belongs_to :kb_locale, class_name: 'KnowledgeBase::Locale',   inverse_of: :category_translations
+  belongs_to :kb_locale, class_name: 'KnowledgeBase::Locale', inverse_of: :category_translations
   validates  :kb_locale, presence: true
 
   belongs_to :category,  class_name: 'KnowledgeBase::Category', inverse_of: :translations, touch: true
@@ -39,7 +39,7 @@ class KnowledgeBase::Category::Translation < ApplicationModel
   end
 
   class << self
-    def search_fallback(query, scope = nil)
+    def search_fallback(query, scope = nil, options: {})
       fields = %w[title]
 
       output = where_or_cis(fields, query)

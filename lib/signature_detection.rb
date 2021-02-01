@@ -20,7 +20,7 @@ returns
 =end
 
   def self.find_signature(messages)
-    signature_candidates = Hash.new(0)  # <potential_signature>: <score>
+    signature_candidates = Hash.new(0) # <potential_signature>: <score>
     messages             = messages.map { |m| m[:content_type].match?(%r{text/html}i) ? m[:content].html2text(true) : m[:content] }
     message_pairs        = messages.each_cons(2).to_a
     diffs                = message_pairs.map { |msg_pair| Diffy::Diff.new(*msg_pair).to_s }
@@ -37,6 +37,8 @@ returns
       sig_range = delta_indices.each_cons(2)
                                .map { |head, tail| [head + 1, tail - 1] }
                                .find { |head, tail| tail > head + 4 }
+
+      next if sig_range.nil?
 
       # Take up to 10 lines from this "gap" (i.e., the common substring)
       match_content = diff_lines[sig_range.first..sig_range.last]

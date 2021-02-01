@@ -2,6 +2,7 @@
 
 class Karma::ActivityLog < ApplicationModel
   belongs_to :object_lookup, optional: true
+  belongs_to :user, class_name: '::User'
 
   self.table_name = 'karma_activity_logs'
 
@@ -18,6 +19,15 @@ add karma activity log of an object
 
     if object
       object_id = ObjectLookup.by_name(object)
+    end
+
+    # scheduler transactions causes a lot of calls
+    # so we try to cache the add process
+    # to skip the time loss of the transaction
+    # to increase performance
+    if !force
+      cache = Cache.get("Karma::ActivityLog.add::#{activity.once_ttl.seconds}::#{action}::#{user.id}::#{object}::#{o_id}")
+      return cache if cache
     end
 
     Karma::ActivityLog.transaction do
@@ -48,6 +58,10 @@ add karma activity log of an object
         score:            activity.score,
         score_total:      local_score_total,
       )
+
+      if !force
+        Cache.write("Karma::ActivityLog.add::#{activity.once_ttl.seconds}::#{action}::#{user.id}::#{object}::#{o_id}", true, expires_in: activity.once_ttl.seconds)
+      end
     end
 
     # set new karma level

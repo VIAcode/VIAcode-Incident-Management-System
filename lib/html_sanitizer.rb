@@ -25,11 +25,8 @@ satinize html string based on whiltelist
 
       # We whitelist yahoo_quoted because Yahoo Mail marks quoted email content using
       # <div class='yahoo_quoted'> and we rely on this class to identify quoted messages
-      classes_whitelist = ['js-signatureMarker', 'yahoo_quoted']
+      classes_whitelist = %w[js-signatureMarker yahoo_quoted]
       attributes_2_css = %w[width height]
-
-      # remove html comments
-      string.gsub!(/<!--.+?-->/m, '')
 
       scrubber_link = Loofah::Scrubber.new do |node|
 
@@ -60,7 +57,7 @@ satinize html string based on whiltelist
             href_without_spaces = href.gsub(/[[:space:]]/, '')
           end
 
-          next if !href_without_spaces.downcase.start_with?('http', 'ftp', '//')
+          next if !CGI.unescape(href_without_spaces).utf8_encode(fallback: :read_as_sanitized_binary).gsub(/[[:space:]]/, '').downcase.start_with?('http', 'ftp', '//')
 
           node.set_attribute('href', href)
           node.set_attribute('rel', 'nofollow noreferrer noopener')
@@ -73,10 +70,8 @@ satinize html string based on whiltelist
         end
 
         # check if href is different to text
-        if node.name == 'a' && !url_same?(node['href'], node.text)
-          if node['title'].blank?
-            node['title'] = node['href']
-          end
+        if node.name == 'a' && !url_same?(node['href'], node.text) && node['title'].blank?
+          node['title'] = node['href']
         end
       end
 
@@ -98,7 +93,7 @@ satinize html string based on whiltelist
         end
 
         # replace tags, keep subtree
-        if !tags_whitelist.include?(node.name)
+        if tags_whitelist.exclude?(node.name)
           node.replace node.children.to_s
           Loofah::Scrubber::STOP
         end
@@ -117,17 +112,17 @@ satinize html string based on whiltelist
           classes = node['class'].gsub(/\t|\n|\r/, '').split(' ')
           class_new = ''
           classes.each do |local_class|
-            next if !classes_whitelist.include?(local_class.to_s.strip)
+            next if classes_whitelist.exclude?(local_class.to_s.strip)
 
             if class_new != ''
               class_new += ' '
             end
             class_new += local_class
           end
-          if class_new != ''
-            node['class'] = class_new
-          else
+          if class_new == ''
             node.delete('class')
+          else
+            node['class'] = class_new
           end
         end
 
@@ -157,8 +152,8 @@ satinize html string based on whiltelist
             next if !prop[0]
 
             key = prop[0].strip
-            next if !css_properties_whitelist.include?(node.name)
-            next if !css_properties_whitelist[node.name].include?(key)
+            next if css_properties_whitelist.exclude?(node.name)
+            next if css_properties_whitelist[node.name].exclude?(key)
             next if css_values_blacklist[node.name]&.include?(local_pear.gsub(/[[:space:]]/, '').strip)
 
             style += "#{local_pear};"
@@ -174,7 +169,7 @@ satinize html string based on whiltelist
           next if !node[attribute_name]
 
           href = cleanup_target(node[attribute_name])
-          next if href !~ /(javascript|livescript|vbscript):/i
+          next if !href.match?(/(javascript|livescript|vbscript):/i)
 
           node.delete(attribute_name)
         end
@@ -182,7 +177,7 @@ satinize html string based on whiltelist
         # remove attributes if not whitelisted
         node.each do |attribute, _value|
           attribute_name = attribute.downcase
-          next if attributes_whitelist[:all].include?(attribute_name) || (attributes_whitelist[node.name]&.include?(attribute_name))
+          next if attributes_whitelist[:all].include?(attribute_name) || attributes_whitelist[node.name]&.include?(attribute_name)
 
           node.delete(attribute)
         end
@@ -207,6 +202,15 @@ satinize html string based on whiltelist
         end
         string = new_string
       end
+
+      scrubber_tag_remove = Loofah::Scrubber.new do |node|
+        # remove tags with subtree
+        next if tags_remove_content.exclude?(node.name)
+
+        node.remove
+        Loofah::Scrubber::STOP
+      end
+      string = Loofah.fragment(string).scrub!(scrubber_tag_remove).to_s
 
       Loofah.fragment(string).scrub!(scrubber_link).to_s
     end
@@ -252,7 +256,7 @@ cleanup html string:
     #return string
     tags_backlist = %w[span center]
     scrubber = Loofah::Scrubber.new do |node|
-      next if !tags_backlist.include?(node.name)
+      next if tags_backlist.exclude?(node.name)
 
       hit = false
       local_node = nil
@@ -332,8 +336,8 @@ cleanup html string:
       end
 
       # remove not needed new lines
-      if node.class == Nokogiri::XML::Text
-        if !node.parent || (node.parent.name != 'pre' && node.parent.name != 'code')
+      if node.instance_of?(Nokogiri::XML::Text)
+        if !node.parent || (node.parent.name != 'pre' && node.parent.name != 'code') # rubocop:disable Style/SoleNestedConditional
           content = node.content
           if content
             if content != ' ' && content != "\n"
@@ -401,7 +405,7 @@ cleanup html string:
   end
 
   def self.cleanup_target(string, **options)
-    cleaned_string = CGI.unescape(string).utf8_encode(fallback: :read_as_sanitized_binary)
+    cleaned_string = string.utf8_encode(fallback: :read_as_sanitized_binary)
     cleaned_string = cleaned_string.gsub(/[[:space:]]/, '') if !options[:keep_spaces]
     cleaned_string = cleaned_string.strip
                                    .delete("\t\n\r\u0000")
@@ -427,8 +431,8 @@ cleanup html string:
   end
 
   def self.url_same?(url_new, url_old)
-    url_new = CGI.unescape(url_new.to_s).utf8_encode(fallback: :read_as_sanitized_binary).downcase.gsub(%r{/$}, '').gsub(/[[:space:]]|\t|\n|\r/, '').strip
-    url_old = CGI.unescape(url_old.to_s).utf8_encode(fallback: :read_as_sanitized_binary).downcase.gsub(%r{/$}, '').gsub(/[[:space:]]|\t|\n|\r/, '').strip
+    url_new = CGI.unescape(url_new.to_s).utf8_encode(fallback: :read_as_sanitized_binary).downcase.delete_suffix('/').gsub(/[[:space:]]|\t|\n|\r/, '').strip
+    url_old = CGI.unescape(url_old.to_s).utf8_encode(fallback: :read_as_sanitized_binary).downcase.delete_suffix('/').gsub(/[[:space:]]|\t|\n|\r/, '').strip
     url_new = html_decode(url_new).sub('/?', '?')
     url_old = html_decode(url_old).sub('/?', '?')
     return true if url_new == url_old

@@ -121,7 +121,7 @@ class OrganizationCsvImportTest < ActiveSupport::TestCase
     assert_equal(true, result[:try])
     assert_equal(1, result[:errors].count)
     assert_equal('failed', result[:result])
-    assert_equal("Line 1: unknown record with id '999999999' for Organization.", result[:errors][0])
+    assert_equal("Line 1: unknown Organization with id '999999999'.", result[:errors][0])
 
     assert_nil(Organization.find_by(name: 'organization-simple-invalid_id-import1'))
     assert_nil(Organization.find_by(name: 'organization-simple-invalid_id-import2'))
@@ -139,12 +139,8 @@ class OrganizationCsvImportTest < ActiveSupport::TestCase
 
     assert_nil(Organization.find_by(name: 'organization-simple-invalid_id-import1'))
 
-    organization2 = Organization.find_by(name: 'organization-simple-invalid_id-import2')
-    assert(organization2)
-    assert_equal(organization2.name, 'organization-simple-invalid_id-import2')
-    assert_equal(organization2.active, true)
-
-    organization2.destroy!
+    # any single failure will cause the entire import to be aborted
+    assert_nil(Organization.find_by(name: 'organization-simple-invalid_id-import2'))
   end
 
   test 'simple import with members' do

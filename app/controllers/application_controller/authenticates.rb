@@ -4,6 +4,8 @@ module ApplicationController::Authenticates
   private
 
   def permission_check(key)
+    ActiveSupport::Deprecation.warn("Method 'permission_check' is deprecated. Use Pundit policy and `authorize!` instead.")
+
     if @_token_auth
       user = Token.check(
         action:     'api',
@@ -25,7 +27,8 @@ module ApplicationController::Authenticates
 
     # check if basic_auth fallback is possible
     if auth_param[:basic_auth_promt] && !user
-      return request_http_basic_authentication
+      request_http_basic_authentication
+      return false
     end
 
     # return auth not ok
@@ -48,15 +51,6 @@ module ApplicationController::Authenticates
       logger.debug { 'session based auth check' }
       user = User.lookup(id: session[:user_id])
       return authentication_check_prerequesits(user, 'session', auth_param) if user
-    end
-
-    # check sso based authentication
-    sso_user = User.sso(params)
-    if sso_user
-      if authentication_check_prerequesits(sso_user, 'session', auth_param)
-        session[:persistent] = true
-        return sso_user
-      end
     end
 
     # check http basic based authentication
@@ -85,6 +79,8 @@ module ApplicationController::Authenticates
         inactive_user: true,
       )
       if user && auth_param[:permission]
+        ActiveSupport::Deprecation.warn("Paramter ':permission' is deprecated. Use Pundit policy and `authorize!` instead.")
+
         user = Token.check(
           action:        'api',
           name:          token_string,
@@ -104,6 +100,8 @@ module ApplicationController::Authenticates
            Time.zone.today >= token.expires_at
           raise Exceptions::NotAuthorized, 'Not authorized (token expired)!'
         end
+
+        @_token = token # remember for Pundit authorization / permit!
       end
 
       @_token_auth = token_string # remember for permission_check
@@ -135,21 +133,34 @@ module ApplicationController::Authenticates
     false
   end
 
+  def authenticate_with_password
+    user = User.authenticate(params[:username], params[:password])
+    raise_unified_login_error if !user
+
+    session.delete(:switched_from_user_id)
+    authentication_check_prerequesits(user, 'session', {})
+  end
+
   def authentication_check_prerequesits(user, auth_type, auth_param)
-    if check_maintenance_only(user)
-      raise Exceptions::NotAuthorized, 'Maintenance mode enabled!'
-    end
+    raise Exceptions::NotAuthorized, 'Maintenance mode enabled!' if in_maintenance_mode?(user)
 
-    raise Exceptions::NotAuthorized, 'User is inactive!' if !user.active
+    raise_unified_login_error if !user.active
 
-    # check scopes / permission check
-    if auth_param[:permission] && !user.permissions?(auth_param[:permission])
-      raise Exceptions::NotAuthorized, 'Not authorized (user)!'
+    if auth_param[:permission]
+      ActiveSupport::Deprecation.warn("Parameter ':permission' is deprecated. Use Pundit policy and `authorize!` instead.")
+
+      if !user.permissions?(auth_param[:permission])
+        raise Exceptions::NotAuthorized, 'Not authorized (user)!'
+      end
     end
 
     current_user_set(user, auth_type)
     user_device_log(user, auth_type)
     logger.debug { "#{auth_type} for '#{user.login}'" }
-    true
+    user
+  end
+
+  def raise_unified_login_error
+    raise Exceptions::NotAuthorized, 'Login failed. Have you double-checked your credentials and completed the email verification step?'
   end
 end

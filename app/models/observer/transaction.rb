@@ -29,7 +29,7 @@ class Observer::Transaction < ActiveRecord::Observer
     # reset buffer
     EventBuffer.reset('transaction')
 
-    # get asyn backends
+    # get async backends
     sync_backends = []
     Setting.where(area: 'Transaction::Backend::Sync').order(:name).each do |setting|
       backend = Setting.get(setting.name)
@@ -49,7 +49,7 @@ class Observer::Transaction < ActiveRecord::Observer
         end
 
         # execute async backends
-        Delayed::Job.enqueue(Transaction::BackgroundJob.new(item, params))
+        TransactionJob.perform_later(item, params)
       end
     end
   end
@@ -155,16 +155,16 @@ class Observer::Transaction < ActiveRecord::Observer
 
       # merge changes
       if event[:changes]
-        if !store[:changes]
-          store[:changes] = event[:changes]
-        else
+        if store[:changes]
           event[:changes].each do |key, value|
-            if !store[:changes][key]
-              store[:changes][key] = value
-            else
+            if store[:changes][key]
               store[:changes][key][1] = value[1]
+            else
+              store[:changes][key] = value
             end
           end
+        else
+          store[:changes] = event[:changes]
         end
       end
 

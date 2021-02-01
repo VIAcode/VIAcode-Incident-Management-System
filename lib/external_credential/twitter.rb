@@ -29,11 +29,14 @@ class ExternalCredential::Twitter
     begin
       request_token = consumer.get_request_token(oauth_callback: ExternalCredential.callback_url('twitter'))
     rescue => e
-      if e.message == '403 Forbidden'
-        raise "#{e.message}, maybe credentials wrong or callback_url for application wrong configured."
+      case e.message
+      when '401 Authorization Required'
+        raise "#{e.message} (Invalid credentials may be to blame.)"
+      when '403 Forbidden'
+        raise "#{e.message} (Your app's callback URL configuration on developer.twitter.com may be to blame.)"
+      else
+        raise
       end
-
-      raise e
     end
 
     {
@@ -56,16 +59,15 @@ class ExternalCredential::Twitter
       access_token_secret: access_token.secret,
     )
     client_user = client.who_am_i
-    client_user_id = client_user.id
 
     # check if account already exists
     Channel.where(area: 'Twitter::Account').each do |channel|
       next if !channel.options
       next if !channel.options['user']
       next if !channel.options['user']['id']
-      next if channel.options['user']['id'] != client_user_id && channel.options['user']['screen_name'] != client_user.screen_name
+      next if channel.options['user']['id'].to_s != client_user.id.to_s && channel.options['user']['screen_name'] != client_user.screen_name
 
-      channel.options['user']['id'] = client_user_id
+      channel.options['user']['id'] = client_user.id.to_s
       channel.options['user']['screen_name'] = client_user.screen_name
       channel.options['user']['name'] = client_user.name
 
@@ -90,7 +92,7 @@ class ExternalCredential::Twitter
       options:       {
         adapter: 'twitter',
         user:    {
-          id:          client_user_id,
+          id:          client_user.id.to_s,
           screen_name: client_user.screen_name,
           name:        client_user.name,
         },
@@ -158,9 +160,9 @@ class ExternalCredential::Twitter
     rescue
       begin
         webhooks = client.webhooks
-        raise "Unable to get list of webooks. You use the wrong 'Dev environment label', only #{webhooks.inspect} available."
-      rescue => e
-        raise "Unable to get list of webooks. Maybe you do not have an Twitter developer approval right now or you use the wrong 'Dev environment label': #{e.message}"
+        raise "Dev Environment Label invalid. Please use an existing one #{webhooks[:environments].pluck(:environment_name)}, or create a new one."
+      rescue Twitter::Error => e
+        raise "#{e.message} Are you sure you created a development environment on developer.twitter.com?"
       end
     end
     webhook_id = nil
@@ -185,7 +187,7 @@ class ExternalCredential::Twitter
 
     # delete already registered webhooks
     webhooks.each do |webhook|
-      client.webhook_delete(webhook[:id])
+      client.webhook_delete(webhook[:id], env_name)
     end
 
     # register new webhook

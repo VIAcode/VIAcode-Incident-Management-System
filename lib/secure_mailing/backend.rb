@@ -1,0 +1,2 @@
+class SecureMailing::Backend
+end

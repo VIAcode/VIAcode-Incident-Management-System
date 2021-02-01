@@ -48,8 +48,8 @@ class Widget extends App.Controller
   maintanaceRestartAuto: (data) =>
     return if @messageRestartAuto
     @messageRestartAuto = new App.SessionMessage(
-      head:         'VIMS is restarting...'
-      message:      'Some system settings have changed, VIMS is restarting. Please wait until VIMS is back again.'
+      head:         App.i18n.translateContent('VIMS is restarting...')
+      message:      App.i18n.translateContent('Some system settings have changed, VIMS is restarting. Please wait until VIMS is back again.')
       keyboard:     false
       backdrop:     false
       buttonClose:  false
@@ -64,8 +64,8 @@ class Widget extends App.Controller
   maintanaceRestartManual: (data) =>
     return if @messageRestartManual
     @messageRestartManual = new App.SessionMessage(
-      head:         'VIMS need a restart!'
-      message:      'Some system settings have changed, please restart all VIMS processes! If you want to do this automatically, set environment variable APP___RESTART___CMD="/path/to/your___app___script.sh restart".'
+      head:         App.i18n.translateContent('VIMS need a restart!')
+      message:      App.i18n.translateContent('Some system settings have changed, please restart all VIMS processes! If you want to do this automatically, set environment variable APP___RESTART___CMD="/path/to/your___app___script.sh restart".')
       keyboard:     false
       backdrop:     false
       buttonClose:  false
@@ -79,8 +79,8 @@ class Widget extends App.Controller
   maintanaceConfigChanged: (data) =>
     return if @messageConfigChanged
     @messageConfigChanged = new App.SessionMessage(
-      head:         'Config has changed'
-      message:      'The configuration of VIMS has changed, please reload your browser.'
+      head:         App.i18n.translateContent('Config has changed')
+      message:      App.i18n.translateContent('The configuration of VIMS has changed, please reload your browser.')
       keyboard:     false
       backdrop:     true
       buttonClose:  false
@@ -99,8 +99,8 @@ class Widget extends App.Controller
     return if localAppVersion[1] isnt 'true'
     message = =>
       @messageAppVersion = new App.SessionMessage(
-        head:         'New Version'
-        message:      'A new version of VIMS is available, please reload your browser.'
+        head:         App.i18n.translateContent('New Version')
+        message:      App.i18n.translateContent('A new version of VIMS is available, please reload your browser.')
         keyboard:     false
         backdrop:     true
         buttonClose:  false

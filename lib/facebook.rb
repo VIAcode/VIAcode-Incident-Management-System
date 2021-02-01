@@ -241,10 +241,10 @@ result
     to = nil
     if post['to'] && post['to']['data']
       post['to']['data'].each do |to_entry|
-        if !to
-          to = ''
-        else
+        if to
           to += ', '
+        else
+          to = ''
         end
         to += to_entry['name']
       end
@@ -271,7 +271,7 @@ result
     end
 
     articles.each do |article|
-      next if Ticket::Article.find_by(message_id: article[:message_id])
+      next if Ticket::Article.exists?(message_id: article[:message_id])
 
       # set ticket state to open if not new
       ticket_state = get_state(page, post, ticket)
@@ -350,8 +350,9 @@ result
     # no changes in post is from page user it self
     if post['from'] && post['from']['id'].to_s == page['id'].to_s
       if !ticket
-        return Ticket::State.find_by(name: 'closed') if !ticket
+        return Ticket::State.find_by(name: 'closed')
       end
+
       return ticket.state
     end
 

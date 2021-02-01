@@ -1,4 +1,11 @@
 class ChecksKbClientNotificationJob < ApplicationJob
+  include HasActiveJobLock
+
+  def lock_key
+    # "ChecksKbClientNotificationJob/KnowledgeBase::Answer/42/destroy"
+    "#{self.class.name}/#{arguments[0]}/#{arguments[1]}/#{arguments[2]}"
+  end
+
   def perform(klass_name, id, event)
     object = klass_name.constantize.find_by(id: id)
     return if object.blank?
@@ -46,9 +53,9 @@ class ChecksKbClientNotificationJob < ApplicationJob
       .sessions
       .map { |client_id| Sessions.get(client_id)&.dig(:user, 'id') }
       .compact
-      .map { |user_id|   User.find_by(id: user_id) }
+      .map { |user_id| User.find_by(id: user_id) }
       .compact
-      .select   { |user|      user.permissions? "knowledge_base.#{permission_suffix}" }
+      .select { |user| user.permissions? "knowledge_base.#{permission_suffix}" }
   end
 
   def self.notify_later(object, event)

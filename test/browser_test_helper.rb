@@ -1,5 +1,5 @@
 ENV['RAILS_ENV'] = 'test'
-# rubocop:disable HandleExceptions, NonLocalExitFromIterator, Style/GuardClause, Lint/MissingCopEnableDirective
+# rubocop:disable Lint/NonLocalExitFromIterator, Style/GuardClause, Lint/MissingCopEnableDirective
 require File.expand_path('../config/environment', __dir__)
 require 'selenium-webdriver'
 require 'json'
@@ -41,7 +41,8 @@ class TestCase < ActiveSupport::TestCase
 
   def profile
     browser_profile = nil
-    if browser == 'firefox'
+    case browser
+    when 'firefox'
       browser_profile = Selenium::WebDriver::Firefox::Profile.new
 
       browser_profile['intl.locale.matchOS']      = false
@@ -50,7 +51,7 @@ class TestCase < ActiveSupport::TestCase
       # currently console log not working for firefox
       # https://github.com/SeleniumHQ/selenium/issues/1161
       #browser_profile['loggingPref']              = { browser: :all }
-    elsif browser == 'chrome'
+    when 'chrome'
 
       # profile are only working on remote selenium
       if ENV['REMOTE_URL']
@@ -89,10 +90,11 @@ class TestCase < ActiveSupport::TestCase
         profile: profile,
       }
       if ENV['BROWSER_HEADLESS'].present?
-        if browser == 'firefox'
+        case browser
+        when 'firefox'
           params[:options] = Selenium::WebDriver::Firefox::Options.new
           params[:options].add_argument('-headless')
-        elsif browser == 'chrome'
+        when 'chrome'
           params[:options] = Selenium::WebDriver::Chrome::Options.new
           params[:options].add_argument('-headless')
         end
@@ -263,13 +265,13 @@ class TestCase < ActiveSupport::TestCase
 
     sleep 4
     login_failed = false
-    if !instance.find_elements(css: '.user-menu .user a')[0]
-      login_failed = true
-    else
+    if instance.find_elements(css: '.user-menu .user a')[0]
       login = instance.find_elements(css: '.user-menu .user a')[0].attribute('title')
       if login != params[:username]
         login_failed = true
       end
+    else
+      login_failed = true
     end
     if login_failed
       if params[:success] == false
@@ -353,9 +355,25 @@ class TestCase < ActiveSupport::TestCase
     end
     return if !clues
 
-    instance.execute_script("$('.js-modal--clue .js-close').click()")
+    checks   = 25
+    previous = clues.location
+    (checks + 1).times do |check|
+      raise "Element still moving after #{checks} checks" if check == checks
+
+      current = clues.location
+      sleep 0.2 if ENV['CI']
+      break if previous == current
+
+      previous = current
+    end
+    clues.click
+
+    watch_for_disappear(
+      browser: instance,
+      css:     'modal-backdrop js-backdrop',
+    )
+
     assert(true, 'clues closed')
-    sleep 1
   end
 
 =begin
@@ -496,7 +514,7 @@ class TestCase < ActiveSupport::TestCase
 
     begin
       elements = instance.find_elements(find_element_key => params[param_key])
-                         .tap { |e| e.slice!(1..-1) unless params[:all] }
+                         .tap { |e| e.slice!(1..-1) if !params[:all] }
 
       if elements.empty?
         return if params[:only_if_exists] == true
@@ -752,21 +770,28 @@ class TestCase < ActiveSupport::TestCase
 
     instance = params[:browser] || @browser
 
-    element = instance.find_elements(css: params[:css])[0]
-    if !params[:no_click]
-      element.click
+    begin
+      retries ||= 0
+      element = instance.find_elements(css: params[:css])[0]
+      if !params[:no_click]
+        element.click
+      end
+      element.clear
+    rescue Selenium::WebDriver::Error::StaleElementReferenceError
+      sleep retries
+      retries += 1
+      retry if retries < 3
     end
-    element.clear
 
     begin
-      if !params[:slow]
-        element.send_keys(params[:value])
-      else
+      if params[:slow]
         element.send_keys('')
         keys = params[:value].to_s.split('')
         keys.each do |key|
           instance.action.send_keys(key).perform
         end
+      else
+        element.send_keys(params[:value])
       end
     rescue
       sleep 0.5
@@ -776,19 +801,19 @@ class TestCase < ActiveSupport::TestCase
       element = instance.find_elements(css: params[:css])[0]
       raise "No such element '#{params[:css]}'" if !element
 
-      if !params[:slow]
-        element.send_keys(params[:value])
-      else
+      if params[:slow]
         element.send_keys('')
         keys = params[:value].to_s.split('')
         keys.each do |key|
           instance.action.send_keys(key).perform
         end
+      else
+        element.send_keys(params[:value])
       end
     end
 
     # it's not working stable with ff via selenium, use js
-    if browser =~ /firefox/i && params[:css] =~ /\[data-name=/
+    if browser =~ /firefox/i && params[:css].include?('[data-name=')
       log('set_ff_trigger_workaround', params)
       instance.execute_script("$('#{params[:css]}').trigger('focusout')")
     end
@@ -958,7 +983,7 @@ class TestCase < ActiveSupport::TestCase
     if params[:css]
       element = instance.find_elements(css: params[:css])[0]
     end
-    if params[:value].class == Array
+    if params[:value].instance_of?(Array)
       params[:value].each do |key|
         if element
           element.send_keys(key)
@@ -1001,7 +1026,7 @@ class TestCase < ActiveSupport::TestCase
     instance = params[:browser] || @browser
     element  = instance.find_elements(css: params[:css])[0]
 
-    if params[:css].match?(/select/)
+    if params[:css].include?('select')
       dropdown = Selenium::WebDriver::Support::Select.new(element)
       success  = false
       dropdown.selected_options&.each do |option|
@@ -1179,7 +1204,7 @@ set type of task (closeTab, closeNextInOverview, stayOnTab)
     cookies = instance.manage.all_cookies
     cookies.each do |cookie|
       # :name=>"_zammad_session_c25832f4de2", :value=>"adc31cd21615cb0a7ab269184ec8b76f", :path=>"/", :domain=>"localhost", :expires=>nil, :secure=>false}
-      next if cookie[:name] !~ /#{params[:name]}/i
+      next if !cookie[:name].match?(/#{params[:name]}/i)
 
       if params.key?(:value) && cookie[:value].to_s =~ /#{params[:value]}/i
         assert(true, "matching value '#{params[:value]}' in cookie '#{cookie}'")
@@ -1295,7 +1320,7 @@ set type of task (closeTab, closeNextInOverview, stayOnTab)
       if !fallback
         verify_task(params, true)
       end
-      raise 'ERROR: ' + e.inspect
+      raise "ERROR: #{e.inspect}"
     end
     true
   end
@@ -1596,8 +1621,13 @@ wait untill text in selector disabppears
         break
       end
     rescue
-      # try again
+      # Firefox doesn't move the mouse if it's already at the position.
+      # Therefore the hover event is not triggered in all cases.
+      # That's why we move the mouse a bit as a workaround and try again.
+      # The last working selenium version was: https://github.com/elgalu/docker-selenium/releases/tag/3.14.0-p17
+      instance.action.move_by(100, 100).perform
 
+      # try again
     end
     assert(true, 'all tasks closed')
   end
@@ -1727,7 +1757,7 @@ wait untill text in selector disabppears
 
     instance = params[:browser] || @browser
 
-    element = instance.find_elements(css: params[:css] + ' input[name="customer_id_completion"]')[0]
+    element = instance.find_elements(css: %(#{params[:css]} input[name="customer_id_completion"]))[0]
     element.click
     element.clear
 
@@ -2348,7 +2378,7 @@ wait untill text in selector disabppears
       #element.send_keys(:tab)
 
       instance.execute_script('$(".content.active .ticketZoom-header .js-objectTitle").focus()')
-      instance.execute_script('$(".content.active .ticketZoom-header .js-objectTitle").text("' + data[:title] + '")')
+      instance.execute_script(%($(".content.active .ticketZoom-header .js-objectTitle").text("#{data[:title]}")))
       instance.execute_script('$(".content.active .ticketZoom-header .js-objectTitle").blur()')
       instance.execute_script('$(".content.active .ticketZoom-header .js-objectTitle").trigger("blur")')
       # {
@@ -2525,6 +2555,8 @@ wait untill text in selector disabppears
       end
     end
 
+    # avoid accessing a stale element when accessing task type
+    sleep 1
     task_type(
       browser: instance,
       type:    params[:task_type] || 'stayOnTab',
@@ -2663,7 +2695,14 @@ wait untill text in selector disabppears
            end
 
     # switch to overview
-    instance.find_elements(css: ".content.active .sidebar a[href=\"#{link}\"]")[0].click
+    element = nil
+    6.times do
+      element = instance.find_elements(css: ".content.active .sidebar a[href=\"#{link}\"]")[0]
+      break if element
+
+      sleep 1
+    end
+    element.click
 
     # hide larger overview selection list again
     sleep 0.5
@@ -2698,14 +2737,27 @@ wait untill text in selector disabppears
 
     overview_open(params)
 
+    element = nil
     if params[:title]
-      element = instance.find_element(css: '.content.active').find_element(partial_link_text: params[:title])
+      6.times do
+        element = instance.find_element(css: '.content.active').find_element(partial_link_text: params[:title])
+        break if element
+
+        sleep 1
+      end
       if !element
         screenshot(browser: instance, comment: 'ticket_open_by_overview_no_ticket_failed')
         raise "unable to find ticket #{params[:title]} in overview #{params[:link]}!"
       end
     else
-      element = instance.find_elements(partial_link_text: params[:number])[0]
+      6.times do
+
+        # prefere find_elements ofer find_element because of exception handling
+        element = instance.find_elements(partial_link_text: params[:number])[0]
+        break if element
+
+        sleep 1
+      end
       if !element
         screenshot(browser: instance, comment: 'ticket_open_by_overview_no_ticket_failed')
         raise "unable to find ticket #{params[:number]} in overview #{params[:link]}!"
@@ -2713,7 +2765,7 @@ wait untill text in selector disabppears
     end
     element.click
     sleep 1
-    number = instance.find_elements(css: '.content.active .ticketZoom-header .ticket-number')[0].text
+    number = instance.find_element(css: '.content.active .ticketZoom-header .ticket-number').text
     if !number.match?(/#{params[:number]}/)
       screenshot(browser: instance, comment: 'ticket_open_by_overview_open_failed_failed')
       raise "unable to open ticket #{params[:number]}!"
@@ -2869,6 +2921,12 @@ wait untill text in selector disabppears
     element.clear
     element.send_keys(params[:value])
     sleep 2
+
+    watch_for_disappear(
+      browser: instance,
+      css:     '.navigation .search.loading'
+    )
+
     #instance.find_element(partial_link_text: params[:value] } ).click
     instance.execute_script("$(\".js-global-search-result a:contains('#{params[:value]}') .nav-tab-name\").first().click()")
     watch_for(
@@ -3028,17 +3086,18 @@ wait untill text in selector disabppears
     end
 
     if data[:role]
-      if data[:role] == 'Admin'
+      case data[:role]
+      when 'Admin'
         check(
           browser: instance,
           css:     '.modal input[name=role_ids][value=1]',
         )
-      elsif data[:role] == 'Customer'
+      when 'Customer'
         check(
           browser: instance,
           css:     '.modal input[name=role_ids][value=3]',
         )
-      elsif data[:role] == 'Agent'
+      when 'Agent'
         check(
           browser: instance,
           css:     '.modal input[name=role_ids][value=2]',
@@ -3195,17 +3254,18 @@ wait untill text in selector disabppears
     end
 
     if data[:role]
-      if data[:role] == 'Admin'
+      case data[:role]
+      when 'Admin'
         check(
           browser: instance,
           css:     '.modal input[name=role_ids][value=1]',
         )
-      elsif data[:role] == 'Customer'
+      when 'Customer'
         check(
           browser: instance,
           css:     '.modal input[name=role_ids][value=3]',
         )
-      elsif data[:role] == 'Agent'
+      when 'Agent'
         check(
           browser: instance,
           css:     '.modal input[name=role_ids][value=2]',
@@ -3600,37 +3660,35 @@ wait untill text in selector disabppears
     end
     instance.find_elements(css: '.modal button.js-submit')[0].click
     modal_disappear(browser: instance)
-    11.times do
-      element = instance.find_elements(css: 'body')[0]
-      text = element.text
-      if text.match?(/#{Regexp.quote(data[:name])}/)
-        assert(true, 'group created')
-        modal_disappear(browser: instance) # wait until modal has gone
 
-        # add member
-        data[:member]&.each do |member|
-          instance.find_elements(css: 'a[href="#manage"]')[0].click
-          sleep 1
-          instance.find_elements(css: '.content.active a[href="#manage/users"]')[0].click
-          sleep 3
-          element = instance.find_elements(css: '.content.active [name="search"]')[0]
-          element.clear
-          element.send_keys(member[:login])
-          sleep 3
-          #instance.find_elements(:css => '.content.active table [data-id]')[0].click
-          instance.execute_script('$(".content.active  table [data-id] td").first().click()')
-          modal_ready(browser: instance)
-          #instance.find_elements(:css => 'label:contains(" ' + action[:name] + '")')[0].click
-          instance.execute_script('$(".js-groupList tr:contains(\"' + data[:name] + '\") .js-groupListItem[value=' + member[:access] + ']").prop("checked", true)')
-          instance.find_elements(css: '.modal button.js-submit')[0].click
-          modal_disappear(browser: instance)
-        end
+    element = instance.find_elements(css: 'body')[0]
+    text = element.text
+    if text.match?(/#{Regexp.quote(data[:name])}/)
+      assert(true, 'group created')
+      modal_disappear(browser: instance) # wait until modal has gone
+
+      # add member
+      data[:member]&.each do |member|
+        instance.find_elements(css: 'a[href="#manage"]')[0].click
+        sleep 1
+        instance.find_elements(css: '.content.active a[href="#manage/users"]')[0].click
+        sleep 3
+        element = instance.find_elements(css: '.content.active [name="search"]')[0]
+        element.clear
+        element.send_keys(member[:login])
+        sleep 3
+        #instance.find_elements(:css => '.content.active table [data-id]')[0].click
+        instance.execute_script('$(".content.active  table [data-id] td").first().click()')
+        modal_ready(browser: instance)
+        #instance.find_elements(:css => 'label:contains(" ' + action[:name] + '")')[0].click
+        instance.execute_script(%($(".js-groupList tr:contains(\\"#{data[:name]}\\") .js-groupListItem[value=#{member[:access]}]").prop("checked", true)))
+        instance.find_elements(css: '.modal button.js-submit')[0].click
+        modal_disappear(browser: instance)
       end
-      sleep 1
-      return true
     end
-    screenshot(browser: instance, comment: 'group_create_failed')
-    raise 'group creation failed'
+
+    sleep 1
+    true
   end
 
 =begin
@@ -3806,37 +3864,35 @@ wait untill text in selector disabppears
 
     instance.find_elements(css: '.modal button.js-submit')[0].click
     modal_disappear(browser: instance)
-    11.times do
-      element = instance.find_elements(css: 'body')[0]
-      text = element.text
-      if text.match?(/#{Regexp.quote(data[:name])}/)
-        assert(true, 'role created')
-        modal_disappear(browser: instance) # wait until modal has gone
 
-        # add member
-        data[:member]&.each do |login|
-          instance.find_elements(css: 'a[href="#manage"]')[0].click
-          sleep 1
-          instance.find_elements(css: '.content.active a[href="#manage/users"]')[0].click
-          sleep 3
-          element = instance.find_elements(css: '.content.active  [name="search"]')[0]
-          element.clear
-          element.send_keys(login)
-          sleep 3
-          #instance.find_elements(:css => '.content.active table [data-id]')[0].click
-          instance.execute_script('$(".content.active table [data-id] td").first().click()')
-          sleep 3
-          #instance.find_elements(:css => 'label:contains(" ' + action[:name] + '")')[0].click
-          instance.execute_script('$(\'label:contains(" ' + data[:name] + '")\').first().click()')
-          instance.find_elements(css: '.modal button.js-submit')[0].click
-          modal_disappear(browser: instance)
-        end
+    element = instance.find_elements(css: 'body')[0]
+    text = element.text
+    if text.match?(/#{Regexp.quote(data[:name])}/)
+      assert(true, 'role created')
+      modal_disappear(browser: instance) # wait until modal has gone
+
+      # add member
+      data[:member]&.each do |login|
+        instance.find_elements(css: 'a[href="#manage"]')[0].click
+        sleep 1
+        instance.find_elements(css: '.content.active a[href="#manage/users"]')[0].click
+        sleep 3
+        element = instance.find_elements(css: '.content.active  [name="search"]')[0]
+        element.clear
+        element.send_keys(login)
+        sleep 3
+        #instance.find_elements(:css => '.content.active table [data-id]')[0].click
+        instance.execute_script('$(".content.active table [data-id] td").first().click()')
+        sleep 3
+        #instance.find_elements(:css => 'label:contains(" ' + action[:name] + '")')[0].click
+        instance.execute_script(%($('label:contains(" #{data[:name]}")').first().click()))
+        instance.find_elements(css: '.modal button.js-submit')[0].click
+        modal_disappear(browser: instance)
       end
-      sleep 1
-      return true
     end
-    screenshot(browser: instance, comment: 'role_create_failed')
-    raise 'role creation failed'
+
+    sleep 1
+    true
   end
 
 =begin
@@ -3875,7 +3931,7 @@ wait untill text in selector disabppears
       css:      '.content.active a[href="#manage/roles"]',
       mute_log: true,
     )
-    instance.execute_script('$(\'.content.active table tr td:contains(" ' + data[:name] + '")\').first().click()')
+    instance.execute_script(%($('.content.active table tr td:contains(" #{data[:name]}")').first().click()))
 
     modal_ready(browser: instance)
     element = instance.find_elements(css: '.modal input[name=name]')[0]
@@ -3931,37 +3987,35 @@ wait untill text in selector disabppears
 
     instance.find_elements(css: '.modal button.js-submit')[0].click
     modal_disappear(browser: instance)
-    11.times do
-      element = instance.find_elements(css: 'body')[0]
-      text = element.text
-      if text.match?(/#{Regexp.quote(data[:name])}/)
-        assert(true, 'role created')
-        modal_disappear(browser: instance) # wait until modal has gone
 
-        # add member
-        data[:member]&.each do |login|
-          instance.find_elements(css: 'a[href="#manage"]')[0].click
-          sleep 1
-          instance.find_elements(css: '.content.active a[href="#manage/users"]')[0].click
-          sleep 3
-          element = instance.find_elements(css: '.content.active [name="search"]')[0]
-          element.clear
-          element.send_keys(login)
-          sleep 3
-          #instance.find_elements(:css => '.content.active table [data-id]')[0].click
-          instance.execute_script('$(".content.active table [data-id] td").first().click()')
-          sleep 3
-          #instance.find_elements(:css => 'label:contains(" ' + action[:name] + '")')[0].click
-          instance.execute_script('$(\'label:contains(" ' + data[:name] + '")\').first().click()')
-          instance.find_elements(css: '.modal button.js-submit')[0].click
-          modal_disappear(browser: instance)
-        end
+    element = instance.find_elements(css: 'body')[0]
+    text = element.text
+    if text.match?(/#{Regexp.quote(data[:name])}/)
+      assert(true, 'role created')
+      modal_disappear(browser: instance) # wait until modal has gone
+
+      # add member
+      data[:member]&.each do |login|
+        instance.find_elements(css: 'a[href="#manage"]')[0].click
+        sleep 1
+        instance.find_elements(css: '.content.active a[href="#manage/users"]')[0].click
+        sleep 3
+        element = instance.find_elements(css: '.content.active [name="search"]')[0]
+        element.clear
+        element.send_keys(login)
+        sleep 3
+        #instance.find_elements(:css => '.content.active table [data-id]')[0].click
+        instance.execute_script('$(".content.active table [data-id] td").first().click()')
+        sleep 3
+        #instance.find_elements(:css => 'label:contains(" ' + action[:name] + '")')[0].click
+        instance.execute_script(%($('label:contains(" #{data[:name]}")').first().click()))
+        instance.find_elements(css: '.modal button.js-submit')[0].click
+        modal_disappear(browser: instance)
       end
-      sleep 1
-      return true
     end
-    screenshot(browser: instance, comment: 'role_edit_failed')
-    raise 'role edit failed'
+
+    sleep 1
+    true
   end
 
 =begin
@@ -4587,7 +4641,7 @@ wait untill text in selector disabppears
 
   def fetch_settings
     url = URI.parse(browser_url)
-    req = Net::HTTP::Get.new(browser_url + '/api/v1/settings/')
+    req = Net::HTTP::Get.new("#{browser_url}/api/v1/settings/")
     req.basic_auth('master@example.com', 'test')
 
     res = Net::HTTP.start(url.host, url.port) do |http|
@@ -4662,7 +4716,8 @@ wait untill text in selector disabppears
 
     if data[:data_option]
       if data[:data_option][:options]
-        if data[:data_type] == 'Boolean'
+        case data[:data_type]
+        when 'Boolean'
           # rubocop:disable Lint/BooleanSymbol
           element = instance.find_elements(css: '.modal .js-valueTrue').first
           element.clear
@@ -4671,7 +4726,7 @@ wait untill text in selector disabppears
           element.clear
           element.send_keys(data[:data_option][:options][:false])
           # rubocop:enable Lint/BooleanSymbol
-        elsif data[:data_type] == 'Tree Select'
+        when 'Tree Select'
           add_tree_options(
             instance: instance,
             options:  data[:data_option][:options],

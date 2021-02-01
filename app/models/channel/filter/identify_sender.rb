@@ -2,9 +2,9 @@
 
 module Channel::Filter::IdentifySender
 
-  def self.run(_channel, mail)
+  def self.run(_channel, mail, _transaction_params)
 
-    customer_user_id = mail[ 'x-zammad-ticket-customer_id'.to_sym ]
+    customer_user_id = mail[ :'x-zammad-ticket-customer_id' ]
     customer_user = nil
     if customer_user_id.present?
       customer_user = User.lookup(id: customer_user_id)
@@ -16,56 +16,53 @@ module Channel::Filter::IdentifySender
     end
 
     # check if sender exists in database
-    if !customer_user && mail[ 'x-zammad-customer-login'.to_sym ].present?
-      customer_user = User.find_by(login: mail[ 'x-zammad-customer-login'.to_sym ])
+    if !customer_user && mail[ :'x-zammad-customer-login' ].present?
+      customer_user = User.find_by(login: mail[ :'x-zammad-customer-login' ])
     end
-    if !customer_user && mail[ 'x-zammad-customer-email'.to_sym ].present?
-      customer_user = User.find_by(email: mail[ 'x-zammad-customer-email'.to_sym ])
+    if !customer_user && mail[ :'x-zammad-customer-email' ].present?
+      customer_user = User.find_by(email: mail[ :'x-zammad-customer-email' ])
     end
 
     # get correct customer
-    if !customer_user && Setting.get('postmaster_sender_is_agent_search_for_customer') == true
-      if mail[ 'x-zammad-ticket-create-article-sender'.to_sym ] == 'Agent'
+    if !customer_user && Setting.get('postmaster_sender_is_agent_search_for_customer') == true && mail[ :'x-zammad-ticket-create-article-sender' ] == 'Agent'
+      # get first recipient and set customer
+      begin
+        to = :'raw-to'
+        if mail[to]&.addrs
+          items = mail[to].addrs
+          items.each do |item|
 
-        # get first recipient and set customer
-        begin
-          to = 'raw-to'.to_sym
-          if mail[to]&.addrs
-            items = mail[to].addrs
-            items.each do |item|
+            # skip if recipient is system email
+            next if EmailAddress.exists?(email: item.address.downcase)
 
-              # skip if recipient is system email
-              next if EmailAddress.find_by(email: item.address.downcase)
-
-              customer_user = user_create(
-                login:     item.address,
-                firstname: item.display_name,
-                email:     item.address,
-              )
-              break
-            end
+            customer_user = user_create(
+              login:     item.address,
+              firstname: item.display_name,
+              email:     item.address,
+            )
+            break
           end
-        rescue => e
-          Rails.logger.error "SenderIsSystemAddress: ##{e.inspect}"
         end
+      rescue => e
+        Rails.logger.error "SenderIsSystemAddress: ##{e.inspect}"
       end
     end
 
     # take regular from as customer
     if !customer_user
       customer_user = user_create(
-        login:     mail[ 'x-zammad-customer-login'.to_sym ] || mail[ 'x-zammad-customer-email'.to_sym ] || mail[:from_email],
-        firstname: mail[ 'x-zammad-customer-firstname'.to_sym ] || mail[:from_display_name],
-        lastname:  mail[ 'x-zammad-customer-lastname'.to_sym ],
-        email:     mail[ 'x-zammad-customer-email'.to_sym ] || mail[:from_email],
+        login:     mail[ :'x-zammad-customer-login' ] || mail[ :'x-zammad-customer-email' ] || mail[:from_email],
+        firstname: mail[ :'x-zammad-customer-firstname' ] || mail[:from_display_name],
+        lastname:  mail[ :'x-zammad-customer-lastname' ],
+        email:     mail[ :'x-zammad-customer-email' ] || mail[:from_email],
       )
     end
 
     create_recipients(mail)
-    mail[ 'x-zammad-ticket-customer_id'.to_sym ] = customer_user.id
+    mail[ :'x-zammad-ticket-customer_id' ] = customer_user.id
 
     # find session user
-    session_user_id = mail[ 'x-zammad-session-user-id'.to_sym ]
+    session_user_id = mail[ :'x-zammad-session-user-id' ]
     session_user = nil
     if session_user_id.present?
       session_user = User.lookup(id: session_user_id)
@@ -84,7 +81,7 @@ module Channel::Filter::IdentifySender
       )
     end
     if session_user
-      mail[ 'x-zammad-session-user-id'.to_sym ] = session_user.id
+      mail[ :'x-zammad-session-user-id' ] = session_user.id
     end
 
     true
@@ -94,7 +91,7 @@ module Channel::Filter::IdentifySender
   def self.create_recipients(mail)
     max_count = 40
     current_count = 0
-    ['raw-to', 'raw-cc'].each do |item|
+    %w[raw-to raw-cc].each do |item|
       next if mail[item.to_sym].blank?
 
       begin
@@ -102,10 +99,11 @@ module Channel::Filter::IdentifySender
         next if items.blank?
 
         items.each do |address_data|
-          email_address = address_data.address
+          email_address = sanitize_email(address_data.address)
           next if email_address.blank?
-          next if email_address !~ /@/
-          next if email_address.match?(/\s/)
+
+          email_address_validation = EmailAddressValidation.new(email_address)
+          next if !email_address_validation.valid_format?
 
           user_create(
             firstname: address_data.display_name,
@@ -116,11 +114,11 @@ module Channel::Filter::IdentifySender
           return false if current_count == max_count
         end
       rescue => e
-        # parse not parseable fields by mail gem like
+        # parse not parsable fields by mail gem like
         #  - Max Kohl | [example.com] <kohl@example.com>
         #  - Max Kohl <max.kohl <max.kohl@example.com>
-        Rails.logger.error 'ERROR: ' + e.inspect
-        Rails.logger.error "ERROR: try it by my self (#{item}): #{mail[item.to_sym]}"
+        Rails.logger.error e
+        Rails.logger.error "try it by my self (#{item}): #{mail[item.to_sym]}"
         recipients = mail[item.to_sym].to_s.split(',')
         recipients.each do |recipient|
           address = nil
@@ -131,9 +129,13 @@ module Channel::Filter::IdentifySender
           if recipient =~ /^(.+?)<(.+?)>/
             display_name = $1
           end
+
           next if address.blank?
-          next if address !~ /@/
-          next if address.match?(/\s/)
+
+          address = sanitize_email(address)
+
+          email_address_validation = EmailAddressValidation.new(address)
+          next if !email_address_validation.valid_format?
 
           user_create(
             firstname: display_name,
@@ -183,21 +185,23 @@ module Channel::Filter::IdentifySender
 
     string.strip
           .delete('"')
-          .gsub(/^'/, '')
-          .gsub(/'$/, '')
+          .delete_prefix("'")
+          .delete_suffix("'")
           .gsub(/.+?\s\(.+?\)$/, '')
   end
 
   def self.sanitize_email(string)
-    string += '@local' if !string.include?('@')
+    string += '@local' if string.exclude?('@')
 
     string.downcase
           .strip
           .delete('"')
+          .delete("'")
           .delete(' ')             # see https://github.com/zammad/zammad/issues/2254
           .sub(/^<|>$/, '')        # see https://github.com/zammad/zammad/issues/2254
           .sub(/\A'(.*)'\z/, '\1') # see https://github.com/zammad/zammad/issues/2154
           .gsub(/\s/, '')          # see https://github.com/zammad/zammad/issues/2198
+          .delete_suffix('.')
   end
 
 end

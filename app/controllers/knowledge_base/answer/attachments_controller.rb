@@ -2,54 +2,32 @@
 
 class KnowledgeBase::Answer::AttachmentsController < ApplicationController
   prepend_before_action :authentication_check
-  prepend_before_action { permission_check('knowledge_base.editor') }
-
+  before_action :authorize!
   before_action :fetch_answer
 
   def create
-    file = params[:file]
+    @answer.add_attachment params[:file]
 
-    Store.add(
-      object:      @answer.class.name,
-      o_id:        @answer.id,
-      data:        file.read,
-      filename:    file.original_filename,
-      preferences: headers_for_file(file)
-    )
-
-    output
+    render json: @answer.assets({})
   end
 
   def destroy
-    attachment = @answer.attachments.find { |elem| elem.id == params[:id].to_i }
+    @answer.remove_attachment params[:id]
 
-    raise ActiveRecord::RecordNotFound if attachment.nil?
+    render json: @answer.assets({})
+  end
 
-    Store.remove_item(attachment.id)
+  def clone_to_form
+    new_attachments = @answer.clone_attachments('UploadCache', params[:form_id], only_attached_attachments: true)
 
-    output
+    render json: {
+      attachments: new_attachments
+    }
   end
 
   private
 
   def fetch_answer
     @answer = KnowledgeBase::Answer.find params[:answer_id]
-  end
-
-  def output
-    @answer.touch # rubocop:disable Rails/SkipsModelValidations
-    render json: @answer.assets({})
-  end
-
-  def headers_for_file(file)
-    content_type = file.content_type || 'application/octet-stream'
-
-    if content_type == 'application/octet-stream' && (mime = MIME::Types.type_for(file.original_filename).first)
-      content_type = mime
-    end
-
-    {
-      'Content-Type': content_type
-    }
   end
 end

@@ -847,7 +847,7 @@ class TicketZoomRef extends App.ControllerContent
     if highlights = localStorage['highlights']
       @highlighter.deserialize localStorage['highlights']
 
-  # the serialization creates one string for the entiery ticket
+  # the serialization creates one string for the entire ticket
   # containing the offsets and the highlight classes
   #
   # we have to check how it works with having open several tickets – it might break
@@ -1474,7 +1474,25 @@ class InputsRef extends App.ControllerContent
         name:        'project-name'
         id:          'project-name-123'
         placeholder: 'Enter Project Name'
-        options:     [{value:0,name:'Apple',selected:true},{value:1,name:'Microsoft',selected:true},{value:2,name:'Google'},{value:3,name:'Deutsche Bahn'},{value:4,name:'Sparkasse'},{value:5,name:'Deutsche Post'},{value:6,name:'Mitfahrzentrale'},{value:7,name:'Starbucks'},{value:8,name:'Mac Donalds'},{value:9,name:'Flixbus'},{value:10,name:'Betahaus'},{value:11,name:'Bruno Banani'},{value:12,name:'Alpina'},{value:13,name:'Samsung'},{value:14,name:'ChariTea'},{value:15,name:'fritz-kola'},{value:16,name:'Vitamin Water'},{value:17,name:'Znuny'},{value:18,name:'Max & Moritz'}]
+        options:     [{value:0,name:'Apple',selected:true},
+        {value:1,name:'Microsoft',selected:true},
+        {value:2,name:'Google'},
+        {value:3,name:'Deutsche Bahn'},
+        {value:4,name:'Sparkasse'},
+        {value:5,name:'Deutsche Post'},
+        {value:6,name:'Mitfahrzentrale'},
+        {value:7,name:'Starbucks'},
+        {value:8,name:'Mac Donalds'},
+        {value:9,name:'Flixbus'},
+        {value:10,name:'Betahaus'},
+        {value:11,name:'Bruno Banani'},
+        {value:12,name:'Alpina'},
+        {value:13,name:'Samsung'},
+        {value:14,name:'ChariTea'},
+        {value:15,name:'fritz-kola'},
+        {value:16,name:'Vitamin Water'},
+        {value:17,name:'Znuny'},
+        {value:18,name:'Max & Moritz'}]
     @$('.searchableSelectPlaceholder').replaceWith( searchableSelectObject.element() )
 
     # selectable search
@@ -1535,7 +1553,32 @@ class InputsRef extends App.ControllerContent
       attribute:
         name:        'company-name'
         id:          'company-name-12345'
-        options:     [{value:0,name:'Apple'},{value:1,name:'Microsoft',selected:true},{value:2,name:'Google'},{value:3,name:'Deutsche Bahn'},{value:4,name:'Sparkasse'},{value:5,name:'Deutsche Post'},{value:6,name:'Mitfahrzentrale'},{value:7,name:'Starbucks'},{value:8,name:'Mac Donalds'},{value:9,name:'Flixbus'},{value:10,name:'Betahaus'},{value:11,name:'Bruno Banani'},{value:12,name:'Alpina'},{value:13,name:'Samsung'},{value:14,name:'ChariTea'},{value:15,name:'fritz-kola'},{value:16,name:'Vitamin Water'},{value:17,name:'Znuny'},{value:18,name:'Max & Moritz'},{value:19,name:'Telefónica Deutschland Holding GmbH'}]
+        options:     [
+          {label:'Group A', group: [
+            {value:0,name:'Apple'},
+            {value:1,name:'Microsoft',selected:true},
+            {value:2,name:'Google'},
+            {value:3,name:'Deutsche Bahn'},
+            {value:4,name:'Sparkasse'},
+            {value:5,name:'Deutsche Post'},
+            {value:6,name:'Mitfahrzentrale'}
+          ]},
+          {label:'Group B', group: [
+            {value:7,name:'Starbucks'},
+            {value:8,name:'Mac Donalds'},
+            {value:9,name:'Flixbus'},
+            {value:10,name:'Betahaus'},
+            {value:11,name:'Bruno Banani'},
+            {value:12,name:'Alpina'},
+            {value:13,name:'Samsung'},
+            {value:14,name:'ChariTea'},
+            {value:15,name:'fritz-kola'},
+            {value:16,name:'Vitamin Water'},
+            {value:17,name:'Znuny'},
+            {value:18,name:'Max & Moritz'},
+            {value:19,name:'Telefónica Deutschland Holding GmbH'}
+          ]}
+        ]
     @$('.columnSelectPlaceholder').replaceWith( columnSelectObject.element() )
 
 App.Config.set( 'layout_ref/inputs', InputsRef, 'Routes' )
@@ -1619,12 +1662,38 @@ App.Config.set( 'layout_ref/calendar_subscriptions', CalendarSubscriptionsRef, '
 
 class ButtonsRef extends App.ControllerContent
 
+  elements:
+    '.js-submitDropdown': 'buttonDropdown'
+
+  events:
+    'click .js-openDropdown':        'toggleMenu'
+    'mouseenter .js-dropdownAction': 'onActionMouseEnter'
+    'mouseleave .js-dropdownAction': 'onActionMouseLeave'
+
   constructor: ->
     super
     @render()
 
   render: ->
     @html App.view('layout_ref/buttons')
+
+  toggleMenu: =>
+    if @buttonDropdown.hasClass('is-open')
+      @closeMenu()
+      return
+    @openMenu()
+
+  closeMenu: =>
+    @buttonDropdown.removeClass 'is-open'
+
+  openMenu: =>
+    @buttonDropdown.addClass 'is-open'
+
+  onActionMouseEnter: (e) =>
+    @$(e.currentTarget).addClass('is-active')
+
+  onActionMouseLeave: (e) =>
+    @$(e.currentTarget).removeClass('is-active')
 
 App.Config.set( 'layout_ref/buttons', ButtonsRef, 'Routes' )
 

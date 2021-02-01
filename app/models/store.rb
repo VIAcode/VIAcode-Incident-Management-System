@@ -4,6 +4,7 @@ require_dependency 'store/object'
 require_dependency 'store/file'
 
 class Store < ApplicationModel
+  PREFERENCES_SIZE_MAX = 2400
 
   belongs_to :store_object, class_name: 'Store::Object', optional: true
   belongs_to :store_file,   class_name: 'Store::File', optional: true
@@ -11,6 +12,10 @@ class Store < ApplicationModel
   validates :filename, presence: true
 
   store :preferences
+
+  before_create :oversized_preferences_check
+  after_create :generate_previews
+  before_update :oversized_preferences_check
 
 =begin
 
@@ -50,40 +55,7 @@ returns
     data.delete('data')
     data.delete('object')
 
-    data['preferences'] ||= {}
-    resizable = false
-    ['Mime-Type', 'Content-Type', 'mime_type', 'content_type'].each do |key|
-      next if data['preferences'][key].blank?
-      next if !data['preferences'][key].match(%r{image/(jpeg|jpg|png)}i)
-
-      resizable = true
-      break
-    end
-
-    # store meta data
-    store = Store.create!(data)
-
-    begin
-      if resizable
-        if store.content_preview(silence: true)
-          store.preferences[:resizable] = true
-          store.preferences[:content_preview] = true
-        end
-        if store.content_inline(silence: true)
-          store.preferences[:resizable] = true
-          store.preferences[:content_inline] = true
-        end
-        if store.preferences[:resizable]
-          store.save!
-        end
-      end
-    rescue => e
-      logger.error e
-      store.preferences[:resizable] = false
-      store.save!
-    end
-
-    store
+    Store.create!(data)
   end
 
 =begin
@@ -114,9 +86,9 @@ returns
   def self.list(data)
     # search
     store_object_id = Store::Object.lookup(name: data[:object])
-    stores = Store.where(store_object_id: store_object_id, o_id: data[:o_id].to_i)
+    Store.where(store_object_id: store_object_id, o_id: data[:o_id].to_i)
                   .order(created_at: :asc)
-    stores
+
   end
 
 =begin
@@ -281,7 +253,42 @@ returns
     file.provider
   end
 
+  RESIZABLE_MIME_REGEXP = %r{image/(jpeg|jpg|png)}i.freeze
+
+  def self.resizable_mime?(input)
+    input.match? RESIZABLE_MIME_REGEXP
+  end
+
   private
+
+  def generate_previews
+    return true if Setting.get('import_mode')
+
+    resizable = preferences
+                  .slice('Mime-Type', 'Content-Type', 'mime_type', 'content_type')
+                  .values
+                  .any? { |mime| self.class.resizable_mime?(mime) }
+
+    begin
+      if resizable
+        if content_preview(silence: true)
+          preferences[:resizable] = true
+          preferences[:content_preview] = true
+        end
+        if content_inline(silence: true)
+          preferences[:resizable] = true
+          preferences[:content_inline] = true
+        end
+        if preferences[:resizable]
+          save!
+        end
+      end
+    rescue => e
+      logger.error e
+      preferences[:resizable] = false
+      save!
+    end
+  end
 
   def image_resize(content, width)
     local_sha = Digest::SHA256.hexdigest(content)
@@ -300,7 +307,7 @@ returns
     return if image.width <= width
 
     # do not resize image if new height is smaller then 7px (images
-    # with small height are usally usefull to resize)
+    # with small height are usually useful to resize)
     ratio = image.width / width
     return if image.height / ratio <= 6
 
@@ -314,4 +321,43 @@ returns
     image_resized
   end
 
+  def oversized_preferences_check
+    [[600, 100], [300, 60], [150, 30], [75, 15]].each do |row|
+      return true if oversized_preferences_removed_by_content?(row[0])
+      return true if oversized_preferences_removed_by_key?(row[1])
+    end
+
+    true
+  end
+
+  def oversized_preferences_removed_by_content?(max_char)
+    oversized_preferences_removed? do |_key, content|
+      content.try(:size).to_i > max_char
+    end
+  end
+
+  def oversized_preferences_removed_by_key?(max_char)
+    oversized_preferences_removed? do |key, _content|
+      key.try(:size).to_i > max_char
+    end
+  end
+
+  def oversized_preferences_removed?
+    return true if !oversized_preferences_present?
+
+    preferences&.each do |key, content|
+      next if !yield(key, content)
+
+      preferences.delete(key)
+      Rails.logger.info "Removed oversized #{self.class.name} preference: '#{key}', '#{content}'"
+
+      break if !oversized_preferences_present?
+    end
+
+    !oversized_preferences_present?
+  end
+
+  def oversized_preferences_present?
+    preferences.to_yaml.size > PREFERENCES_SIZE_MAX
+  end
 end

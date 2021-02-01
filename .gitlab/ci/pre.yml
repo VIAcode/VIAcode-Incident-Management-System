@@ -1,0 +1,35 @@
+# Workaround to enable usage of mixed SSH and Docker GitLab CI runners
+.template_pre: &template_pre
+  stage: pre
+  extends:
+    - .tags_docker
+    - .rules_singletest
+  before_script:
+    - source /etc/profile.d/rvm.sh # ensure RVM is loaded
+
+rubocop:
+  <<: *template_pre
+  script:
+    - bundle install -j $(nproc) --path vendor
+    - bundle exec rubocop --parallel
+
+coffeelint:
+  <<: *template_pre
+  script:
+    - coffeelint app/
+
+bundle-audit:
+  <<: *template_pre
+  script:
+    - gem install bundler-audit
+    - bundle-audit update
+    - bundle-audit --ignore CVE-2015-9284
+
+github:
+  <<: *template_pre
+  tags:
+    - deploy
+  before_script:
+    - "" # no RVM present in deploy ENV
+  script:
+    - script/build/sync_repo.sh git@github.com:zammad/zammad.git

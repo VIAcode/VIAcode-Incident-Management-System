@@ -1,6 +1,6 @@
 class EmailReply extends App.Controller
   @action: (actions, ticket, article, ui) ->
-    return actions if !ui.permissionCheck('ticket.agent')
+    return actions if ticket.currentView() is 'customer'
     group = ticket.group
     return actions if !group.email_address_id
 
@@ -46,7 +46,7 @@ class EmailReply extends App.Controller
             if !localAddress
               foreignRecipients.push recipient
 
-      # check if reply all is neede
+      # check if reply all is needed
       if foreignRecipients.length > 1
         actions.push {
           name: 'reply all'
@@ -132,7 +132,6 @@ class EmailReply extends App.Controller
     selected = App.ClipBoard.getSelected('html')
     if selected
       selected = App.Utils.htmlCleanup(selected).html()
-      selected = App.Utils.htmlImage2DataUrl(selected)
     if !selected
       selected = App.ClipBoard.getSelected('text')
       if selected
@@ -149,12 +148,7 @@ class EmailReply extends App.Controller
         selected = App.Utils.text2html(selected)
 
     if selected
-      quote_header = ''
-      if App.Config.get('ui_ticket_zoom_article_email_full_quote_header')
-        date = @date_format(article.created_at)
-        name = article.updated_by.displayName()
-        email = article.updated_by.email
-        quote_header = App.i18n.translateInline('On %s, %s wrote:', date, name) + '<br><br>'
+      quote_header = @replyQuoteHeader(article)
 
       selected = "<div><br><br/></div><div><blockquote type=\'cite\'>#{quote_header}#{selected}<br></blockquote></div><div><br></div>"
 
@@ -197,13 +191,14 @@ class EmailReply extends App.Controller
     body = ''
     if article.content_type.match('html')
       body = App.Utils.textCleanup(article.body)
-      body = App.Utils.htmlImage2DataUrl(article.body)
 
     if article.content_type.match('plain')
       body = App.Utils.textCleanup(article.body)
       body = App.Utils.text2html(body)
 
-    body = "<br/><div>---Begin forwarded message:---<br/><br/></div><div><blockquote type=\"cite\">#{body}</blockquote></div><div><br></div>"
+    quote_header = App.FullQuoteHeader.fullQuoteHeaderForward(article)
+
+    body = "<br/><div>---Begin forwarded message:---<br/><br/></div><div><blockquote type=\"cite\">#{quote_header}#{body}</blockquote></div><div><br></div>"
 
     articleNew = {}
     articleNew.body = body
@@ -246,7 +241,7 @@ class EmailReply extends App.Controller
     true
 
   @articleTypes: (articleTypes, ticket, ui) ->
-    return articleTypes if !ui.permissionCheck('ticket.agent')
+    return articleTypes if ticket.currentView() is 'customer'
     group = ticket.group
     return articleTypes if !group.email_address_id
 
@@ -258,7 +253,7 @@ class EmailReply extends App.Controller
       icon:       'email'
       attributes: attributes
       internal:   false,
-      features:   ['attachment']
+      features:   ['attachment', 'security']
     }
 
     articleTypes
@@ -308,6 +303,9 @@ class EmailReply extends App.Controller
           body.append(signature)
         ui.$('[data-name=body]').replaceWith(body)
 
+    # convert remote images into data urls
+    App.Utils.htmlImage2DataUrlAsyncInline(ui.$('[contenteditable=true]'))
+
   @validation: (type, params, ui) ->
     return true if type isnt 'email'
 
@@ -340,5 +338,15 @@ class EmailReply extends App.Controller
       return false
 
     true
+
+  @replyQuoteHeader: (article) ->
+    if !App.Config.get('ui_ticket_zoom_article_email_full_quote_header')
+      return ''
+
+    date = @date_format(article.created_at)
+    name = article.updated_by.displayName()
+
+    App.i18n.translateInline('On %s, %s wrote:', date, name) + '<br><br>'
+
 
 App.Config.set('200-EmailReply', EmailReply, 'TicketZoomArticleAction')

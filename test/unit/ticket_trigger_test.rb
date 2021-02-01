@@ -658,7 +658,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
     )
 
     Trigger.create!(
-      name:          'auto reply (on follow up of tickets)',
+      name:          'auto reply (on follow-up of tickets)',
       condition:     {
         'ticket.action'     => {
           'operator' => 'is',
@@ -679,7 +679,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
       },
       perform:       {
         'notification.email' => {
-          'body'      => '<p>Your follow up for (#{config.ticket_hook}##{ticket.number}) has been received and will be reviewed by our support staff.<p>
+          'body'      => '<p>Your follow-up for (#{config.ticket_hook}##{ticket.number}) has been received and will be reviewed by our support staff.<p>
 <br/>
 <p>To provide additional information, please reply to this email or click on the following link:
 <a href="#{config.http_type}://#{config.fqdn}/#ticket/zoom/#{ticket.id}">#{config.http_type}://#{config.fqdn}/#ticket/zoom/#{ticket.id}</a>
@@ -687,7 +687,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
 <br/>
 <p><i><a href="http://zammad.com">Zammad</a>, your customer support system</i></p>',
           'recipient' => 'ticket_customer',
-          'subject'   => 'Thanks for your follow up (#{ticket.title})',
+          'subject'   => 'Thanks for your follow-up (#{ticket.title})',
         },
       },
       active:        true,
@@ -721,7 +721,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
     )
 
     # process mail without Precedence header
-    content = File.read(Rails.root.join('test', 'data', 'ticket_trigger', 'mail1.box'))
+    content = File.read(Rails.root.join('test/data/ticket_trigger/mail1.box'))
     ticket_p, _article_p, _user_p, _mail = Channel::EmailParser.new.process({}, content)
 
     assert_equal('aaäöüßad asd', ticket_p.title)
@@ -807,7 +807,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
     assert_equal(6, ticket_p.articles.count, 'ticket_p.articles verify')
 
     article_p = ticket_p.articles.last
-    assert_match('Thanks for your follow up (aaäöüßad asd)', article_p.subject)
+    assert_match('Thanks for your follow-up (aaäöüßad asd)', article_p.subject)
     assert_match('Zammad <zammad@localhost>', article_p.from)
     assert_no_match('config\.', article_p.body)
     assert_match('http://zammad.example.com', article_p.body)
@@ -838,7 +838,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
     assert_equal(8, ticket_p.articles.count, 'ticket_p.articles verify')
 
     article_p = ticket_p.articles.last
-    assert_match('Thanks for your follow up (aaäöüßad asd)', article_p.subject)
+    assert_match('Thanks for your follow-up (aaäöüßad asd)', article_p.subject)
     assert_match('Zammad <zammad@localhost>', article_p.from)
     assert_no_match('config\.', article_p.body)
     assert_match('http://zammad.example.com', article_p.body)
@@ -847,7 +847,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
     assert_equal('text/html', article_p.content_type)
 
     # process mail without Precedence header
-    content = File.read(Rails.root.join('test', 'data', 'ticket_trigger', 'mail1.box'))
+    content = File.read(Rails.root.join('test/data/ticket_trigger/mail1.box'))
     ticket_p1, _article_p1, _user_p1, _mail = Channel::EmailParser.new.process({}, content)
 
     assert_not_equal(ticket_p.id, ticket_p1.id)
@@ -855,7 +855,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
     assert_equal(2, ticket_p1.articles.count)
 
     # process mail with Precedence header (no auto response)
-    content = File.read(Rails.root.join('test', 'data', 'ticket_trigger', 'mail2.box'))
+    content = File.read(Rails.root.join('test/data/ticket_trigger/mail2.box'))
     ticket_p2, _article_p2, _user_p2, _mail = Channel::EmailParser.new.process({}, content)
 
     assert_not_equal(ticket_p.id, ticket_p1.id)
@@ -865,7 +865,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
     assert_equal(1, ticket_p2.articles.count)
 
     # process mail with abuse@ (no auto response)
-    content = File.read(Rails.root.join('test', 'data', 'ticket_trigger', 'mail3.box'))
+    content = File.read(Rails.root.join('test/data/ticket_trigger/mail3.box'))
     ticket_p3, _article_p3, _user_p3, _mail = Channel::EmailParser.new.process({}, content)
 
     assert_not_equal(ticket_p.id, ticket_p1.id)
@@ -951,7 +951,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
     )
 
     # process mail without Precedence header
-    content = File.read(Rails.root.join('test', 'data', 'ticket_trigger', 'mail1.box'))
+    content = File.read(Rails.root.join('test/data/ticket_trigger/mail1.box'))
     ticket_p, _article_p, _user_p, _mail = Channel::EmailParser.new.process({}, content)
 
     assert_equal('aaäöüßad asd', ticket_p.title)
@@ -1016,7 +1016,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
     )
 
     # process mail without Precedence header
-    content = File.read(Rails.root.join('test', 'data', 'ticket_trigger', 'mail1.box'))
+    content = File.read(Rails.root.join('test/data/ticket_trigger/mail1.box'))
     ticket_p, _article_p, _user_p, _mail = Channel::EmailParser.new.process({}, content)
 
     assert_equal('aaäöüßad asd', ticket_p.title)
@@ -1100,7 +1100,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
     )
 
     # process mail without Precedence header
-    content = File.read(Rails.root.join('test', 'data', 'ticket_trigger', 'mail1.box'))
+    content = File.read(Rails.root.join('test/data/ticket_trigger/mail1.box'))
     ticket_p, _article_p, _user_p, _mail = Channel::EmailParser.new.process({}, content)
 
     assert_equal('aaäöüßad asd', ticket_p.title)
@@ -1179,7 +1179,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
     )
 
     # process mail without Precedence header
-    content = File.read(Rails.root.join('test', 'data', 'ticket_trigger', 'mail1.box'))
+    content = File.read(Rails.root.join('test/data/ticket_trigger/mail1.box'))
     ticket_p, _article_p, _user_p, _mail = Channel::EmailParser.new.process({}, content)
 
     assert_equal(1, ticket_p.articles.count)
@@ -2554,7 +2554,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
       updated_by_id: 1,
     )
     Trigger.create!(
-      name:          'auto reply (on follow up of tickets)',
+      name:          'auto reply (on follow-up of tickets)',
       condition:     {
         'ticket.action'     => {
           'operator' => 'is',
@@ -2575,7 +2575,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
       },
       perform:       {
         'notification.email' => {
-          'body'      => '<div>Your follow up for <b>(#{config.ticket_hook}#{ticket.number})</b> has been received and will be reviewed by our support staff.</div>
+          'body'      => '<div>Your follow-up for <b>(#{config.ticket_hook}#{ticket.number})</b> has been received and will be reviewed by our support staff.</div>
     <br/>
     <div>To provide additional information, please reply to this email or click on the following link:
     <a href="#{config.http_type}://#{config.fqdn}/#ticket/zoom/#{ticket.id}">#{config.http_type}://#{config.fqdn}/#ticket/zoom/#{ticket.id}</a>
@@ -2585,7 +2585,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
     <br/>
     <div><i><a href="https://zammad.com">Zammad</a>, your customer support system</i></div>',
           'recipient' => 'ticket_customer',
-          'subject'   => 'Thanks for your follow up (#{ticket.title})',
+          'subject'   => 'Thanks for your follow-up (#{ticket.title})',
         },
       },
       active:        true,
@@ -4257,7 +4257,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
       updated_by_id:        1,
     )
 
-    ticket1, _article1, _user, _mail = Channel::EmailParser.new.process({}, File.read(Rails.root.join('test', 'data', 'mail', 'mail065.box')))
+    ticket1, _article1, _user, _mail = Channel::EmailParser.new.process({}, File.read(Rails.root.join('test/data/mail/mail065.box')))
 
     assert_equal('aaäöüßad asd', ticket1.title, 'ticket1.title verify')
     assert_equal('Users', ticket1.group.name, 'ticket1.group verify')
@@ -4298,7 +4298,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
       updated_by_id:        1,
     )
 
-    ticket1, _article1, _user, _mail = Channel::EmailParser.new.process({}, File.read(Rails.root.join('test', 'data', 'mail', 'mail065.box')))
+    ticket1, _article1, _user, _mail = Channel::EmailParser.new.process({}, File.read(Rails.root.join('test/data/mail/mail065.box')))
 
     assert_equal('aaäöüßad asd', ticket1.title, 'ticket1.title verify')
     assert_equal('Users', ticket1.group.name, 'ticket1.group verify')
@@ -4446,8 +4446,8 @@ class TicketTriggerTest < ActiveSupport::TestCase
       },
       perform:              {
         'article.note'       => {
-          'body'     => 'some note',
-          'subject'  => 'some subject!',
+          'subject'  => 'some subject! #{ticket.id}',
+          'body'     => 'I can integrate with 3rd party services at https://my.saas/foo/#{ticket.id}',
           'internal' => 'true',
         },
         'notification.email' => {
@@ -4508,8 +4508,8 @@ class TicketTriggerTest < ActiveSupport::TestCase
     article_note1 = ticket1.articles[1]
     assert_match('- ', article_note1.from)
     assert_nil(article_note1.to)
-    assert_match('some subject!', article_note1.subject)
-    assert_match('some note', article_note1.body)
+    assert_match("some subject! #{ticket1.id}", article_note1.subject)
+    assert_match("I can integrate with 3rd party services at <a href=\"https://my.saas/foo/#{ticket1.id}\" rel=\"nofollow noreferrer noopener\" target=\"_blank\">https://my.saas/foo/#{ticket1.id}</a>", article_note1.body)
     assert_equal('text/html', article_note1.content_type)
     assert_equal(true, article_note1.internal)
 
@@ -4626,7 +4626,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
       updated_by_id:        1,
     )
 
-    ticket1, _article1, _user, _mail = Channel::EmailParser.new.process({}, File.read(Rails.root.join('test', 'data', 'mail', 'mail048.box')))
+    ticket1, _article1, _user, _mail = Channel::EmailParser.new.process({}, File.read(Rails.root.join('test/data/mail/mail048.box')))
 
     assert_equal('AW: OTRS / Anfrage OTRS Einführung/Präsentation [Ticket#11545]', ticket1.title, 'ticket1.title verify')
     assert_equal(2, ticket1.articles.count, 'ticket1.articles verify')
@@ -4671,7 +4671,7 @@ class TicketTriggerTest < ActiveSupport::TestCase
       updated_by_id:        1,
     )
 
-    ticket1, _article1, _user, _mail = Channel::EmailParser.new.process({}, File.read(Rails.root.join('test', 'data', 'mail', 'mail069.box')))
+    ticket1, _article1, _user, _mail = Channel::EmailParser.new.process({}, File.read(Rails.root.join('test/data/mail/mail069.box')))
 
     assert_equal('Online-apotheke. Günstigster Preis. Ohne Rezepte', ticket1.title, 'ticket1.title verify')
     assert_equal(2, ticket1.articles.count, 'ticket1.articles verify')

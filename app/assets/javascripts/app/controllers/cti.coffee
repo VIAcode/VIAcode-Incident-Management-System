@@ -5,8 +5,9 @@ class App.CTI extends App.Controller
   elements:
     '.js-callerLog': 'callerLog'
   events:
-    'click .js-check': 'done'
-    'click .js-newUser': 'newUser'
+    'click .js-check':    'done'
+    'click .js-checkAll': 'doneAll'
+    'click .js-newUser':  'newUser'
   list: []
   backends: []
   meta:
@@ -191,14 +192,28 @@ class App.CTI extends App.Controller
 
     @updateNavMenu()
 
+  doneAll: =>
+
+    # get id's of all unchecked caller logs
+    @logIds = $('.js-callerLog').map(->
+      return $(@).data('id') if !$(@).find('.js-check').prop('checked')
+    ).get()
+
+    @ajax(
+      type: 'POST'
+      url:  "#{@apiPath}/cti/done/bulk"
+      data: JSON.stringify({ids: @logIds})
+    )
+
   done: (e) =>
     element = $(e.currentTarget)
-    id = element.closest('tr').data('id')
-    done = element.prop('checked')
+    id      = element.closest('tr').data('id')
+    done    = element.prop('checked')
     @ajax(
       type:  'POST'
       url:   "#{@apiPath}/cti/done/#{id}"
       data:  JSON.stringify(done: done)
+      queue: 'cti_done_queue'
     )
 
   newTicket: (user) =>

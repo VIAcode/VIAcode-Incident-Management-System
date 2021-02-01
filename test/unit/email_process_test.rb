@@ -95,14 +95,14 @@ Some Textäöü",
             {
               firstname: '',
               lastname: '',
-              fullname: 'me@exampl\'e.com',
-              email: 'me@exampl\'e.com',
+              fullname: 'me@example.com',
+              email: 'me@example.com',
             },
             {
               firstname: '',
               lastname: '',
-              fullname: 'customer@exampl\'e.com',
-              email: 'customer@exampl\'e.com',
+              fullname: 'customer@example.com',
+              email: 'customer@example.com',
             },
           ],
         },
@@ -791,7 +791,7 @@ Some Text",
           },
           1 => {
             content_type: 'text/html',
-            body: 'Puzzled by judith bronte dave. Melvin will want her way through with.<br>Continued adam helped charlie cried. Soon joined the master bathroom. Grinned adam rubbed his arms she nodded.<br>Freemont and they talked with beppe.<br>Thinking of bed and whenever adam.<br>Mike was too tired man to hear.<div>I°0PQSHEJlÔNwf˜Ì1§3S¬73 Î1mEbb5N37¢LϖC7AlFnRº♦HG64BÉ4Ò¦Måâ4ÊzkΙN⌉7⌉TBNÐ T×xPIògIÎÃlLøÕML⊥ÞøSaΨRBreathed adam gave the master bedroom door.<br>Better get charlie took the wall.<br>Charlotte clark smile he saw charlie.<br>Dave and leaned her tears adam.</div>Maybe we want any help me that.<br>Next morning charlie gazed at their father.<br>Well as though adam took out here. Melvin will be more money. Called him into this one last night.<br>Men joined the pickup truck pulled away. Chuck could make sure that.<a href="http://%D0%B0%D0%BE%D1%81%D0%BA.%D1%80%D1%84?jmlfwnwe&amp;ucwkiyyc" rel="nofollow noreferrer noopener" title="http://аоск.рф?jmlfwnwe&amp;ucwkiyyc" target="_blank"><b>†p­C L I C K Ȟ E R EEOD !</b></a>Chuckled adam leaned forward and leî charlie.<br>Just then returned to believe it here.<br>Freemont and pulling out several minutes.',
+            body: 'Puzzled by judith bronte dave. Melvin will want her way through with.<br>Continued adam helped charlie cried. Soon joined the master bathroom. Grinned adam rubbed his arms she nodded.<br>Freemont and they talked with beppe.<br>Thinking of bed and whenever adam.<br>Mike was too tired man to hear.<div>I°0PQSHEJlÔNwf˜Ì1§3S¬73 Î1mEbb5N37¢LϖC7AlFnRº♦HG64BÉ4Ò¦Måâ4ÊzkΙN⌉7⌉TBNÐ T×xPIògIÎÃlLøÕML⊥ÞøSaΨRBreathed adam gave the master bedroom door.<br>Better get charlie took the wall.<br>Charlotte clark smile he saw charlie.<br>Dave and leaned her tears adam.</div>Maybe we want any help me that.<br>Next morning charlie gazed at their father.<br>Well as though adam took out here. Melvin will be more money. Called him into this one last night.<br>Men joined the pickup truck pulled away. Chuck could make sure that.<a href="http://%D0%B0%D0%BE%D1%81%D0%BA.%D1%80%D1%84?jmlfwnwe&amp;ucwkiyyc" rel="nofollow noreferrer noopener" title="http://%D0%B0%D0%BE%D1%81%D0%BA.%D1%80%D1%84?jmlfwnwe&amp;ucwkiyyc" target="_blank"><b>†p­C L I C K Ȟ E R EEOD !</b></a>Chuckled adam leaned forward and leî charlie.<br>Just then returned to believe it here.<br>Freemont and pulling out several minutes.',
             sender: 'Customer',
             type: 'email',
             internal: false,
@@ -2777,7 +2777,7 @@ Some Text',
               firstname: 'Clement.Si',
               lastname: '',
               fullname: 'Clement.Si',
-              email: 'claudia.shu@yahoo.com.',
+              email: 'claudia.shu@yahoo.com',
             },
             {
               firstname: '',
@@ -3065,7 +3065,7 @@ Content-Type: text/html; charset=us-ascii; format=flowed
           },
           1 => {
             content_type: 'text/html',
-            body: 'testäöü@example.com',
+            body: 'test%C3%A4%C3%B6%C3%BC@example.com',
             sender: 'Customer',
             type: 'email',
             internal: false,
@@ -3175,6 +3175,92 @@ Content-Type: text/html; charset=us-ascii; format=flowed
           ],
         },
       },
+      { # See https://github.com/zammad/zammad/issues/2704
+        data: File.read(Rails.root.join('test', 'data', 'mail', 'mail083.box')),
+        success: true,
+        result: {
+          1 => {
+            from: 'Martin Smith <martin083@example.de>',
+            sender: 'Customer',
+            type: 'email',
+          },
+        },
+        verify: {
+          users: [
+            {
+              firstname: 'Martin',
+              lastname: 'Smith',
+              fullname: 'Martin Smith',
+              email: 'martin083@example.de',
+            },
+          ],
+        },
+      },
+      { # See https://github.com/zammad/zammad/issues/2704
+        data: File.read(Rails.root.join('test', 'data', 'mail', 'mail084.box')),
+        success: true,
+        result: {
+          1 => {
+            from: 'Martin Smith <martin084@example.de>',
+            sender: 'Customer',
+            type: 'email',
+          },
+        },
+        verify: {
+          users: [
+            {
+              firstname: 'Martin',
+              lastname: 'Smith',
+              fullname: 'Martin Smith',
+              email: 'martin084@example.de',
+            },
+          ],
+        },
+      },
+      { # See https://github.com/zammad/zammad/issues/2971
+        data: File.read(Rails.root.join('test', 'data', 'mail', 'mail088.box')),
+        success: true,
+        result: {
+          1 => {
+            from: 'Martin Smith <martin088@example.de>',
+            sender: 'Customer',
+            type: 'email',
+            body: 'no visible content',
+          },
+        },
+        verify: {
+          users: [
+            {
+              firstname: 'Martin',
+              lastname: 'Smith',
+              fullname: 'Martin Smith',
+              email: 'martin088@example.de',
+            },
+          ],
+        },
+      },
+      { # See https://github.com/zammad/zammad/issues/3293
+        data: File.read(Rails.root.join('test', 'data', 'mail', 'mail094.box')),
+        success: true,
+        result: {
+          1 => {
+            from: '"Jo B. USER1 - Noreply 131231 23123123 123 123 123 12" <noreply@example.com>',
+            sender: 'Customer',
+            type: 'email',
+            body: 'no visible content',
+          },
+        },
+        verify: {
+          users: [
+            {
+              firstname: 'Jo',
+              lastname: 'B. USER1 - Noreply 131231 23123123 123 123 123 12',
+              fullname: 'Jo B. USER1 - Noreply 131231 23123123 123 123 123 12',
+              email: 'noreply@example.com',
+            },
+          ],
+        },
+      },
     ]
     assert_process(files)
   end
@@ -3224,7 +3310,7 @@ To: customer@example.com
 Subject: some subject
 X-Zammad-Ticket-Followup-State: closed
 X-Zammad-Ticket-priority: 3 high
-X-Zammad-Ticket-owner: agent1@example.com 
+X-Zammad-Ticket-owner: agent1@example.com
 X-Zammad-Article-sender: System
 x-Zammad-Article-type: phone
 x-Zammad-Article-Internal: true
@@ -3254,7 +3340,7 @@ To: customer@example.com
 Subject: some subject
 X-Zammad-Ticket-Followup-State: closed
 X-Zammad-Ticket-priority_id: 777777
-X-Zammad-Ticket-owner: not_existing@example.com 
+X-Zammad-Ticket-owner: not_existing@example.com
 X-Zammad-Article-sender_id: 999999
 x-Zammad-Article-type: phone
 x-Zammad-Article-Internal: true
@@ -3282,7 +3368,7 @@ Some Text',
         data: 'From: me@example.com
 To: customer@example.com
 Subject: some subject / with customer as agent - customer can not be owner
-X-Zammad-Ticket-owner: customer1@example.com 
+X-Zammad-Ticket-owner: customer1@example.com
 
 Some Text',
         channel: {

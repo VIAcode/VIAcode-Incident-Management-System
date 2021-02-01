@@ -1,8 +1,8 @@
-class Sessions::Backend::ActivityStream
+class Sessions::Backend::ActivityStream < Sessions::Backend::Base
 
   attr_writer :user
 
-  def initialize(user, asset_lookup, client = nil, client_id = nil, ttl = 25)
+  def initialize(user, asset_lookup, client = nil, client_id = nil, ttl = 25) # rubocop:disable Lint/MissingSuper
     @user         = user
     @client       = client
     @client_id    = client_id
@@ -46,18 +46,10 @@ class Sessions::Backend::ActivityStream
     }
   end
 
-  def client_key
-    "as::load::#{self.class}::#{@user.id}::#{@client_id}"
-  end
-
   def push
+    return if !to_run?
 
-    # check timeout
-    timeout = Sessions::CacheIn.get(client_key)
-    return if timeout
-
-    # set new timeout
-    Sessions::CacheIn.set(client_key, true, { expires_in: @ttl.seconds })
+    @time_now = Time.zone.now.to_i
 
     data = load
 

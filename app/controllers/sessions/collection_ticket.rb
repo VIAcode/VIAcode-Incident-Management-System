@@ -1,13 +1,12 @@
 # Copyright (C) 2012-2016 Zammad Foundation, http://zammad-foundation.org/
 
 module ExtraCollection
+
+  module_function
+
   def session( collections, assets, user )
 
     # all ticket stuff
-    collections[ Macro.to_app_model ] = []
-    Macro.all.each do |item|
-      assets = item.assets(assets)
-    end
     collections[ Ticket::StateType.to_app_model ] = []
     Ticket::StateType.all.each do |item|
       assets = item.assets(assets)
@@ -30,13 +29,20 @@ module ExtraCollection
     end
     if user.permissions?(['ticket.agent', 'admin.channel_email'])
 
-      # all signatures
+      collections[ Macro.to_app_model ] = []
+      Macro.all.each do |item|
+        assets = item.assets(assets)
+      end
+      collections[ TextModule.to_app_model ] = []
+      TextModule.all.each do |item|
+        assets = item.assets(assets)
+      end
+
       collections[ Signature.to_app_model ] = []
       Signature.all.each do |item|
         assets = item.assets(assets)
       end
 
-      # all email addresses
       collections[ EmailAddress.to_app_model ] = []
       EmailAddress.all.each do |item|
         assets = item.assets(assets)
@@ -44,5 +50,4 @@ module ExtraCollection
     end
     [collections, assets]
   end
-  module_function :session # rubocop:disable Style/AccessModifierDeclarations
 end

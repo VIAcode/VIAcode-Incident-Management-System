@@ -1,10 +1,29 @@
 class Sessions::Event::ChatStatusCustomer < Sessions::Event::ChatBase
 
+=begin
+
+a customer requests the current state of a chat
+
+payload
+
+  {
+    event: 'chat_status_agent',
+    data: {
+      session_id: 'the id of the current chat session',
+      url: 'optional url', # will trigger a chat_session_notice to agent
+    },
+  }
+
+return is sent as message back to peer
+
+=end
+
   def run
     return super if super
     return if !check_chat_exists
-    return if !check_chat_block_by_ip
-    return if !check_chat_block_by_country
+    return if blocked_ip?
+    return if blocked_country?
+    return if blocked_origin?
 
     # check if it's a chat sessin reconnect
     session_id = nil
@@ -36,10 +55,28 @@ class Sessions::Event::ChatStatusCustomer < Sessions::Event::ChatBase
     }
   end
 
-  def check_chat_block_by_ip
-    chat = current_chat
-    return true if !chat.blocked_ip?(@remote_ip)
+  def blocked_ip?
+    return false if !current_chat.blocked_ip?(remote_ip)
 
+    send_unavailable
+    true
+  end
+
+  def blocked_country?
+    return false if !current_chat.blocked_country?(remote_ip)
+
+    send_unavailable
+    true
+  end
+
+  def blocked_origin?
+    return false if current_chat.website_whitelisted?(origin)
+
+    send_unavailable
+    true
+  end
+
+  def send_unavailable
     error = {
       event: 'chat_error',
       data:  {
@@ -47,21 +84,5 @@ class Sessions::Event::ChatStatusCustomer < Sessions::Event::ChatBase
       },
     }
     Sessions.send(@client_id, error)
-    false
   end
-
-  def check_chat_block_by_country
-    chat = current_chat
-    return true if !chat.blocked_country?(@remote_ip)
-
-    error = {
-      event: 'chat_error',
-      data:  {
-        state: 'chat_unavailable',
-      },
-    }
-    Sessions.send(@client_id, error)
-    false
-  end
-
 end

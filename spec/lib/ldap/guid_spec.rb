@@ -5,7 +5,7 @@ RSpec.describe Ldap::Guid do
   let(:string) { 'f742b361-32c6-4a92-baaa-eaae7df657ee' }
   let(:hex) { "a\xB3B\xF7\xC62\x92J\xBA\xAA\xEA\xAE}\xF6W\xEE".b }
 
-  context '.valid?' do
+  describe '.valid?' do
 
     it 'responds to .valid?' do
       expect(described_class).to respond_to(:valid?)
@@ -21,23 +21,24 @@ RSpec.describe Ldap::Guid do
     end
   end
 
-  context '.hex' do
+  describe '.hex' do
 
     it 'responds to .hex' do
       expect(described_class).to respond_to(:hex)
     end
 
     it 'tunnels to instance method' do
-
       instance = double()
-      expect(instance).to receive(:hex)
-      expect(described_class).to receive(:new).with(string).and_return(instance)
+      allow(instance).to receive(:hex)
+      allow(described_class).to receive(:new).with(string).and_return(instance)
 
       described_class.hex(string)
+
+      expect(instance).to have_received(:hex)
     end
   end
 
-  context '.string' do
+  describe '.string' do
 
     it 'responds to .string' do
       expect(described_class).to respond_to(:string)
@@ -46,14 +47,15 @@ RSpec.describe Ldap::Guid do
     it 'tunnels to instance method' do
 
       instance = double()
-      expect(instance).to receive(:string)
-      expect(described_class).to receive(:new).with(hex).and_return(instance)
+      allow(instance).to receive(:string)
+      allow(described_class).to receive(:new).with(hex).and_return(instance)
 
       described_class.string(hex)
+      expect(instance).to have_received(:string)
     end
   end
 
-  context '#string' do
+  describe '#string' do
 
     let(:instance) { described_class.new(hex) }
 
@@ -66,7 +68,7 @@ RSpec.describe Ldap::Guid do
     end
   end
 
-  context '#hex' do
+  describe '#hex' do
 
     let(:instance) { described_class.new(string) }
 

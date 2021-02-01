@@ -52,7 +52,7 @@ returns
     # return if we run import mode
     return if Setting.get('import_mode') && !Setting.get('import_ignore_sla')
 
-    # set escalation off if current state is not escalation relativ (e. g. ticket is closed)
+    # set escalation off if current state is not escalation relative (e.g. ticket is closed)
     return if !state_id
 
     state = Ticket::State.lookup(id: state_id)
@@ -60,7 +60,7 @@ returns
     if state.ignore_escalation?
       escalation_disabled = true
 
-      # early exit if nothing current state is not escalation relativ
+      # early exit if nothing current state is not escalation relative
       if !force
         return false if escalation_at.nil?
 
@@ -136,15 +136,15 @@ returns
       close_at_changed = false
     end
 
-    if !force && preferences[:escalation_calculation]
-      if first_response_at_changed == false &&
-         last_update_at_changed == false &&
-         close_at_changed == false &&
-         sla_changed == false &&
-         calendar_changed == false &&
-         escalation_calculation['escalation_disabled'] == escalation_disabled
-        return false
-      end
+    if !force &&
+       preferences[:escalation_calculation] &&
+       first_response_at_changed == false &&
+       last_update_at_changed == false &&
+       close_at_changed == false &&
+       sla_changed == false &&
+       calendar_changed == false &&
+       escalation_calculation['escalation_disabled'] == escalation_disabled
+      return false
     end
 
     # reset escalation attributes
@@ -154,18 +154,7 @@ returns
       self.update_escalation_at    = nil
       self.close_escalation_at     = nil
     end
-    biz = Biz::Schedule.new do |config|
-
-      # get business hours
-      hours = calendar.business_hours_to_hash
-      raise "No configured hours found in calendar #{calendar.inspect}" if hours.blank?
-
-      config.hours = hours
-
-      # get holidays
-      config.holidays = calendar.public_holidays_to_array
-      config.time_zone = calendar.timezone
-    end
+    biz = calendar.biz
 
     # get history data
     history_data = nil

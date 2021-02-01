@@ -32,7 +32,7 @@ class String
     quote = split("\n")
     body_quote = ''
     quote.each do |line|
-      body_quote = body_quote + '> ' + line + "\n"
+      body_quote = "#{body_quote}> #{line}\n"
     end
     body_quote
   end
@@ -60,7 +60,7 @@ class String
 =end
 
   def to_filename
-    camel_cased_word = "#{self}" # rubocop:disable Style/UnneededInterpolation
+    camel_cased_word = dup
     camel_cased_word.gsub(/::/, '/')
                     .gsub(/([A-Z]+)([A-Z][a-z])/, '\1_\2')
                     .gsub(/([a-z\d])([A-Z])/, '\1_\2')
@@ -77,8 +77,8 @@ class String
 =end
 
   def to_classname
-    camel_cased_word = "#{self}" # rubocop:disable Style/UnneededInterpolation
-    camel_cased_word.gsub!(/\.rb$/, '')
+    camel_cased_word = dup
+    camel_cased_word.delete_suffix!('.rb')
     camel_cased_word.split('/').map(&:camelize).join('::')
   end
 
@@ -109,7 +109,7 @@ class String
 =end
 
   def html2text(string_only = false, strict = false)
-    string = "#{self}" # rubocop:disable Style/UnneededInterpolation
+    string = dup
 
     # in case of invalid encoding, strip invalid chars
     # see also test/data/mail/mail021.box
@@ -124,20 +124,11 @@ class String
     # find <a href=....> and replace it with [x]
     link_list = ''
     counter   = 0
-    if !string_only
-      if string.scan(/<a[[:space:]]/i).count < 5_000
-        string.gsub!(/<a[[:space:]].*?href=("|')(.+?)("|').*?>/ix) do
-          link = $2
-          counter = counter + 1
-          link_list += "[#{counter}] #{link}\n"
-          "[#{counter}] "
-        end
-      end
-    else
+    if string_only
       string.gsub!(%r{<a[[:space:]]+(|\S+[[:space:]]+)href=("|')(.+?)("|')([[:space:]]*|[[:space:]]+[^>]*)>(.+?)<[[:space:]]*/a[[:space:]]*>}mxi) do |_placeholder|
         link = $3
         text = $6
-        text.gsub!(/\<.+?\>/, '')
+        text.gsub!(/<.+?>/, '')
 
         link_compare = link.dup
         if link_compare.present?
@@ -168,6 +159,13 @@ class String
           "#{link} (######LINKRAW:#{text}######)"
         end
       end
+    elsif string.scan(/<a[[:space:]]/i).count < 5_000
+      string.gsub!(/<a[[:space:]].*?href=("|')(.+?)("|').*?>/ix) do
+        link = $2
+        counter = counter + 1
+        link_list += "[#{counter}] #{link}\n"
+        "[#{counter}] "
+      end
     end
 
     # remove style tags with content
@@ -195,7 +193,7 @@ class String
 
     # blockquote handling
     string.gsub!(%r{<blockquote(| [^>]*)>(.+?)</blockquote>}m) do
-      "\n" + $2.html2text(true).gsub(/^(.*)$/, '&gt; \1') + "\n"
+      "\n#{$2.html2text(true).gsub(/^(.*)$/, '&gt; \1')}\n"
     end
 
     # pre/code handling 2/2
@@ -218,7 +216,7 @@ class String
     string.gsub!(%r{</td>}i, ' ')
 
     # strip all other tags
-    string.gsub!(/\<.+?\>/, '')
+    string.gsub!(/<.+?>/, '')
 
     # replace multiple spaces with one
     string.gsub!(/  /, ' ')
@@ -294,7 +292,7 @@ class String
 
     # add extracted links
     if link_list != ''
-      string += "\n\n\n" + link_list
+      string += "\n\n\n#{link_list}"
     end
 
     # remove double multiple empty lines
@@ -322,7 +320,7 @@ class String
 =end
 
   def html2html_strict
-    string = "#{self}" # rubocop:disable Style/UnneededInterpolation
+    string = dup
     string = HtmlSanitizer.cleanup_replace_tags(string)
     string = HtmlSanitizer.strict(string, true).strip
     string = HtmlSanitizer.cleanup(string).strip
@@ -348,8 +346,8 @@ class String
     string.gsub!(/(<br>[[:space:]]*){3,}/im, '<br><br>')
     string.gsub!(%r\(<br(|/)>[[:space:]]*){3,}\im, '<br/><br/>')
     string.gsub!(%r{<p>[[:space:]]+</p>}im, '<p>&nbsp;</p>')
-    string.gsub!(%r{\A(<br(|\/)>[[:space:]]*)*}i, '')
-    string.gsub!(%r{[[:space:]]*(<br(|\/)>[[:space:]]*)*\Z}i, '')
+    string.gsub!(%r{\A(<br(|/)>[[:space:]]*)*}i, '')
+    string.gsub!(%r{[[:space:]]*(<br(|/)>[[:space:]]*)*\Z}i, '')
     string.gsub!(%r{(<p></p>){1,10}\Z}i, '')
 
     string.signature_identify('html')

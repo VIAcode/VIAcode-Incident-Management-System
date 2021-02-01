@@ -3,9 +3,9 @@ require 'rails_helper'
 RSpec.describe Sessions::Backend::Base do
   subject(:backend) { described_class.new(agent, {}, false, client_id, ttl) }
 
-  let(:agent) { create(:agent_user) }
+  let(:agent) { create(:agent) }
   let(:client_id) { '123-1' }
-  let(:ttl) { 3 }  # seconds
+  let(:ttl) { 3 } # seconds
   let!(:ticket) { Ticket.first || create(:ticket) }
 
   describe '#asset_needed?' do

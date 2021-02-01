@@ -64,7 +64,7 @@ install all packages located under auto_install/*.zpm
 
     data = []
     Dir.foreach(path) do |entry|
-      if entry =~ /\.zpm/ && entry !~ /^\./
+      if entry.include?('.zpm') && entry !~ /^\./
         data.push entry
       end
     end
@@ -91,7 +91,7 @@ note: will not take down package migrations, use Package.unlink instead
         logger.info "unlink: #{entry}"
         File.delete(entry)
       end
-      backup_file = entry + '.link_backup'
+      backup_file = "#{entry}.link_backup"
       if File.exist?(backup_file)
         logger.info "Restore backup file of #{backup_file} -> #{entry}."
         File.rename(backup_file, entry)
@@ -102,7 +102,7 @@ note: will not take down package migrations, use Package.unlink instead
   # check if zpm is a package source repo
   def self._package_base_dir?(package_base_dir)
     package = false
-    Dir.glob(package_base_dir + '/*.szpm') do |entry|
+    Dir.glob("#{package_base_dir}/*.szpm") do |entry|
       package = entry.sub(%r{^.*/(.+?)\.szpm$}, '\1')
     end
     if package == false
@@ -117,7 +117,7 @@ note: will not take down package migrations, use Package.unlink instead
 
 execute migration down + unlink files
 
-  Package.unlink('/path/to/src/extention')
+  Package.unlink('/path/to/src/extension')
 
 =end
 
@@ -130,18 +130,18 @@ execute migration down + unlink files
     Package::Migration.migrate(package, 'reverse')
 
     # link files
-    Dir.glob(package_base_dir + '/**/*') do |entry|
+    Dir.glob("#{package_base_dir}/**/*") do |entry|
       entry = entry.sub('//', '/')
       file = entry
-      file = file.sub(/#{package_base_dir.to_s}/, '')
-      dest = @@root + '/' + file
+      file = file.sub(/#{package_base_dir}/, '')
+      dest = "#{@@root}/#{file}"
 
       if File.symlink?(dest.to_s)
         logger.info "Unlink file: #{dest}"
         File.delete(dest.to_s)
       end
 
-      backup_file = dest.to_s + '.link_backup'
+      backup_file = "#{dest}.link_backup"
       if File.exist?(backup_file)
         logger.info "Restore backup file of #{backup_file} -> #{dest}."
         File.rename(backup_file, dest.to_s)
@@ -153,7 +153,7 @@ execute migration down + unlink files
 
 link files + execute migration up
 
-  Package.link('/path/to/src/extention')
+  Package.link('/path/to/src/extension')
 
 =end
 
@@ -163,30 +163,28 @@ link files + execute migration up
     package = _package_base_dir?(package_base_dir)
 
     # link files
-    Dir.glob(package_base_dir + '/**/*') do |entry|
+    Dir.glob("#{package_base_dir}/**/*") do |entry|
       entry = entry.sub('//', '/')
       file = entry
-      file = file.sub(/#{package_base_dir.to_s}/, '')
+      file = file.sub(/#{package_base_dir}/, '')
       file = file.sub(%r{^/}, '')
 
       # ignore files
-      if file.match?(/^README/)
+      if file.start_with?('README')
         logger.info "NOTICE: Ignore #{file}"
         next
       end
 
       # get new file destination
-      dest = @@root + '/' + file
+      dest = "#{@@root}/#{file}"
 
-      if File.directory?(entry.to_s)
-        if !File.exist?(dest.to_s)
-          logger.info "Create dir: #{dest}"
-          FileUtils.mkdir_p(dest.to_s)
-        end
+      if File.directory?(entry.to_s) && !File.exist?(dest.to_s)
+        logger.info "Create dir: #{dest}"
+        FileUtils.mkdir_p(dest.to_s)
       end
 
       if File.file?(entry.to_s) && (File.file?(dest.to_s) && !File.symlink?(dest.to_s))
-        backup_file = dest.to_s + '.link_backup'
+        backup_file = "#{dest}.link_backup"
         if File.exist?(backup_file)
           raise "Can't link #{entry} -> #{dest}, destination and .link_backup already exists!"
         end
@@ -220,7 +218,7 @@ or
 
 returns
 
-  package # record of new created packae
+  package # record of newly created package
 
 =end
 
@@ -303,7 +301,7 @@ reinstall package
 
 returns
 
-  package # record of new created packae
+  package # record of newly created package
 
 =end
 
@@ -330,7 +328,7 @@ or
 
 returns
 
-  package # record of new created packae
+  package # record of newly created package
 
 =end
 
@@ -408,19 +406,20 @@ execute all pending package migrations at once
   end
 
   def self._read_file(file, fullpath = false)
-    location = if fullpath == false
-                 @@root + '/' + file
-               elsif fullpath == true
+    location = case fullpath
+               when false
+                 "#{@@root}/#{file}"
+               when true
                  file
                else
-                 fullpath + '/' + file
+                 "#{fullpath}/#{file}"
                end
 
     begin
       data = File.open(location, 'rb')
       contents = data.read
     rescue => e
-      raise 'ERROR: ' + e.inspect
+      raise e
     end
     contents
   end
@@ -435,7 +434,7 @@ execute all pending package migrations at once
         logger.debug { "NOTICE: file '#{location}' already exists, skip install" }
         return true
       end
-      backup_location = location + '.save'
+      backup_location = "#{location}.save"
       logger.info "NOTICE: backup old file '#{location}' to #{backup_location}"
       File.rename(location, backup_location)
     end
@@ -462,7 +461,7 @@ execute all pending package migrations at once
       file.close
       File.chmod(permission.to_s.to_i(8), location)
     rescue => e
-      raise 'ERROR: ' + e.inspect
+      raise e
     end
     true
   end
@@ -477,91 +476,12 @@ execute all pending package migrations at once
     end
 
     # rename existing file
-    backup_location = location + '.save'
+    backup_location = "#{location}.save"
     if File.exist?(backup_location)
       logger.info "NOTICE: restore old file '#{backup_location}' to #{location}"
       File.rename(backup_location, location)
     end
 
     true
-  end
-
-  class Migration < ApplicationModel
-
-    def self.linked
-      szpm_files = []
-      Dir.chdir(root) do
-        szpm_files = Dir['*.szpm']
-      end
-
-      szpm_files.each do |szpm_file|
-        package = szpm_file.sub('.szpm', '')
-        migrate(package)
-      end
-    end
-
-    def self.migrate(package, direction = 'normal')
-      location = "#{root}/db/addon/#{package.underscore}"
-
-      return true if !File.exist?(location)
-
-      # get existing migrations
-      migrations_existing = []
-      Dir.foreach(location) do |entry|
-        next if entry == '.'
-        next if entry == '..'
-
-        migrations_existing.push entry
-      end
-
-      # up
-      migrations_existing = migrations_existing.sort
-
-      # down
-      if direction == 'reverse'
-        migrations_existing = migrations_existing.reverse
-      end
-
-      migrations_existing.each do |migration|
-        next if migration !~ /\.rb$/
-
-        version = nil
-        name    = nil
-        if migration =~ /^(.+?)_(.*)\.rb$/
-          version = $1
-          name    = $2
-        end
-        if !version || !name
-          raise "Invalid package migration '#{migration}'"
-        end
-
-        # down
-        done = Package::Migration.find_by(name: package.underscore, version: version)
-        if direction == 'reverse'
-          next if !done
-
-          logger.info "NOTICE: down package migration '#{migration}'"
-          load "#{location}/#{migration}"
-          classname = name.camelcase
-          classname.constantize.down
-          record = Package::Migration.find_by(name: package.underscore, version: version)
-          record&.destroy
-
-          # up
-        else
-          next if done
-
-          logger.info "NOTICE: up package migration '#{migration}'"
-          load "#{location}/#{migration}"
-          classname = name.camelcase
-          classname.constantize.up
-          Package::Migration.create(name: package.underscore, version: version)
-        end
-      end
-    end
-
-    def self.root
-      Rails.root
-    end
   end
 end

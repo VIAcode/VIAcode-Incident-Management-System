@@ -11,6 +11,7 @@ module ApplicationController::HandlesErrors
     rescue_from ArgumentError, with: :unprocessable_entity
     rescue_from Exceptions::UnprocessableEntity, with: :unprocessable_entity
     rescue_from Exceptions::NotAuthorized, with: :unauthorized
+    rescue_from Pundit::NotAuthorizedError, with: :pundit_not_authorized_error
   end
 
   def not_found(e)
@@ -32,10 +33,20 @@ module ApplicationController::HandlesErrors
   end
 
   def unauthorized(e)
-    error = humanize_error(e.message)
+    logger.info { e }
+    error = humanize_error(e)
     response.headers['X-Failure'] = error.fetch(:error_human, error[:error])
     respond_to_exception(e, :unauthorized)
     http_log
+  end
+
+  def pundit_not_authorized_error(e)
+    logger.info { e }
+    # check if a special authorization_error should be shown in the result payload
+    # which was raised in one of the policies. Fall back to a simple "Not authorized"
+    # error to hide actual cause for security reasons.
+    exeption = e.policy.custom_exception || Exceptions::NotAuthorized.new
+    unauthorized(exeption)
   end
 
   private
@@ -44,40 +55,51 @@ module ApplicationController::HandlesErrors
     status_code = Rack::Utils.status_code(status)
 
     respond_to do |format|
-      format.json { render json: humanize_error(e.message), status: status }
+      format.json { render json: humanize_error(e), status: status }
       format.any do
-        errors = humanize_error(e.message)
+        errors = humanize_error(e)
         @exception = e
         @message = errors[:error_human] || errors[:error] || param[:message]
         @traceback = !Rails.env.production?
         file = File.open(Rails.root.join('public', "#{status_code}.html"), 'r')
-        render inline: file.read, status: status
+        render inline: file.read, status: status # rubocop:disable Rails/RenderInline
       end
     end
   end
 
-  def humanize_error(error)
+  def humanize_error(e)
+
     data = {
-      error: error
+      error: e.message
     }
 
-    case error
-    when /Validation failed: (.+?)(,|$)/i
+    if e.message =~ /Validation failed: (.+?)(,|$)/i
       data[:error_human] = $1
-    when /(already exists|duplicate key|duplicate entry)/i
+    elsif e.message.match?(/(already exists|duplicate key|duplicate entry)/i)
       data[:error_human] = 'Object already exists!'
-    when /null value in column "(.+?)" violates not-null constraint/i
+    elsif e.message =~ /null value in column "(.+?)" violates not-null constraint/i
       data[:error_human] = "Attribute '#{$1}' required!"
-    when /Field '(.+?)' doesn't have a default value/i
+    elsif e.message =~ /Field '(.+?)' doesn't have a default value/i
       data[:error_human] = "Attribute '#{$1}' required!"
-    when 'Exceptions::NotAuthorized'
+    elsif e.message == 'Exceptions::NotAuthorized'
       data[:error]       = 'Not authorized'
+      data[:error_human] = data[:error]
+    elsif [ActionController::RoutingError, ActiveRecord::RecordNotFound, Exceptions::UnprocessableEntity, Exceptions::NotAuthorized].include?(e.class)
       data[:error_human] = data[:error]
     end
 
-    if Rails.env.production? && data[:error_human].present?
-      data[:error] = data.delete(:error_human)
+    if data[:error_human].present?
+      data[:error] = data[:error_human]
+    elsif !current_user&.permissions?('admin')
+      # We want to avoid leaking of internal information but also want the user
+      # to give the administrator a reference to find the cause of the error.
+      # Therefore we generate a one time unique error ID that can be used to
+      # search the logs and find the actual error message.
+      error_code_prefix = "Error ID #{SecureRandom.urlsafe_base64(6)}:"
+      Rails.logger.error "#{error_code_prefix} #{data[:error]}"
+      data[:error] = "#{error_code_prefix} Please contact your administrator."
     end
+
     data
   end
 end

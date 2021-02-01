@@ -2,19 +2,19 @@
 
 module Channel::Filter::OwnNotificationLoopDetection
 
-  def self.run(_channel, mail)
+  def self.run(_channel, mail, _transaction_params)
 
-    message_id = mail['message-id'.to_sym]
+    message_id = mail[:'message-id']
     return if !message_id
 
-    recedence = mail['precedence'.to_sym]
+    recedence = mail[:precedence]
     return if !recedence
-    return if recedence !~ /bulk/i
+    return if !recedence.match?(/bulk/i)
 
     fqdn = Setting.get('fqdn')
-    return if message_id !~ /@#{Regexp.quote(fqdn)}>/i
+    return if !message_id.match?(/@#{Regexp.quote(fqdn)}>/i)
 
-    mail[ 'x-zammad-ignore'.to_sym ] = true
+    mail[ :'x-zammad-ignore' ] = true
     Rails.logger.info "Detected own sent notification mail and dropped it to prevent loops (message_id: #{message_id}, from: #{mail[:from]}, to: #{mail[:to]})"
 
   end

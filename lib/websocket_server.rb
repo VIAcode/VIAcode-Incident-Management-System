@@ -31,7 +31,7 @@ class WebsocketServer
         WebsocketServer.check_unused_connections
       end
 
-      # check open unused connections, kick all connection without activitie in the last 2 minutes
+      # check open unused connections, kick all connection without activity in the last 2 minutes
       EventMachine.add_periodic_timer(120) do
         WebsocketServer.check_unused_connections
       end
@@ -48,7 +48,6 @@ class WebsocketServer
 
   def self.onopen(websocket, handshake)
     headers = handshake.headers
-    remote_ip = get_remote_ip(headers)
     client_id = websocket.object_id.to_s
     log 'notice', 'Client connected.', client_id
     Sessions.create( client_id, {}, { type: 'websocket' } )
@@ -60,7 +59,6 @@ class WebsocketServer
       last_ping:   Time.now.utc.to_i,
       error_count: 0,
       headers:     headers,
-      remote_ip:   remote_ip,
     }
   end
 
@@ -103,7 +101,7 @@ class WebsocketServer
         event:     data['event'],
         payload:   data,
         session:   @clients[client_id][:session],
-        remote_ip: @clients[client_id][:remote_ip],
+        headers:   @clients[client_id][:headers],
         client_id: client_id,
         clients:   @clients,
         options:   @options,
@@ -116,17 +114,11 @@ class WebsocketServer
     end
   end
 
-  def self.get_remote_ip(headers)
-    return headers['X-Forwarded-For'] if headers && headers['X-Forwarded-For']
-
-    nil
-  end
-
   def self.websocket_send(client_id, data)
-    msg = if data.class != Array
-            "[#{data.to_json}]"
-          else
+    msg = if data.instance_of?(Array)
             data.to_json
+          else
+            "[#{data.to_json}]"
           end
     log 'debug', "send #{msg}", client_id
     if !@clients[client_id]
@@ -181,14 +173,12 @@ class WebsocketServer
         log 'notice', 'send data to client', client_id
         websocket_send(client_id, queue)
       rescue => e
-        log 'error', 'problem:' + e.inspect, client_id
+        log 'error', "problem:#{e.inspect}", client_id
 
         # disconnect client
         client[:error_count] += 1
-        if client[:error_count] > 20
-          if @clients.include? client_id
-            @clients.delete client_id
-          end
+        if client[:error_count] > 20 && @clients.include?(client_id)
+          @clients.delete client_id
         end
       end
     end
@@ -218,9 +208,8 @@ class WebsocketServer
   end
 
   def self.log(level, data, client_id = '-')
-    if !@options[:v]
-      return if level == 'debug'
-    end
+    return if !@options[:v] && level == 'debug'
+
     puts "#{Time.now.utc.iso8601}:client(#{client_id}) #{data}" # rubocop:disable Rails/Output
     #puts "#{Time.now.utc.iso8601}:#{ level }:client(#{ client_id }) #{ data }"
   end

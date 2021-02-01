@@ -124,11 +124,11 @@ or with filter:
       },
     )
 
-    raise "Can't fetch objects from #{url}: Unable to parse response from server. Invalid JSON response." if !result.success? && result.error =~ /JSON::ParserError:.+?\s+unexpected\s+token\s+at\s+'<\!DOCTYPE\s+html/i
+    raise "Can't fetch objects from #{url}: Unable to parse response from server. Invalid JSON response." if !result.success? && result.error =~ /JSON::ParserError:.+?\s+unexpected\s+token\s+at\s+'<!DOCTYPE\s+html/i
     raise "Can't fetch objects from #{url}: #{result.error}" if !result.success?
 
     # add link to idoit
-    if result.data['result'].class == Array
+    if result.data['result'].instance_of?(Array)
       result.data['result'].each do |item|
         next if !item['id']
 
@@ -141,7 +141,7 @@ or with filter:
 
   def self._url_cleanup(url)
     url.strip!
-    raise "Invalid endpoint '#{url}', need to start with http:// or https://" if url !~ %r{^http(s|)://}i
+    raise "Invalid endpoint '#{url}', need to start with http:// or https://" if !url.match?(%r{^http(s|)://}i)
 
     url = _url_cleanup_baseurl(url)
     url = "#{url}/src/jsonrpc.php"
@@ -150,7 +150,7 @@ or with filter:
 
   def self._url_cleanup_baseurl(url)
     url.strip!
-    raise "Invalid endpoint '#{url}', need to start with http:// or https://" if url !~ %r{^http(s|)://}i
+    raise "Invalid endpoint '#{url}', need to start with http:// or https://" if !url.match?(%r{^http(s|)://}i)
 
     url.gsub!(%r{src/jsonrpc.php}, '')
     url.gsub(%r{([^:])//+}, '\\1/')

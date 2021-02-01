@@ -1,8 +1,20 @@
 module SessionHelper
-  def self.default_collections(user, assets = {})
+  def self.json_hash(user)
+    collections, assets = default_collections(user)
+
+    {
+      session:     user.filter_attributes(user.attributes),
+      models:      models(user),
+      collections: collections,
+      assets:      assets,
+    }
+  end
+
+  def self.default_collections(user)
 
     # auto population collections, store all here
     default_collection = {}
+    assets = user.assets({})
 
     # load collections to deliver from external files
     dir = File.expand_path('..', __dir__)
@@ -19,7 +31,7 @@ module SessionHelper
     models = {}
     objects = ObjectManager.list_objects
     objects.each do |object|
-      attributes = ObjectManager::Attribute.by_object(object, user)
+      attributes = ObjectManager::Object.new(object).attributes(user)
       models[object] = attributes
     end
     models

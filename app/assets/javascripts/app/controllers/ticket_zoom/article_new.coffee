@@ -1,4 +1,6 @@
 class App.TicketZoomArticleNew extends App.Controller
+  @include App.SecurityOptions
+
   elements:
     '.js-textarea':                       'textarea'
     '.attachmentPlaceholder':             'attachmentPlaceholder'
@@ -24,16 +26,17 @@ class App.TicketZoomArticleNew extends App.Controller
     'click .list-entry-type div':    'changeType'
     'focus .js-textarea':            'openTextarea'
     'input .js-textarea':            'updateLetterCount'
+    'click .js-active-toggle':       'toggleButton'
 
   constructor: ->
     super
 
-    @internalSelector = true
+    @internalSelector = false
     @type = @defaults['type'] || 'note'
     @setPossibleArticleTypes()
 
-    if @permissionCheck('ticket.customer')
-      @internalSelector = false
+    if @ticket.currentView() is 'agent'
+      @internalSelector = true
 
     @textareaHeight =
       open:   148
@@ -57,7 +60,7 @@ class App.TicketZoomArticleNew extends App.Controller
 
       @setArticleTypePre(data.type.name, data.signaturePosition)
 
-      @openTextarea(null, true)
+      @openTextarea(null, true, true)
       for key, value of data.article
         if key is 'body'
           @$("[data-name=\"#{key}\"]").html(value)
@@ -75,13 +78,11 @@ class App.TicketZoomArticleNew extends App.Controller
       if data.position is 'end'
         @placeCaretAtEnd(@textarea.get(0))
         return
-
-      @textarea.focus()
     )
 
     # add article attachment
     @bind('ui::ticket::addArticleAttachent', (data) =>
-      return if data.ticket.id.toString() isnt @ticket_id.toString()
+      return if data.ticket?.id?.toString() isnt @ticket_id.toString() && data.form_id isnt @form_id
       return if _.isEmpty(data.attachments)
       for file in data.attachments
         @renderAttachment(file)
@@ -89,6 +90,7 @@ class App.TicketZoomArticleNew extends App.Controller
 
     # reset new article screen
     @bind('ui::ticket::taskReset', (data) =>
+      @releaseGlobalClickEvents()
       return if data.ticket_id.toString() isnt @ticket_id.toString()
       @type     = 'note'
       @defaults = {}
@@ -104,6 +106,12 @@ class App.TicketZoomArticleNew extends App.Controller
     # rerender, e. g. on language change
     @bind('ui:rerender', =>
       @render()
+    )
+
+    # update security options
+    @bind('ui::ticket::updateSecurityOptions', (data) =>
+      return if data.taskKey isnt @taskKey
+      @updateSecurityOptions()
     )
 
   tokanice: (type = 'email') ->
@@ -132,17 +140,23 @@ class App.TicketZoomArticleNew extends App.Controller
       textRange.select()
 
   isIE10: ->
-    Function('/*@cc_on return document.documentMode===10@*/')()
+    detected = App.Browser.detection()
+    return false if !detected.browser
+    return false if detected.browser.name != 'Explorer'
+    return detected.browser.major == 10
 
   release: =>
     if @subscribeIdTextModule
       App.Ticket.unsubscribe(@subscribeIdTextModule)
 
+    @releaseGlobalClickEvents()
+
+  releaseGlobalClickEvents: ->
     $(window).off 'click.ticket-zoom-select-type'
-    $(window).on 'click.ticket-zoom-textarea'
+    $(window).off 'click.ticket-zoom-textarea'
 
   render: ->
-
+    @releaseGlobalClickEvents()
     ticket = App.Ticket.fullLocal(@ticket_id)
 
     @html App.view('ticket_zoom/article_new')(
@@ -150,7 +164,7 @@ class App.TicketZoomArticleNew extends App.Controller
       articleTypes:     @articleTypes
       article:          @defaults
       form_id:          @form_id
-      isCustomer:       @permissionCheck('ticket.customer')
+      isCustomer:       ticket.currentView() is 'customer'
       internalSelector: @internalSelector
     )
     @setArticleTypePre(@type)
@@ -168,7 +182,7 @@ class App.TicketZoomArticleNew extends App.Controller
     @$('[data-name="body"]').ce({
       mode:      'richtext'
       multiline: true
-      maxlength: 50000
+      maxlength: 150000
     })
 
     html5Upload.initialize(
@@ -231,7 +245,7 @@ class App.TicketZoomArticleNew extends App.Controller
     @bindAttachmentDelete()
 
     # show text module UI
-    if !@permissionCheck('ticket.customer')
+    if ticket.currentView() is 'agent'
       textModule = new App.WidgetTextModule(
         el: @$('.js-textarea').parent()
         data:
@@ -257,16 +271,18 @@ class App.TicketZoomArticleNew extends App.Controller
       params.form_id      = @form_id
       params.content_type = 'text/html'
 
-      if @permissionCheck('ticket.customer')
-        sender           = App.TicketArticleSender.findByAttribute('name', 'Customer')
-        type             = App.TicketArticleType.findByAttribute('name', 'web')
-        params.type_id   = type.id
-        params.sender_id = sender.id
-      else
+      ticket = App.Ticket.find(@ticket_id)
+
+      if ticket.currentView() is 'agent'
         sender           = App.TicketArticleSender.findByAttribute('name', 'Agent')
         type             = App.TicketArticleType.findByAttribute('name', params['type'])
         params.sender_id = sender.id
         params.type_id   = type.id
+      else
+        sender           = App.TicketArticleSender.findByAttribute('name', 'Customer')
+        type             = App.TicketArticleType.findByAttribute('name', 'web')
+        params.type_id   = type.id
+        params.sender_id = sender.id
 
     if params.internal
       params.internal = true
@@ -278,7 +294,7 @@ class App.TicketZoomArticleNew extends App.Controller
       if config && config.params
         params = config.params(params.type, params, @)
 
-    # add initals?
+    # add initials?
     for articleType in @articleTypes
       if articleType.name is @type
         if _.contains(articleType.features, 'body:initials')
@@ -287,6 +303,11 @@ class App.TicketZoomArticleNew extends App.Controller
           else
             params.body = "#{params.body}\n#{@signature.text()}"
           break
+
+    # add security params
+    if @securityOptionsShown()
+      params.preferences ||= {}
+      params.preferences.security = @paramsSecurity()
 
     params
 
@@ -411,6 +432,15 @@ class App.TicketZoomArticleNew extends App.Controller
             @warningTextLength = articleType.warningTextLength
             @delay(@updateLetterCount, 600)
             @$('.js-textSizeLimit').removeClass('hide')
+          if name is 'security'
+            if @securityEnabled()
+              @securityOptionsShow()
+
+              # add observer to change options
+              @$('.js-to, .js-cc').bind('change', =>
+                @updateSecurityOptions()
+              )
+              @updateSecurityOptions()
 
     # convert remote src images to data uri
     @$('[data-name=body] img').each( (i,image) ->
@@ -427,6 +457,9 @@ class App.TicketZoomArticleNew extends App.Controller
     )
 
     @scrollToBottom() if wasScrolledToBottom
+
+  updateSecurityOptions: =>
+    @updateSecurityOptionsRemote(@ticket.id, @ui.ticketParams(), @params(), @paramsSecurity())
 
   setArticleTypePost: (type, signaturePosition = 'bottom') =>
     for localConfig in @actions()
@@ -464,11 +497,13 @@ class App.TicketZoomArticleNew extends App.Controller
       value = "/#{App.User.find(@Session.get('id')).initials()}"
     @signature.text(value)
 
-  openTextarea: (event, withoutAnimation) =>
+  openTextarea: (event, withoutAnimation, focus) =>
     if event
       event.stopPropagation()
     if @articleNewEdit.hasClass('is-open')
       return
+
+    $(window).off('click.ticket-zoom-textarea')
 
     duration = 300
 
@@ -483,7 +518,9 @@ class App.TicketZoomArticleNew extends App.Controller
       options:
         duration: duration
         easing: 'easeOutQuad'
-        complete: => $(window).on 'click.ticket-zoom-textarea', @closeTextarea
+        complete: =>
+          $(window).on('click.ticket-zoom-textarea', @closeTextarea)
+          @textarea.focus() if focus
 
     @textBubble.velocity
       properties:
@@ -619,3 +656,6 @@ class App.TicketZoomArticleNew extends App.Controller
       if localConfig
         actions.push localConfig
     actions
+
+  toggleButton: (event) ->
+    @$(event.currentTarget).toggleClass('btn--active')

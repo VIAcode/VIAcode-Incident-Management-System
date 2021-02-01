@@ -78,6 +78,8 @@ class Channel::EmailParser
     msg = Mail::Utilities.binary_unsafe_to_crlf(msg)
     mail = Mail.new(msg)
 
+    force_parts_encoding_if_needed(mail)
+
     headers = message_header_hash(mail)
     body = message_body_hash(mail)
     message_attributes = [
@@ -85,6 +87,7 @@ class Channel::EmailParser
       headers,
       body,
       self.class.sender_attributes(headers),
+      { raw: msg },
     ]
     message_attributes.reduce({}.with_indifferent_access, &:merge)
   end
@@ -116,21 +119,18 @@ returns
     end
   rescue => e
     # store unprocessable email for bug reporting
-    path = Rails.root.join('tmp', 'unprocessable_mail')
-    FileUtils.mkpath path
-    md5 = Digest::MD5.hexdigest(msg)
-    filename = "#{path}/#{md5}.eml"
-    message = "ERROR: Can't process email, you will find it for bug reporting under #{filename}, please create an issue at https://github.com/zammad/zammad/issues"
-    p message # rubocop:disable Rails/Output
-    p 'ERROR: ' + e.inspect # rubocop:disable Rails/Output
+    filename = archive_mail('unprocessable_mail', msg)
+
+    message = "Can't process email, you will find it for bug reporting under #{filename}, please create an issue at https://github.com/zammad/zammad/issues"
+
+    p "ERROR: #{message}" # rubocop:disable Rails/Output
+    p "ERROR: #{e.inspect}" # rubocop:disable Rails/Output
     Rails.logger.error message
     Rails.logger.error e
-    File.open(filename, 'wb') do |file|
-      file.write msg
-    end
+
     return false if exception == false
 
-    raise e.inspect + "\n" + e.backtrace.join("\n")
+    raise %(#{e.inspect}\n#{e.backtrace.join("\n")})
   end
 
   def _process(channel, msg)
@@ -142,6 +142,11 @@ returns
 
     # run postmaster pre filter
     UserInfo.current_user_id = 1
+
+    # set interface handle
+    original_interface_handle = ApplicationHandleInfo.current
+    transaction_params = { interface_handle: "#{original_interface_handle}.postmaster", disable: [] }
+
     filters = {}
     Setting.where(area: 'Postmaster::PreFilter').order(:name).each do |setting|
       filters[setting.name] = Setting.get(setting.name).constantize
@@ -149,7 +154,7 @@ returns
     filters.each do |key, backend|
       Rails.logger.debug { "run postmaster pre filter #{key}: #{backend}" }
       begin
-        backend.run(channel, mail)
+        backend.run(channel, mail, transaction_params)
       rescue => e
         Rails.logger.error "can't run postmaster pre filter #{key}: #{backend}"
         Rails.logger.error e.inspect
@@ -158,23 +163,20 @@ returns
     end
 
     # check ignore header
-    if mail['x-zammad-ignore'.to_sym] == 'true' || mail['x-zammad-ignore'.to_sym] == true
+    if mail[:'x-zammad-ignore'] == 'true' || mail[:'x-zammad-ignore'] == true
       Rails.logger.info "ignored email with msgid '#{mail[:message_id]}' from '#{mail[:from]}' because of x-zammad-ignore header"
       return
     end
-
-    # set interface handle
-    original_interface_handle = ApplicationHandleInfo.current
 
     ticket       = nil
     article      = nil
     session_user = nil
 
     # use transaction
-    Transaction.execute(interface_handle: "#{original_interface_handle}.postmaster") do
+    Transaction.execute(transaction_params) do
 
       # get sender user
-      session_user_id = mail['x-zammad-session-user-id'.to_sym]
+      session_user_id = mail[:'x-zammad-session-user-id']
       if !session_user_id
         raise 'No x-zammad-session-user-id, no sender set!'
       end
@@ -188,11 +190,11 @@ returns
       UserInfo.current_user_id = session_user.id
 
       # get ticket# based on email headers
-      if mail['x-zammad-ticket-id'.to_sym]
-        ticket = Ticket.find_by(id: mail['x-zammad-ticket-id'.to_sym])
+      if mail[:'x-zammad-ticket-id']
+        ticket = Ticket.find_by(id: mail[:'x-zammad-ticket-id'])
       end
-      if mail['x-zammad-ticket-number'.to_sym]
-        ticket = Ticket.find_by(number: mail['x-zammad-ticket-number'.to_sym])
+      if mail[:'x-zammad-ticket-number']
+        ticket = Ticket.find_by(number: mail[:'x-zammad-ticket-number'])
       end
 
       # set ticket state to open if not new
@@ -203,9 +205,9 @@ returns
         ticket.save! if ticket.has_changes_to_save?
 
         # set ticket to open again or keep create state
-        if !mail['x-zammad-ticket-followup-state'.to_sym] && !mail['x-zammad-ticket-followup-state_id'.to_sym]
+        if !mail[:'x-zammad-ticket-followup-state'] && !mail[:'x-zammad-ticket-followup-state_id']
           new_state = Ticket::State.find_by(default_create: true)
-          if ticket.state_id != new_state.id && !mail['x-zammad-out-of-office'.to_sym]
+          if ticket.state_id != new_state.id && !mail[:'x-zammad-out-of-office']
             ticket.state = Ticket::State.find_by(default_follow_up: true)
             ticket.save!
           end
@@ -226,6 +228,11 @@ returns
         group = nil
         if channel[:group_id]
           group = Group.lookup(id: channel[:group_id])
+        else
+          mail_to_group = self.class.mail_to_group(mail[:to])
+          if mail_to_group.present?
+            group = mail_to_group
+          end
         end
         if group.blank? || group.active == false
           group = Group.where(active: true).order(id: :asc).first
@@ -250,8 +257,8 @@ returns
       end
 
       # apply tags to ticket
-      if mail['x-zammad-ticket-tags'.to_sym].present?
-        mail['x-zammad-ticket-tags'.to_sym].each do |tag|
+      if mail[:'x-zammad-ticket-tags'].present?
+        mail[:'x-zammad-ticket-tags'].each do |tag|
           ticket.tag_add(tag)
         end
       end
@@ -322,6 +329,20 @@ returns
     [ticket, article, session_user, mail]
   end
 
+  def self.mail_to_group(to)
+    begin
+      to = Mail::AddressList.new(to)&.addresses&.first&.address
+    rescue
+      Rails.logger.error 'Can not parse :to field for group destination!'
+    end
+    return if to.blank?
+
+    email = EmailAddress.find_by(email: to.downcase)
+    return if email&.channel.blank?
+
+    email.channel&.group
+  end
+
   def self.check_attributes_by_x_headers(header_name, value)
     class_name = nil
     attribute = nil
@@ -334,7 +355,7 @@ returns
     end
     return true if !class_name
 
-    if class_name.downcase == 'article'
+    if class_name.casecmp('article').zero?
       class_name = 'Ticket::Article'
     end
     return true if !attribute
@@ -365,13 +386,13 @@ returns
 
     from = from.gsub('<>', '').strip
     mail_address = begin
-                     Mail::AddressList.new(from).addresses
-                                      .select { |a| a.address.present? }
-                                      .partition { |a| a.address.match?(EMAIL_REGEX) }
-                                      .flatten.first
-                   rescue Mail::Field::ParseError => e
-                     STDOUT.puts e
-                   end
+      Mail::AddressList.new(from).addresses
+                       .select { |a| a.address.present? }
+                       .partition { |a| a.address.match?(EMAIL_REGEX) }
+                       .flatten.first
+    rescue Mail::Field::ParseError => e
+      $stdout.puts e
+    end
 
     if mail_address&.address.present?
       data[:from_email]        = mail_address.address
@@ -476,7 +497,7 @@ process unprocessable_mails (tmp/unprocessable_mail/*.eml) again
 =end
 
   def self.process_unprocessable_mails(params = {})
-    path = Rails.root.join('tmp', 'unprocessable_mail')
+    path = Rails.root.join('tmp/unprocessable_mail')
     files = []
     Dir.glob("#{path}/*.eml") do |entry|
       ticket, _article, _user, _mail = Channel::EmailParser.new.process(params, IO.binread(entry))
@@ -488,12 +509,51 @@ process unprocessable_mails (tmp/unprocessable_mail/*.eml) again
     files
   end
 
+=begin
+
+  process oversized emails by:
+  1. Archiving the oversized mail as tmp/oversized_mail/md5.eml
+  2. Reply with a postmaster message to inform the sender
+
+=end
+
+  def process_oversized_mail(channel, msg)
+    archive_mail('oversized_mail', msg)
+    postmaster_response(channel, msg)
+  end
+
   private
+
+  # https://github.com/zammad/zammad/issues/2922
+  def force_parts_encoding_if_needed(mail)
+    mail.parts.each { |elem| force_single_part_encoding_if_needed(elem) }
+  end
+
+  # https://github.com/zammad/zammad/issues/2922
+  def force_single_part_encoding_if_needed(part)
+    return if part.charset != 'iso-2022-jp'
+
+    part.body = part.body.encoded.unpack1('M').force_encoding('ISO-2022-JP').encode('UTF-8')
+  end
+
+  ISO2022JP_REGEXP = /=\?ISO-2022-JP\?B\?(.+?)\?=/.freeze
+
+  # https://github.com/zammad/zammad/issues/3115
+  def header_field_unpack_japanese(field)
+    field.value.gsub ISO2022JP_REGEXP do
+      Base64.decode64($1).force_encoding('SJIS').encode('UTF-8')
+    end
+  end
 
   def message_header_hash(mail)
     imported_fields = mail.header.fields.map do |f|
       begin
-        value = f.to_utf8
+        value = if f.value.match?(ISO2022JP_REGEXP)
+                  header_field_unpack_japanese(f)
+                else
+                  f.to_utf8
+                end
+
         if value.blank?
           value = f.decoded.to_utf8
         end
@@ -507,7 +567,7 @@ process unprocessable_mails (tmp/unprocessable_mail/*.eml) again
     end.to_h
 
     # imported_fields = mail.header.fields.map { |f| [f.name.downcase, f.to_utf8] }.to_h
-    raw_fields = mail.header.fields.map { |f| ["raw-#{f.name.downcase}", f] }.to_h
+    raw_fields = mail.header.fields.index_by { |f| "raw-#{f.name.downcase}" }
     custom_fields = {}.tap do |h|
       h.replace(imported_fields.slice(*RECIPIENT_FIELDS)
                                .transform_values { |v| v.match?(EMAIL_REGEX) ? v : '' })
@@ -544,10 +604,10 @@ process unprocessable_mails (tmp/unprocessable_mail/*.eml) again
 
   def body_text(message, **options)
     body_text = begin
-                  message.body.to_s
-                rescue Mail::UnknownEncodingType # see test/data/mail/mail043.box / issue #348
-                  message.body.raw_source
-                end
+      message.body.to_s
+    rescue Mail::UnknownEncodingType # see test/data/mail/mail043.box / issue #348
+      message.body.raw_source
+    end
 
     body_text = body_text.utf8_encode(from: message.charset, fallback: :read_as_sanitized_binary)
     body_text = Mail::Utilities.to_lf(body_text)
@@ -564,38 +624,48 @@ process unprocessable_mails (tmp/unprocessable_mail/*.eml) again
   def collect_attachments(mail)
     attachments = []
 
-    # Add non-plaintext body as an attachment
-    if mail.html_part&.body.present? ||
-       (!mail.multipart? && mail.mime_type.present? && mail.mime_type != 'text/plain')
-      message = mail.html_part || mail
-
-      filename = message.filename.presence ||
-                 (message.mime_type.eql?('text/html') ? 'message.html' : '-no name-')
-
-      headers_store = {
-        'content-alternative' => true,
-        'original-format'     => message.mime_type.eql?('text/html'),
-        'Mime-Type'           => message.mime_type,
-        'Charset'             => message.charset,
-      }.reject { |_, v| v.blank? }
-
-      attachments.push({ data:        body_text(message),
-                         filename:    filename,
-                         preferences: headers_store })
-    end
+    attachments.push(*get_nonplaintext_body_as_attachment(mail))
 
     mail.parts.each do |part|
-
-      new_attachments = get_attachments(part, attachments, mail).flatten.compact
-      attachments.push(*new_attachments)
-    rescue => e # Protect process to work with spam emails (see test/fixtures/mail15.box)
-      raise e if (fail_count ||= 0).positive?
-
-      (fail_count += 1) && retry
-
+      attachments.push(*gracefully_get_attachments(part, attachments, mail))
     end
 
     attachments
+  end
+
+  def get_nonplaintext_body_as_attachment(mail)
+    if !(mail.html_part&.body.present? || (!mail.multipart? && mail.mime_type.present? && mail.mime_type != 'text/plain'))
+      return
+    end
+
+    message = mail.html_part || mail
+
+    if !mail.mime_type.starts_with?('text/') && mail.html_part.blank?
+      return gracefully_get_attachments(message, [], mail)
+    end
+
+    filename = message.filename.presence || (message.mime_type.eql?('text/html') ? 'message.html' : '-no name-')
+
+    headers_store = {
+      'content-alternative' => true,
+      'original-format'     => message.mime_type.eql?('text/html'),
+      'Mime-Type'           => message.mime_type,
+      'Charset'             => message.charset,
+    }.reject { |_, v| v.blank? }
+
+    [{
+      data:        body_text(message),
+      filename:    filename,
+      preferences: headers_store
+    }]
+  end
+
+  def gracefully_get_attachments(part, attachments, mail)
+    get_attachments(part, attachments, mail).flatten.compact
+  rescue => e # Protect process to work with spam emails (see test/fixtures/mail15.box)
+    raise e if (fail_count ||= 0).positive?
+
+    (fail_count += 1) && retry
   end
 
   def get_attachments(file, attachments, mail)
@@ -618,8 +688,8 @@ process unprocessable_mails (tmp/unprocessable_mail/*.eml) again
 
     # cleanup content id, <> will be added automatically later
     if headers_store['Content-ID']
-      headers_store['Content-ID'].gsub!(/^</, '')
-      headers_store['Content-ID'].gsub!(/>$/, '')
+      headers_store['Content-ID'].delete_prefix!('<')
+      headers_store['Content-ID'].delete_suffix!('>')
     end
 
     # get filename from content-disposition
@@ -629,11 +699,12 @@ process unprocessable_mails (tmp/unprocessable_mail/*.eml) again
       filename = file.header[:content_disposition].try(:filename)
     rescue
       begin
-        if file.header[:content_disposition].to_s =~ /(filename|name)(\*{0,1})="(.+?)"/i
+        case file.header[:content_disposition].to_s
+        when /(filename|name)(\*{0,1})="(.+?)"/i
           filename = $3
-        elsif file.header[:content_disposition].to_s =~ /(filename|name)(\*{0,1})='(.+?)'/i
+        when /(filename|name)(\*{0,1})='(.+?)'/i
           filename = $3
-        elsif file.header[:content_disposition].to_s =~ /(filename|name)(\*{0,1})=(.+?);/i
+        when /(filename|name)(\*{0,1})=(.+?);/i
           filename = $3
         end
       rescue
@@ -642,11 +713,12 @@ process unprocessable_mails (tmp/unprocessable_mail/*.eml) again
     end
 
     begin
-      if file.header[:content_disposition].to_s =~ /(filename|name)(\*{0,1})="(.+?)"/i
+      case file.header[:content_disposition].to_s
+      when /(filename|name)(\*{0,1})="(.+?)"/i
         filename = $3
-      elsif file.header[:content_disposition].to_s =~ /(filename|name)(\*{0,1})='(.+?)'/i
+      when /(filename|name)(\*{0,1})='(.+?)'/i
         filename = $3
-      elsif file.header[:content_disposition].to_s =~ /(filename|name)(\*{0,1})=(.+?);/i
+      when /(filename|name)(\*{0,1})=(.+?);/i
         filename = $3
       end
     rescue
@@ -655,11 +727,12 @@ process unprocessable_mails (tmp/unprocessable_mail/*.eml) again
 
     # as fallback, use raw values
     if filename.blank?
-      if headers_store['Content-Disposition'].to_s =~ /(filename|name)(\*{0,1})="(.+?)"/i
+      case headers_store['Content-Disposition'].to_s
+      when /(filename|name)(\*{0,1})="(.+?)"/i
         filename = $3
-      elsif headers_store['Content-Disposition'].to_s =~ /(filename|name)(\*{0,1})='(.+?)'/i
+      when /(filename|name)(\*{0,1})='(.+?)'/i
         filename = $3
-      elsif headers_store['Content-Disposition'].to_s =~ /(filename|name)(\*{0,1})=(.+?);/i
+      when /(filename|name)(\*{0,1})=(.+?);/i
         filename = $3
       end
     end
@@ -668,17 +741,17 @@ process unprocessable_mails (tmp/unprocessable_mail/*.eml) again
     filename ||= file.header[:content_location].to_s.force_encoding('utf-8')
 
     # generate file name based on content-id
-    if filename.blank? && headers_store['Content-ID'].present?
-      if headers_store['Content-ID'] =~ /(.+?)@.+?/i
-        filename = $1
-      end
+    if filename.blank? && headers_store['Content-ID'].present? && headers_store['Content-ID'] =~ /(.+?)@.+?/i
+      filename = $1
     end
+
+    file_body = String.new(file.body.to_s)
 
     # generate file name based on content type
     if filename.blank? && headers_store['Content-Type'].present? && headers_store['Content-Type'].match?(%r{^message/rfc822}i)
       begin
         parser = Channel::EmailParser.new
-        mail_local = parser.parse(file.body.to_s)
+        mail_local = parser.parse(file_body)
         filename = if mail_local[:subject].present?
                      "#{mail_local[:subject]}.eml"
                    elsif headers_store['Content-Description'].present?
@@ -712,9 +785,9 @@ process unprocessable_mails (tmp/unprocessable_mail/*.eml) again
     end
 
     # e. g. Content-Type: video/quicktime
-    if filename.blank?
+    if filename.blank? && (content_type = headers_store['Content-Type'])
       map = {
-        'message/delivery-status': ['txt', 'delivery-status'],
+        'message/delivery-status': %w[txt delivery-status],
         'text/plain':              %w[txt document],
         'text/html':               %w[html document],
         'video/quicktime':         %w[mov video],
@@ -724,7 +797,7 @@ process unprocessable_mails (tmp/unprocessable_mail/*.eml) again
         'image/gif':               %w[gif image],
       }
       map.each do |type, ext|
-        next if headers_store['Content-Type'] !~ /^#{Regexp.quote(type)}/i
+        next if !content_type.match?(/^#{Regexp.quote(type)}/i)
 
         filename = if headers_store['Content-Description'].present?
                      "#{headers_store['Content-Description']}.#{ext[0]}".to_s.force_encoding('utf-8')
@@ -778,12 +851,75 @@ process unprocessable_mails (tmp/unprocessable_mail/*.eml) again
     headers_store.delete('Content-Disposition')
 
     attach = {
-      data:        file.body.to_s,
+      data:        file_body,
       filename:    filename,
       preferences: headers_store,
     }
 
     [attach]
+  end
+
+  # Archive the given message as tmp/folder/md5.eml
+  def archive_mail(folder, msg)
+    path = Rails.root.join('tmp', folder)
+    FileUtils.mkpath path
+
+    # MD5 hash the msg and save it as "md5.eml"
+    md5 = Digest::MD5.hexdigest(msg)
+    file_path = Rails.root.join('tmp', folder, "#{md5}.eml")
+
+    File.open(file_path, 'wb') do |file|
+      file.write msg
+    end
+
+    file_path
+  end
+
+  # Auto reply as the postmaster to oversized emails with:
+  # [undeliverable] Message too large
+  def postmaster_response(channel, msg)
+    begin
+      reply_mail = compose_postmaster_reply(msg)
+    rescue NotificationFactory::FileNotFoundError => e
+      Rails.logger.error "No valid postmaster email_oversized template found. Skipping postmaster reply. #{e.inspect}"
+      return
+    end
+
+    Rails.logger.error "Send mail too large postmaster message to: #{reply_mail[:to]}"
+    reply_mail[:from] = EmailAddress.find_by(channel: channel).email
+    channel.deliver(reply_mail)
+  rescue => e
+    Rails.logger.error "Error during sending of postmaster oversized email auto-reply: #{e.inspect}\n#{e.backtrace}"
+  end
+
+  # Compose a "Message too large" reply to the given message
+  def compose_postmaster_reply(raw_incoming_mail, locale = nil)
+    parsed_incoming_mail = Channel::EmailParser.new.parse(raw_incoming_mail)
+
+    # construct a dummy mail object
+    mail = OpenStruct.new
+    mail.from_display_name = parsed_incoming_mail[:from_display_name]
+    mail.subject = parsed_incoming_mail[:subject]
+    mail.msg_size = format('%<MB>.2f', MB: raw_incoming_mail.size.to_f / 1024 / 1024)
+
+    reply = NotificationFactory::Mailer.template(
+      template:   'email_oversized',
+      locale:     locale,
+      format:     'txt',
+      objects:    {
+        mail: mail,
+      },
+      raw:        true, # will not add application template
+      standalone: true, # default: false - will send header & footer
+    )
+
+    reply.merge(
+      to:            parsed_incoming_mail[:from_email],
+      body:          reply[:body].gsub(/\n/, "\r\n"),
+      content_type:  'text/plain',
+      References:    parsed_incoming_mail[:message_id],
+      'In-Reply-To': parsed_incoming_mail[:message_id],
+    )
   end
 end
 
@@ -807,12 +943,11 @@ module Mail
   # https://github.com/zammad/zammad/issues/348
   class Body
     def decoded
-      if !Encodings.defined?(encoding)
-        #raise UnknownEncodingType, "Don't know how to decode #{encoding}, please call #encoded and decode it yourself."
+      if Encodings.defined?(encoding)
+        Encodings.get_encoding(encoding).decode(raw_source)
+      else
         Rails.logger.info "UnknownEncodingType: Don't know how to decode #{encoding}!"
         raw_source
-      else
-        Encodings.get_encoding(encoding).decode(raw_source)
       end
     end
   end

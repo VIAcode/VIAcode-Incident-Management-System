@@ -1,6 +1,6 @@
 module NotificationFactory
-  TEMPLATE_PATH_STRING = Rails.root.join('app', 'views', '%<type>s', '%<template>s', '%<filename>s').to_s.freeze
-  APPLICATION_TEMPLATE_PATH_STRING = Rails.root.join('app', 'views', '%<type>s', 'application.%<format>s.erb').to_s.freeze
+  TEMPLATE_PATH_STRING = Rails.root.join('app/views/%<type>s/%<template>s/%<filename>s').to_s.freeze
+  APPLICATION_TEMPLATE_PATH_STRING = Rails.root.join('app/views/%<type>s/application.%<format>s.erb').to_s.freeze
 
 =begin
 
@@ -29,22 +29,31 @@ returns
 
 =end
 
+  class FileNotFoundError < StandardError; end
+
   def self.template_read(data)
-    template = File.readlines(template_path(data))
+    template_path = template_path(data)
+
+    template = File.readlines(template_path)
 
     { subject: template.shift, body: template.join }
   end
 
   def self.template_path(data)
-    template_filenames(data)
+    candidates = template_filenames(data)
       .map { |filename| data.merge(filename: filename) }
       .map { |data_hash| TEMPLATE_PATH_STRING % data_hash }
-      .find(&File.method(:exist?))
+
+    found = candidates.find(&File.method(:exist?))
+
+    raise FileNotFoundError, "Missing template files #{candidates}!" if !found
+
+    found
   end
   private_class_method :template_path
 
   def self.template_filenames(data)
-    locale = data[:locale] || Setting.get('locale_default') || 'en-us'
+    locale = data[:locale] || Locale.default
 
     [locale, locale[0, 2], 'en']
       .uniq

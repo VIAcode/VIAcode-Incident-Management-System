@@ -4,15 +4,18 @@ require 'http/uri'
 
 class TwitterSync
 
+  STATUS_URL_TEMPLATE = 'https://twitter.com/_/status/%s'.freeze
+  DM_URL_TEMPLATE = 'https://twitter.com/messages/%s'.freeze
+
   attr_accessor :client
 
   def initialize(auth, payload = nil)
-    @client = Twitter::REST::Client.new do |config|
-      config.consumer_key        = auth[:consumer_key]
-      config.consumer_secret     = auth[:consumer_secret]
-      config.access_token        = auth[:oauth_token] || auth[:access_token]
-      config.access_token_secret = auth[:oauth_token_secret] || auth[:access_token_secret]
-    end
+    @client = Twitter::REST::Client.new(
+      consumer_key:        auth[:consumer_key],
+      consumer_secret:     auth[:consumer_secret],
+      access_token:        auth[:oauth_token] || auth[:access_token],
+      access_token_secret: auth[:oauth_token_secret] || auth[:access_token_secret],
+    )
     @payload = payload
   end
 
@@ -119,7 +122,7 @@ class TwitterSync
     # normalize message
     message = {}
 
-    if tweet.class == Twitter::Tweet
+    if tweet.instance_of?(Twitter::Tweet)
       message = {
         type: 'tweet',
         text: tweet.text,
@@ -190,7 +193,6 @@ class TwitterSync
     message_id = nil
     article_type = nil
     in_reply_to = nil
-    twitter_preferences = {}
     attachments = []
 
     if item['type'] == 'message_create'
@@ -207,21 +209,37 @@ class TwitterSync
           end
         end
       end
+
       app = get_app_webhook(item['message_create']['source_app_id'])
       article_type = 'twitter direct-message'
+      recipient_id = item['message_create']['target']['recipient_id']
       recipient_screen_name = to_user_webhook_data(item['message_create']['target']['recipient_id'])['screen_name']
+      sender_id = item['message_create']['sender_id']
       sender_screen_name = to_user_webhook_data(item['message_create']['sender_id'])['screen_name']
       to = "@#{recipient_screen_name}"
       from = "@#{sender_screen_name}"
+
       twitter_preferences = {
         created_at:            item['created_timestamp'],
-        recipient_id:          item['message_create']['target']['recipient_id'],
+        recipient_id:          recipient_id,
         recipient_screen_name: recipient_screen_name,
-        sender_id:             item['message_create']['sender_id'],
+        sender_id:             sender_id,
         sender_screen_name:    sender_screen_name,
         app_id:                app['app_id'],
         app_name:              app['app_name'],
       }
+
+      article_preferences = {
+        twitter: self.class.preferences_cleanup(twitter_preferences),
+        links:   [
+          {
+            url:    DM_URL_TEMPLATE % [recipient_id, sender_id].map(&:to_i).sort.join('-'),
+            target: '_blank',
+            name:   'on Twitter',
+          },
+        ],
+      }
+
     elsif item['text'].present?
       message_id = item['id']
       text = item['text']
@@ -235,13 +253,24 @@ class TwitterSync
       if item['entities']
 
         item['entities']['user_mentions']&.each do |local_user|
-          if !to
-            to = ''
-          else
+          if to
             to += ', '
+          else
+            to = ''
           end
           to += "@#{local_user['screen_name']}"
           mention_ids.push local_user['id']
+        end
+
+        item['entities']['urls']&.each do |local_media|
+
+          if local_media['url'].present?
+            if local_media['expanded_url'].present?
+              text.gsub!(/#{Regexp.quote(local_media['url'])}/, local_media['expanded_url'])
+            elsif local_media['display_url']
+              text.gsub!(/#{Regexp.quote(local_media['url'])}/, local_media['display_url'])
+            end
+          end
         end
 
         item['entities']['media']&.each do |local_media|
@@ -287,6 +316,17 @@ class TwitterSync
         truncated:           item['truncated'],
       }
 
+      article_preferences = {
+        twitter: self.class.preferences_cleanup(twitter_preferences),
+        links:   [
+          {
+            url:    STATUS_URL_TEMPLATE % item['id'],
+            target: '_blank',
+            name:   'on Twitter',
+          },
+        ],
+      }
+
     else
       raise "Unknown tweet type '#{item.class}'"
     end
@@ -299,17 +339,6 @@ class TwitterSync
       ticket.state = ticket_state
       ticket.save!
     end
-
-    article_preferences = {
-      twitter: self.class.preferences_cleanup(twitter_preferences),
-      links:   [
-        {
-          url:    "https://twitter.com/statuses/#{item['id']}",
-          target: '_blank',
-          name:   'on Twitter',
-        },
-      ],
-    }
 
     article = Ticket::Article.create!(
       from:        from,
@@ -351,10 +380,10 @@ class TwitterSync
     from = "@#{tweet.user.screen_name}"
     mention_ids = []
     tweet.user_mentions&.each do |local_user|
-      if !to
-        to = ''
-      else
+      if to
         to += ', '
+      else
+        to = ''
       end
       to += "@#{local_user.screen_name}"
       mention_ids.push local_user.id
@@ -387,7 +416,7 @@ class TwitterSync
       twitter: self.class.preferences_cleanup(twitter_preferences),
       links:   [
         {
-          url:    "https://twitter.com/statuses/#{tweet.id}",
+          url:    STATUS_URL_TEMPLATE % tweet.id,
           target: '_blank',
           name:   'on Twitter',
         },
@@ -444,14 +473,15 @@ class TwitterSync
 
 =begin
 
-create a tweet ot direct message from an article
+create a tweet or direct message from an article
 
 =end
 
   def from_article(article)
 
     tweet = nil
-    if article[:type] == 'twitter direct-message'
+    case article[:type]
+    when 'twitter direct-message'
 
       Rails.logger.debug { "Create twitter direct message from article to '#{article[:to]}'..." }
 
@@ -480,10 +510,16 @@ create a tweet ot direct message from an article
 
       tweet = Twitter::REST::Request.new(@client, :json_post, '/1.1/direct_messages/events/new.json', data).perform
 
-    elsif article[:type] == 'twitter status'
+    when 'twitter status'
 
       Rails.logger.debug { 'Create tweet from article...' }
 
+      # rubocop:disable Style/AsciiComments
+      # workaround for https://github.com/sferik/twitter/issues/677
+      # https://github.com/zammad/zammad/issues/2873 - unable to post
+      # tweets with * - replace `*` with the wide-asterisk `＊`.
+      # rubocop:enable Style/AsciiComments
+      article[:body].tr!('*', '＊') if article[:body].present?
       tweet = @client.update(
         article[:body],
         {
@@ -513,8 +549,9 @@ create a tweet ot direct message from an article
     # no changes in post is from page user it self
     if channel.options[:user][:id].to_s == user_id.to_s
       if !ticket
-        return Ticket::State.find_by(name: 'closed') if !ticket
+        return Ticket::State.find_by(name: 'closed')
       end
+
       return ticket.state
     end
 
@@ -538,19 +575,6 @@ create a tweet ot direct message from an article
     false
   end
 
-  def direct_message_limit_reached(tweet, factor = 1)
-    max_count = 100
-    max_count = max_count * factor
-    type_id = Ticket::Article::Type.lookup(name: 'twitter direct-message').id
-    created_at = Time.zone.now - 15.minutes
-    created_count = Ticket::Article.where('created_at > ? AND type_id = ?', created_at, type_id).count
-    if created_count > max_count
-      Rails.logger.info "Tweet direct message limit reached #{created_count}/#{max_count}, ignored tweed id (#{tweet.id})"
-      return true
-    end
-    false
-  end
-
 =begin
 
   replace Twitter::Place and Twitter::Geo as hash and replace Twitter::NullObject with nil
@@ -559,7 +583,7 @@ create a tweet ot direct message from an article
     twitter: twitter_preferences,
     links: [
       {
-        url: 'https://twitter.com/statuses/123',
+        url: 'https://twitter.com/_/status/123',
         target: '_blank',
         name: 'on Twitter',
       },
@@ -572,7 +596,7 @@ or
     twitter: TwitterSync.preferences_cleanup(twitter_preferences),
     links: [
       {
-        url: 'https://twitter.com/statuses/123',
+        url: 'https://twitter.com/_/status/123',
         target: '_blank',
         name: 'on Twitter',
       },
@@ -586,11 +610,11 @@ or
     # replace Twitter::NullObject with nill to prevent elasticsearch index issue
     preferences.each do |key, value|
 
-      if value.class == Twitter::Place || value.class == Twitter::Geo
+      if value.instance_of?(Twitter::Place) || value.instance_of?(Twitter::Geo)
         preferences[key] = value.to_h
         next
       end
-      if value.class == Twitter::NullObject
+      if value.instance_of?(Twitter::NullObject)
         preferences[key] = nil
         next
       end
@@ -598,11 +622,11 @@ or
       next if !value.is_a?(Hash)
 
       value.each do |sub_key, sub_level|
-        if sub_level.class == NilClass
+        if sub_level.instance_of?(NilClass)
           value[sub_key] = nil
           next
         end
-        if sub_level.class == Twitter::Place || sub_level.class == Twitter::Geo
+        if sub_level.instance_of?(Twitter::Place) || sub_level.instance_of?(Twitter::Geo)
           value[sub_key] = sub_level.to_h
           next
         end
@@ -670,7 +694,7 @@ process webhook messages from twitter
       @payload['direct_message_events'].each do |item|
         next if item['type'] != 'message_create'
 
-        next if Ticket::Article.find_by(message_id: item['id'])
+        next if Ticket::Article.exists?(message_id: item['id'])
 
         user = to_user_webhook(item['message_create']['sender_id'])
         ticket = to_ticket(item, user, channel.options[:sync][:direct_messages][:group_id], channel)
@@ -680,7 +704,8 @@ process webhook messages from twitter
 
     if @payload['tweet_create_events'].present?
       @payload['tweet_create_events'].each do |item|
-        next if Ticket::Article.find_by(message_id: item['id'])
+        next if Ticket::Article.exists?(message_id: item['id'])
+        next if item.key?('retweeted_status') && !channel.options.dig('sync', 'track_retweets')
 
         # check if it's mention
         group_id = nil
@@ -698,7 +723,7 @@ process webhook messages from twitter
           channel.options[:sync][:search].each do |local_search|
             next if local_search[:term].blank?
             next if local_search[:group_id].blank?
-            next if item['text'] !~ /#{Regexp.quote(local_search[:term])}/i
+            next if !item['text'].match?(/#{Regexp.quote(local_search[:term])}/i)
 
             group_id = local_search[:group_id]
             break
@@ -793,10 +818,10 @@ download public media file from twitter
       }
 
       # ignore if value is already set
-      map.each do |target, _source|
+      map.each do |target, source|
         next if user[target].present?
 
-        new_value = user_payload['source'].to_s
+        new_value = user_payload[source].to_s
         next if new_value.blank?
 
         user_data[target] = new_value
@@ -909,11 +934,11 @@ get all webhooks
 delete a webhooks
 
   client = TwitterSync.new
-  webhook_delete(webhook_id)
+  webhook_delete(webhook_id, env_name)
 
 =end
 
-  def webhook_delete(webhook_id)
+  def webhook_delete(webhook_id, env_name)
     Twitter::REST::Request.new(@client, :delete, "/1.1/account_activity/all/#{env_name}/webhooks/#{webhook_id}.json", {}).perform
   end
 
