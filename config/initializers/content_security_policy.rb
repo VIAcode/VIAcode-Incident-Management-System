@@ -26,12 +26,20 @@ Rails.application.config.content_security_policy do |policy|
 
     "#{http_type}://#{fqdn}"
   end
+  
+  devops_connector_uri = proc do
+    next if !Rails.env.production?
+    next if !Setting.get('system_init_done')
+
+    http_type = Setting.get('http_type')
+    fqdn      = Setting.get('fqdn')
+
+    http_type + '://' + fqdn.split(".").first + '-azdevops' + fqdn[fqdn.index('.')..-1]
+  end
 
   policy.base_uri :self, base_uri
 
-  http_type = Setting.get('http_type')
-  fqdn      = Setting.get('fqdn')
-  policy.default_src :self, :ws, :wss, 'https://log.zammad.com', 'https://images.zammad.com', http_type + '://' + fqdn.split(".").first + '-azdevops' + fqdn[fqdn.index('.')..-1]
+  policy.default_src :self, :ws, :wss, 'https://log.zammad.com', 'https://images.zammad.com', devops_connector_uri
   policy.font_src    :self, :data
   policy.img_src     '*', :data
   policy.object_src  :none
