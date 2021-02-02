@@ -13,10 +13,17 @@ class DelegateModal {
   function SendDelegation(){
 	  let ticketId = document.URL.substr(document.URL.lastIndexOf('/') + 1);
 	  $.get(GetOrchestratorUrl() + '/vo-api/VimsOrganizationAzureDevOpsSettings', { vimsid: ticketId }, function(resp){
-        $('#vims').append(`  
-              <div id="vimsDelegateModal" class="vims-hidden modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header">
+        let okBtn = $('<input class="btn btn--success align-right" type="button" value="Ok"/>');
+	okBtn.click(Delegate);
+	let modalRightFooter = $('<div class="modal-rightFooter"></div>');
+	modalRightFooter.append(okBtn);
+	let modalFooter = $('<div class="modal-footer"></div>');
+	modalFooter.append(`<div class="modal-leftFooter">
+                            <a rel="vims-modal:close" class="btn btn--subtle btn--text align-left">Cancel & Go Back</a>
+                          </div>`);
+        modalFooter.append(modalRightFooter);
+        let modalContent = $('<div class="modal-content"></div>');
+	modalContent.append(`<div class="modal-header">
                       <a rel="vims-modal:close" class="modal-close"><svg class="icon icon-diagonal-cross "><use xlink:href="assets/images/icons.svg#icon-diagonal-cross"></use></svg></a>
                       <h1 class="modal-title">Delegate</h1>
                     </div>
@@ -30,25 +37,18 @@ class DelegateModal {
                             <li>Project: ` + resp.project + `</li>
                             <li>Area: ` + resp.area + `</li>
                         </ul>
-                      </div>
-                      <div class="modal-footer">
-                          <div class="modal-leftFooter">
-                            <a rel="vims-modal:close" class="btn btn--subtle btn--text align-left">Cancel & Go Back</a>
-                          </div>
-                          <div class="modal-rightFooter">
-                            <input class="btn btn--success align-right" type="button" value="Ok" onclick="Delegate()"/>
-                          </div>
-                      </div>
-                </div>
-              </div>
-          `);
-		$('#vimsDelegateModal').vims_modal({
+                      </div>`);
+        modalContent.append(modalFooter);
+        let vimsDelegateModal = $('<div id="vimsDelegateModal" class="vims-hidden modal-dialog"></div>');
+	vimsDelegateModal.append(modalContent);
+        $('#vims').append(vimsDelegateModal);
+		vimsDelegateModal.vims_modal({
             showClose: false,
             modalClass: "vims-hidden",
             blockerClass: "vims-blocker-light"            
           });
-        $('#vimsDelegateModal').on($.vims_modal.AFTER_CLOSE, function(event, modal){
-			  $('#vimsDelegateModal').remove();
+        vimsDelegateModal.on($.vims_modal.AFTER_CLOSE, function(event, modal){
+			  vimsDelegateModal.remove();
 		  });
 	  }).fail(function(data) {
         if(![400, 403, 404, 408, 500, 502, 503].includes(data.status)){
