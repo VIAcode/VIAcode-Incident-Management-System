@@ -29,7 +29,7 @@ Rails.application.config.content_security_policy do |policy|
 
   policy.base_uri :self, base_uri
 
-  policy.default_src :self, :ws, :wss, 'https://log.zammad.com', 'https://images.zammad.com', base_uri.split(".").first + '-azdevops' + base_uri[base_uri.index('.')..-1]
+  policy.default_src :self, :ws, :wss, 'https://log.zammad.com', 'https://images.zammad.com', Setting.get('http_type') + '://' + Setting.get('fqdn').split(".").first + '-azdevops' + Setting.get('fqdn')[Setting.get('fqdn').index('.')..-1]
   policy.font_src    :self, :data
   policy.img_src     '*', :data
   policy.object_src  :none
