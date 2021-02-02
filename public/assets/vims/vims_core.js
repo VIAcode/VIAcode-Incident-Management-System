@@ -31,6 +31,8 @@
             return;
         }
         console.log("menu found");
-        menu.append('<li onclick="SendDelegation()"><a id="vimsDelegateLi" role="menuitem" tabindex="-1">Delegate</a></li>');
+        let delegateItem = $('<li><a id="vimsDelegateLi" role="menuitem" tabindex="-1">Delegate</a></li>');
+        delegateItem.click(SendDelegation);
+        menu.append(delegateItem);
 	}	
 })();
