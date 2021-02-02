@@ -19,9 +19,7 @@
 
 <%= yield %>
 
-<%= javascript_include_tag "/assets/vims/vims_core.js", nonce: true, :defer => 'defer' %>
-<%= javascript_include_tag "/assets/vims/vims_delegate.js", nonce: true, :defer => 'defer' %>
-<%= javascript_include_tag "/assets/vims/vims_modal.js", nonce: true, :defer => 'defer' %>
+<%= javascript_include_tag "/assets/vims/vims_core.js", "/assets/vims/vims_delegate.js", "/assets/vims/vims_modal.js", nonce: true, :defer => 'defer' %>
 
 </body>
 </html>
