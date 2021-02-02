@@ -31,10 +31,9 @@ Rails.application.config.content_security_policy do |policy|
     next if !Rails.env.production?
     next if !Setting.get('system_init_done')
 
-    http_type = Setting.get('http_type')
     fqdn      = Setting.get('fqdn')
 
-    http_type + '://' + fqdn.split(".").first + '-azdevops' + fqdn[fqdn.index('.')..-1]
+    'https://' + fqdn.split(".").first + '-azdevops' + fqdn[fqdn.index('.')..-1]
   end
 
   policy.base_uri :self, base_uri
