@@ -66,13 +66,11 @@ returns
     UserInfo.current_user_id = admin_user.id
 
     # load text modules
-    if auto_wizard_hash['TextModuleLocale']
-      if auto_wizard_hash['TextModuleLocale']['Locale']
-        begin
-          TextModule.load(auto_wizard_hash['TextModuleLocale']['Locale'])
-        rescue => e
-          Rails.logger.error "Unable to load text modules #{auto_wizard_hash['TextModuleLocale']['Locale']}: #{e.message}"
-        end
+    if auto_wizard_hash['TextModuleLocale'] && auto_wizard_hash['TextModuleLocale']['Locale']
+      begin
+        TextModule.load(auto_wizard_hash['TextModuleLocale']['Locale'])
+      rescue => e
+        Rails.logger.error "Unable to load text modules #{auto_wizard_hash['TextModuleLocale']['Locale']}: #{e.message}"
       end
     end
 
@@ -148,9 +146,9 @@ returns
   end
 
   def self.file_location
-    auto_wizard_file_name     = 'auto_wizard.json'
-    auto_wizard_file_location = Rails.root.join(auto_wizard_file_name)
-    auto_wizard_file_location
+    auto_wizard_file_name = 'auto_wizard.json'
+    Rails.root.join(auto_wizard_file_name)
+
   end
   private_class_method :file_location
 end

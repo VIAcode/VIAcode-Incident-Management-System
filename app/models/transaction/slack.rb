@@ -60,17 +60,18 @@ class Transaction::Slack
     # if create, send create message / block update messages
     template = nil
     sent_value = nil
-    if @item[:type] == 'create'
+    case @item[:type]
+    when 'create'
       template = 'ticket_create'
-    elsif @item[:type] == 'update'
+    when 'update'
       template = 'ticket_update'
-    elsif @item[:type] == 'reminder_reached'
+    when 'reminder_reached'
       template = 'ticket_reminder_reached'
       sent_value = ticket.pending_time
-    elsif @item[:type] == 'escalation'
+    when 'escalation'
       template = 'ticket_escalation'
       sent_value = ticket.escalation_at
-    elsif @item[:type] == 'escalation_warning'
+    when 'escalation_warning'
       template = 'ticket_escalation_warning'
       sent_value = ticket.escalation_at
     else
@@ -86,8 +87,8 @@ class Transaction::Slack
 
     result = NotificationFactory::Slack.template(
       template: template,
-      locale:   user[:preferences][:locale] || Setting.get('locale_default'),
-      timezone: user[:preferences][:timezone] || Setting.get('timezone_default'),
+      locale:   user.locale,
+      timezone: Setting.get('timezone_default'),
       objects:  {
         ticket:       ticket,
         article:      article,
@@ -133,7 +134,7 @@ class Transaction::Slack
       end
 
       # check action
-      if local_config['types'].class == Array
+      if local_config['types'].instance_of?(Array)
         hit = false
         local_config['types'].each do |type|
           next if type.to_s != @item[:type].to_s
@@ -147,7 +148,7 @@ class Transaction::Slack
       end
 
       # check group
-      if local_config['group_ids'].class == Array
+      if local_config['group_ids'].instance_of?(Array)
         hit = false
         local_config['group_ids'].each do |group_id|
           next if group_id.to_s != ticket.group_id.to_s
@@ -207,7 +208,7 @@ class Transaction::Slack
     locale = user.preferences[:locale] || Setting.get('locale_default') || 'en-us'
 
     # only show allowed attributes
-    attribute_list = ObjectManager::Attribute.by_object_as_hash('Ticket', user)
+    attribute_list = ObjectManager::Object.new('Ticket').attributes(user).index_by { |item| item[:name] }
     #puts "AL #{attribute_list.inspect}"
     user_related_changes = {}
     @item[:changes].each do |key, value|
@@ -237,7 +238,7 @@ class Transaction::Slack
         changes[attribute_name] = value
       end
 
-      # if changed item is an _id field/reference, do an lookup for the realy values
+      # if changed item is an _id field/reference, look up the real values
       value_id  = []
       value_str = [ value[0], value[1] ]
       if key.to_s[-3, 3] == '_id'
@@ -269,7 +270,7 @@ class Transaction::Slack
         end
       end
 
-      # check if we have an dedcated display name for it
+      # check if we have a dedicated display name for it
       display = attribute_name
       if object_manager_attribute && object_manager_attribute[:display]
 

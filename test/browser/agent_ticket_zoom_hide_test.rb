@@ -43,7 +43,7 @@ class AgentTicketZoomHideTest < TestCase
     ticket_update(
       data: {
         body:  'added image attachment',
-        files: [Rails.root.join('test', 'data', 'upload', 'upload2.jpg')],
+        files: [Rails.root.join('test/data/upload/upload2.jpg')],
       },
     )
 
@@ -56,7 +56,7 @@ class AgentTicketZoomHideTest < TestCase
 
     # Now go to a previous ticket and confirm that the modal disappears
     location(
-      url: browser_url + '/#ticket/zoom/1',
+      url: "#{browser_url}/#ticket/zoom/1",
     )
     sleep 2
     modal_disappear()

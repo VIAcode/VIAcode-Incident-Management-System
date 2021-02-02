@@ -40,7 +40,6 @@ fetch one account
 =end
 
   def fetch(force = false)
-
     adapter         = options[:adapter]
     adapter_options = options
     if options[:inbound] && options[:inbound][:adapter]
@@ -48,27 +47,27 @@ fetch one account
       adapter_options = options[:inbound][:options]
     end
 
-    begin
-      driver_class    = self.class.driver_class(adapter)
-      driver_instance = driver_class.new
-      return if !force && !driver_instance.fetchable?(self)
+    refresh_xoauth2!
 
-      result = driver_instance.fetch(adapter_options, self)
-      self.status_in   = result[:result]
-      self.last_log_in = result[:notice]
-      preferences[:last_fetch] = Time.zone.now
-      save!
-      return true
-    rescue => e
-      error = "Can't use Channel::Driver::#{adapter.to_classname}: #{e.inspect}"
-      logger.error error
-      logger.error e
-      self.status_in = 'error'
-      self.last_log_in = error
-      preferences[:last_fetch] = Time.zone.now
-      save!
-      return false
-    end
+    driver_class    = self.class.driver_class(adapter)
+    driver_instance = driver_class.new
+    return if !force && !driver_instance.fetchable?(self)
+
+    result = driver_instance.fetch(adapter_options, self)
+    self.status_in   = result[:result]
+    self.last_log_in = result[:notice]
+    preferences[:last_fetch] = Time.zone.now
+    save!
+    true
+  rescue => e
+    error = "Can't use Channel::Driver::#{adapter.to_classname}: #{e.inspect}"
+    logger.error error
+    logger.error e
+    self.status_in = 'error'
+    self.last_log_in = error
+    preferences[:last_fetch] = Time.zone.now
+    save!
+    false
   end
 
 =begin
@@ -98,7 +97,7 @@ stream instance of account
 
       # set scheduler job to active
 
-      return driver_instance
+      driver_instance
     rescue => e
       error = "Can't use Channel::Driver::#{adapter.to_classname}: #{e.inspect}"
       logger.error error
@@ -250,24 +249,25 @@ send via account
       adapter         = options[:outbound][:adapter]
       adapter_options = options[:outbound][:options]
     end
-    result = nil
-    begin
-      driver_class    = self.class.driver_class(adapter)
-      driver_instance = driver_class.new
-      result = driver_instance.send(adapter_options, params, notification)
-      self.status_out   = 'ok'
-      self.last_log_out = ''
-      save!
-    rescue => e
-      error = "Can't use Channel::Driver::#{adapter.to_classname}: #{e.inspect}"
-      logger.error error
-      logger.error e
-      self.status_out = 'error'
-      self.last_log_out = error
-      save!
-      raise error
-    end
+
+    refresh_xoauth2!
+
+    driver_class    = self.class.driver_class(adapter)
+    driver_instance = driver_class.new
+    result = driver_instance.send(adapter_options, params, notification)
+    self.status_out   = 'ok'
+    self.last_log_out = ''
+    save!
+
     result
+  rescue => e
+    error = "Can't use Channel::Driver::#{adapter.to_classname}: #{e.inspect}"
+    logger.error error
+    logger.error e
+    self.status_out = 'error'
+    self.last_log_out = error
+    save!
+    raise error
   end
 
 =begin
@@ -334,6 +334,24 @@ get instance of channel driver
 
   def driver_instance
     self.class.driver_class(options[:adapter])
+  end
+
+  def refresh_xoauth2!(force: false)
+    return if options.dig(:auth, :type) != 'XOAUTH2'
+    return if !force && ApplicationHandleInfo.current == 'application_server'
+
+    result = ExternalCredential.refresh_token(options[:auth][:provider], options[:auth])
+
+    options[:auth]                          = result
+    options[:inbound][:options][:password]  = result[:access_token]
+    options[:outbound][:options][:password] = result[:access_token]
+
+    return if new_record?
+
+    save!
+  rescue => e
+    logger.error e
+    raise "Failed to refresh XOAUTH2 access_token of provider '#{options[:auth][:provider]}': #{e.message}"
   end
 
   private

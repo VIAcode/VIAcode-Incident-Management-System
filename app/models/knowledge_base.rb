@@ -15,7 +15,7 @@ class KnowledgeBase < ApplicationModel
 
   accepts_nested_attributes_for :kb_locales, allow_destroy: true
   validates                     :kb_locales, presence: true
-  validates                     :kb_locales, length: { maximum: 1 }, unless: :multi_lingual_support?
+  validates                     :kb_locales, length: { maximum: 1, message: 'System supports only one locale for knowledge base. Upgrade your plan to use more locales.' }, unless: :multi_lingual_support?
 
   has_many :categories, class_name: 'KnowledgeBase::Category',
                         inverse_of: :knowledge_base,
@@ -26,8 +26,9 @@ class KnowledgeBase < ApplicationModel
   validates :category_layout, inclusion: { in: KnowledgeBase::LAYOUTS }
   validates :homepage_layout, inclusion: { in: KnowledgeBase::LAYOUTS }
 
-  validates :color_highlight, presence: true
-  validates :color_header, presence: true
+  validates :color_highlight, presence: true, color: true
+  validates :color_header,    presence: true, color: true
+
   validates :iconset, inclusion: { in: KnowledgeBase::ICONSETS }
 
   scope :active, -> { where(active: true) }
@@ -53,7 +54,7 @@ class KnowledgeBase < ApplicationModel
 
     data[:KnowledgeBase].each do |_, elem|
       elem.delete_if do |k, _|
-        k.match?(/_ids$/)
+        k.end_with?('_ids')
       end
     end
 
@@ -63,7 +64,9 @@ class KnowledgeBase < ApplicationModel
   def custom_address_uri
     return nil if custom_address.blank?
 
-    URI("protocol://#{custom_address}")
+    scheme = Setting.get('http_type') || 'http'
+
+    URI("#{scheme}://#{custom_address}")
   rescue URI::InvalidURIError
     nil
   end
@@ -88,6 +91,15 @@ class KnowledgeBase < ApplicationModel
     true
   rescue URI::InvalidURIError
     false
+  end
+
+  def custom_address_prefix(request)
+    host        = custom_address_uri.host || request.headers.env['SERVER_NAME']
+    port        = request.headers.env['SERVER_PORT']
+    port_silent = request.ssl? && port == '443' || !request.ssl? && port == '80'
+    port_string = port_silent ? '' : ":#{port}"
+
+    "#{custom_address_uri.scheme}://#{host}#{port_string}"
   end
 
   def full_destroy!
@@ -121,7 +133,7 @@ class KnowledgeBase < ApplicationModel
       .active
       .joins(:kb_locales)
       .group('knowledge_bases.id')
-      .pluck('COUNT(knowledge_base_locales.id) as locales_count')
+      .pluck(Arel.sql('COUNT(knowledge_base_locales.id) as locales_count'))
       .any? { |e| e > 1 }
   end
 
@@ -140,13 +152,14 @@ class KnowledgeBase < ApplicationModel
     end
   end
 
+  before_validation :patch_custom_address
   after_create :set_defaults
 
   def validate_custom_address
     return if custom_address.nil?
 
     # not domain, but no leading slash
-    if !custom_address.include?('.') && custom_address[0] != '/'
+    if custom_address.exclude?('.') && custom_address[0] != '/'
       errors.add(:custom_address, 'must begin with a slash ("/").')
     end
 
@@ -169,8 +182,6 @@ class KnowledgeBase < ApplicationModel
     self.custom_address = nil if custom_address == ''
   end
 
-  before_validation :patch_custom_address
-
   def multi_lingual_support?
     Setting.get 'kb_multi_lingual_support'
   end
@@ -180,6 +191,6 @@ class KnowledgeBase < ApplicationModel
     CanBePublished.update_active_publicly!
   end
 
-  after_save    :set_kb_active_setting
   after_destroy :set_kb_active_setting
+  after_save    :set_kb_active_setting
 end

@@ -58,7 +58,7 @@ returns
       state_type = params[:ticket].state.state_type
     end
     state_types = ['open', 'closed', 'pending action', 'pending reminder']
-    if state_type && !state_types.include?(state_type.name)
+    if state_type && state_types.exclude?(state_type.name)
       state_ids.push params[:ticket].state_id
     end
     state_types.each do |type|
@@ -131,33 +131,25 @@ returns
       end
 
     end
-=begin
-    # for performance reasons we moved from api calls to optimized sql queries
-    groups.each do |group|
-      filter[:group_id].push group.id
-      assets = group.assets(assets)
-      dependencies[:group_id][group.id] = { owner_id: [] }
 
-      User.group_access(group.id, 'full').each do |user|
-        dependencies[:group_id][ group.id ][:owner_id].push user.id
-        next if agents[user.id]
-        agents[user.id] = true
-        assets = user.assets(assets)
-      end
+    configure_attributes = nil
+    if params[:ticket].present?
+      configure_attributes = ObjectManager::Object.new('Ticket').attributes(params[:current_user], params[:ticket])
     end
-=end
+
     {
       assets:    assets,
       form_meta: {
-        filter:       filter,
-        dependencies: dependencies,
+        filter:               filter,
+        dependencies:         dependencies,
+        configure_attributes: configure_attributes,
       }
     }
   end
 
 =begin
 
-list tickets by customer groupd in state categroie open and closed
+list tickets by customer group in state categories open and closed
 
   result = Ticket::ScreenOptions.list_by_customer(
     customer_id: 123,
@@ -180,11 +172,16 @@ returns
     state_id_list_open   = Ticket::State.by_category(:open).pluck(:id)
     state_id_list_closed = Ticket::State.by_category(:closed).pluck(:id)
 
+    # open tickets by customer
+    access_condition = Ticket.access_condition(data[:current_user], 'read')
+
     # get tickets
     tickets_open = Ticket.where(
       customer_id: data[:customer_id],
       state_id:    state_id_list_open
-    ).limit(data[:limit] || 15).order(created_at: :desc)
+    )
+    .where(access_condition)
+    .limit(data[:limit] || 15).order(created_at: :desc)
     assets = {}
     ticket_ids_open = []
     tickets_open.each do |ticket|
@@ -195,7 +192,9 @@ returns
     tickets_closed = Ticket.where(
       customer_id: data[:customer_id],
       state_id:    state_id_list_closed
-    ).limit(data[:limit] || 15).order(created_at: :desc)
+    )
+    .where(access_condition)
+    .limit(data[:limit] || 15).order(created_at: :desc)
     ticket_ids_closed = []
     tickets_closed.each do |ticket|
       ticket_ids_closed.push ticket.id

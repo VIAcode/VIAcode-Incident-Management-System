@@ -25,87 +25,41 @@ satinize html string based on whiltelist
 
       # We whitelist yahoo_quoted because Yahoo Mail marks quoted email content using
       # <div class='yahoo_quoted'> and we rely on this class to identify quoted messages
-      classes_whitelist = ['js-signatureMarker', 'yahoo_quoted']
+      classes_whitelist = %w[js-signatureMarker yahoo_quoted]
       attributes_2_css = %w[width height]
 
-      # remove html comments
-      string.gsub!(/<!--.+?-->/m, '')
+      # remove tags with subtree
+      scrubber_tag_remove = Loofah::Scrubber.new do |node|
+        next if tags_remove_content.exclude?(node.name)
 
-      scrubber_link = Loofah::Scrubber.new do |node|
-
-        # wrap plain-text URLs in <a> tags
-        if node.is_a?(Nokogiri::XML::Text) && node.content.present? && node.content.include?(':') && node.ancestors.map(&:name).exclude?('a')
-          urls = URI.extract(node.content, LINKABLE_URL_SCHEMES)
-                    .map { |u| u.sub(/[,.]$/, '') }      # URI::extract captures trailing dots/commas
-                    .reject { |u| u.match?(/^[^:]+:$/) } # URI::extract will match, e.g., 'tel:'
-
-          next if urls.blank?
-
-          add_link(node.content, urls, node)
-        end
-
-        # prepare links
-        if node['href']
-
-          href = node['href']
-
-          if !href.include?('.azure.com')
-            href                = cleanup_target(node['href'], keep_spaces: true)
-          end
-          
-          href_without_spaces = href.gsub(/[[:space:]]/, '')
-          if external && href_without_spaces.present? && !href_without_spaces.downcase.start_with?('//') && href_without_spaces.downcase !~ %r{^.{1,6}://.+?}
-            node['href']        = "http://#{node['href']}"
-            href                = node['href']
-            href_without_spaces = href.gsub(/[[:space:]]/, '')
-          end
-
-          next if !href_without_spaces.downcase.start_with?('http', 'ftp', '//')
-
-          node.set_attribute('href', href)
-          node.set_attribute('rel', 'nofollow noreferrer noopener')
-          node.set_attribute('target', '_blank')
-        end
-
-        if node.name == 'a' && node['href'].blank?
-          node.replace node.children.to_s
-          Loofah::Scrubber::STOP
-        end
-
-        # check if href is different to text
-        if node.name == 'a' && !url_same?(node['href'], node.text)
-          if node['title'].blank?
-            node['title'] = node['href']
-          end
-        end
+        node.remove
+        Loofah::Scrubber::STOP
       end
+      string = Loofah.fragment(string).scrub!(scrubber_tag_remove).to_s
+
+      # remove tag, insert quoted content
+      scrubber_wipe_quote_content = Loofah::Scrubber.new do |node|
+        next if tags_quote_content.exclude?(node.name)
+
+        string = html_decode(node.content)
+        text = Nokogiri::XML::Text.new(string, node.document)
+        node.add_next_sibling(text)
+        node.remove
+        Loofah::Scrubber::STOP
+      end
+      string = Loofah.fragment(string).scrub!(scrubber_wipe_quote_content).to_s
 
       scrubber_wipe = Loofah::Scrubber.new do |node|
 
-        # remove tags with subtree
-        if tags_remove_content.include?(node.name)
-          node.remove
-          Loofah::Scrubber::STOP
-        end
-
-        # remove tag, insert quoted content
-        if tags_quote_content.include?(node.name)
-          string = html_decode(node.content)
-          text = Nokogiri::XML::Text.new(string, node.document)
-          node.add_next_sibling(text)
-          node.remove
-          Loofah::Scrubber::STOP
-        end
-
         # replace tags, keep subtree
-        if !tags_whitelist.include?(node.name)
+        if tags_whitelist.exclude?(node.name)
           node.replace node.children.to_s
           Loofah::Scrubber::STOP
         end
 
         # prepare src attribute
         if node['src']
-          src = cleanup_target(node['src'])
+          src = cleanup_target(CGI.unescape(node['src']))
           if src =~ /(javascript|livescript|vbscript):/i || src.downcase.start_with?('http', 'ftp', '//')
             node.remove
             Loofah::Scrubber::STOP
@@ -114,20 +68,20 @@ satinize html string based on whiltelist
 
         # clean class / only use allowed classes
         if node['class']
-          classes = node['class'].gsub(/\t|\n|\r/, '').split(' ')
+          classes = node['class'].gsub(/\t|\n|\r/, '').split
           class_new = ''
           classes.each do |local_class|
-            next if !classes_whitelist.include?(local_class.to_s.strip)
+            next if classes_whitelist.exclude?(local_class.to_s.strip)
 
             if class_new != ''
               class_new += ' '
             end
             class_new += local_class
           end
-          if class_new != ''
-            node['class'] = class_new
-          else
+          if class_new == ''
             node.delete('class')
+          else
+            node['class'] = class_new
           end
         end
 
@@ -157,8 +111,8 @@ satinize html string based on whiltelist
             next if !prop[0]
 
             key = prop[0].strip
-            next if !css_properties_whitelist.include?(node.name)
-            next if !css_properties_whitelist[node.name].include?(key)
+            next if css_properties_whitelist.exclude?(node.name)
+            next if css_properties_whitelist[node.name].exclude?(key)
             next if css_values_blacklist[node.name]&.include?(local_pear.gsub(/[[:space:]]/, '').strip)
 
             style += "#{local_pear};"
@@ -174,7 +128,7 @@ satinize html string based on whiltelist
           next if !node[attribute_name]
 
           href = cleanup_target(node[attribute_name])
-          next if href !~ /(javascript|livescript|vbscript):/i
+          next if !href.match?(/(javascript|livescript|vbscript):/i)
 
           node.delete(attribute_name)
         end
@@ -182,7 +136,7 @@ satinize html string based on whiltelist
         # remove attributes if not whitelisted
         node.each do |attribute, _value|
           attribute_name = attribute.downcase
-          next if attributes_whitelist[:all].include?(attribute_name) || (attributes_whitelist[node.name]&.include?(attribute_name))
+          next if attributes_whitelist[:all].include?(attribute_name) || attributes_whitelist[node.name]&.include?(attribute_name)
 
           node.delete(attribute)
         end
@@ -191,7 +145,7 @@ satinize html string based on whiltelist
         if node['href']
           href = cleanup_target(node['href'])
           if href =~ /mailto:(.*)$/i
-            text = Nokogiri::XML::Text.new($1, node.document)
+            text = Nokogiri::XML::Text.new(CGI.unescape($1), node.document)
             node.add_next_sibling(text)
             node.remove
             Loofah::Scrubber::STOP
@@ -206,6 +160,52 @@ satinize html string based on whiltelist
           done = false
         end
         string = new_string
+      end
+
+      scrubber_link = Loofah::Scrubber.new do |node|
+
+        # wrap plain-text URLs in <a> tags
+        if node.is_a?(Nokogiri::XML::Text) && node.content.present? && node.content.include?(':') && node.ancestors.map(&:name).exclude?('a')
+          urls = URI.extract(node.content, LINKABLE_URL_SCHEMES)
+                    .map { |u| u.sub(/[,.]$/, '') }      # URI::extract captures trailing dots/commas
+                    .reject { |u| u.match?(/^[^:]+:$/) } # URI::extract will match, e.g., 'tel:'
+
+          next if urls.blank?
+
+          add_link(node.content, urls, node)
+        end
+
+        # prepare links
+        if node['href']
+          href = node['href']
+
+          if !href.include?('.azure.com')
+            href                = cleanup_target(node['href'], keep_spaces: true)
+          end
+          
+          href_without_spaces = href.gsub(/[[:space:]]/, '')
+          if external && href_without_spaces.present? && !href_without_spaces.downcase.start_with?('//') && href_without_spaces.downcase !~ %r{^.{1,6}://.+?}
+            node['href']        = "http://#{node['href']}"
+            href                = node['href']
+            href_without_spaces = href.gsub(/[[:space:]]/, '')
+          end
+
+          next if !CGI.unescape(href_without_spaces).utf8_encode(fallback: :read_as_sanitized_binary).gsub(/[[:space:]]/, '').downcase.start_with?('http', 'ftp', '//')
+
+          node.set_attribute('href', href)
+          node.set_attribute('rel', 'nofollow noreferrer noopener')
+          node.set_attribute('target', '_blank')
+        end
+
+        if node.name == 'a' && node['href'].blank?
+          node.replace node.children.to_s
+          Loofah::Scrubber::STOP
+        end
+
+        # check if href is different to text
+        if node.name == 'a' && !url_same?(node['href'], node.text) && node['title'].blank?
+          node['title'] = node['href']
+        end
       end
 
       Loofah.fragment(string).scrub!(scrubber_link).to_s
@@ -248,12 +248,48 @@ cleanup html string:
     UNPROCESSABLE_HTML_MSG
   end
 
+  def self.remove_last_empty_node(node, remove_empty_nodes, remove_empty_last_nodes)
+    if node.children.present?
+      if node.children.size == 1
+        local_name = node.name
+        child = node.children.first
+
+        # replace not needed node (parent <- child)
+        replaceable_node_names = ['span', child.name]
+        if local_name == child.name && node.attributes.present? && node.children.first.attributes.blank?
+          local_node_child = node.children.first
+          node.attributes.each do |k|
+            local_node_child.set_attribute(k[0], k[1])
+          end
+          node.replace local_node_child.to_s
+          Loofah::Scrubber::STOP
+
+        # replace not needed node (parent replace with child node)
+        elsif replaceable_node_names.include?(local_name) && node.attributes.blank?
+          node.replace node.children.to_s
+          Loofah::Scrubber::STOP
+        end
+      else
+
+        # loop through nodes
+        node.children.each do |local_node|
+          remove_last_empty_node(local_node, remove_empty_nodes, remove_empty_last_nodes)
+        end
+      end
+    # remove empty nodes
+    elsif (remove_empty_nodes.include?(node.name) || remove_empty_last_nodes.include?(node.name)) && node.content.blank? && node.attributes.blank?
+      node.remove
+      Loofah::Scrubber::STOP
+    end
+  end
+
   def self.cleanup_replace_tags(string)
     #return string
     tags_backlist = %w[span center]
     scrubber = Loofah::Scrubber.new do |node|
-      next if !tags_backlist.include?(node.name)
+      next if tags_backlist.exclude?(node.name)
 
+      #next if !node.parent.present?
       hit = false
       local_node = nil
       (1..5).each do |_count|
@@ -285,28 +321,7 @@ cleanup html string:
 
     # remove last empty nodes and empty -not needed- parrent nodes
     scrubber_structure = Loofah::Scrubber.new do |node|
-      if remove_empty_last_nodes.include?(node.name) && node.children.size.zero?
-        node.remove
-        Loofah::Scrubber::STOP
-      end
-
-      # remove empty childs
-      if node.content.blank? && remove_empty_nodes.include?(node.name) && node.children.size == 1 && remove_empty_nodes.include?(node.children.first.name)
-        node.replace node.children.to_s
-        Loofah::Scrubber::STOP
-      end
-
-      # remove empty childs
-      if remove_empty_nodes.include?(node.name) && node.children.size == 1 && remove_empty_nodes.include?(node.children.first.name) && node.children.first.content == node.content
-        node.replace node.children.to_s
-        Loofah::Scrubber::STOP
-      end
-
-      # remove node if empty and parent was already a remove node
-      if node.content.blank? && remove_empty_nodes.include?(node.name) && node.parent && node.children.size.zero? && remove_empty_nodes.include?(node.parent.name)
-        node.remove
-        Loofah::Scrubber::STOP
-      end
+      remove_last_empty_node(node, remove_empty_nodes, remove_empty_last_nodes)
     end
 
     done = true
@@ -332,8 +347,8 @@ cleanup html string:
       end
 
       # remove not needed new lines
-      if node.class == Nokogiri::XML::Text
-        if !node.parent || (node.parent.name != 'pre' && node.parent.name != 'code')
+      if node.instance_of?(Nokogiri::XML::Text)
+        if !node.parent || (node.parent.name != 'pre' && node.parent.name != 'code') # rubocop:disable Style/SoleNestedConditional
           content = node.content
           if content
             if content != ' ' && content != "\n"
@@ -401,7 +416,7 @@ cleanup html string:
   end
 
   def self.cleanup_target(string, **options)
-    cleaned_string = CGI.unescape(string).utf8_encode(fallback: :read_as_sanitized_binary)
+    cleaned_string = string.utf8_encode(fallback: :read_as_sanitized_binary)
     cleaned_string = cleaned_string.gsub(/[[:space:]]/, '') if !options[:keep_spaces]
     cleaned_string = cleaned_string.strip
                                    .delete("\t\n\r\u0000")
@@ -427,8 +442,8 @@ cleanup html string:
   end
 
   def self.url_same?(url_new, url_old)
-    url_new = CGI.unescape(url_new.to_s).utf8_encode(fallback: :read_as_sanitized_binary).downcase.gsub(%r{/$}, '').gsub(/[[:space:]]|\t|\n|\r/, '').strip
-    url_old = CGI.unescape(url_old.to_s).utf8_encode(fallback: :read_as_sanitized_binary).downcase.gsub(%r{/$}, '').gsub(/[[:space:]]|\t|\n|\r/, '').strip
+    url_new = CGI.unescape(url_new.to_s).utf8_encode(fallback: :read_as_sanitized_binary).downcase.delete_suffix('/').gsub(/[[:space:]]|\t|\n|\r/, '').strip
+    url_old = CGI.unescape(url_old.to_s).utf8_encode(fallback: :read_as_sanitized_binary).downcase.delete_suffix('/').gsub(/[[:space:]]|\t|\n|\r/, '').strip
     url_new = html_decode(url_new).sub('/?', '?')
     url_old = html_decode(url_old).sub('/?', '?')
     return true if url_new == url_old

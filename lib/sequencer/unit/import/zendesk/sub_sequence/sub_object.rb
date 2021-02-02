@@ -6,7 +6,14 @@ class Sequencer
           class SubObject < Sequencer::Unit::Base
             include ::Sequencer::Unit::Import::Zendesk::SubSequence::Base
 
-            uses :resource, :instance, :user_id, :model_class
+            uses :resource, :instance, :user_id, :model_class, :action
+
+            def self.inherited(subclass)
+              super
+
+              subclass.prepend(::Sequencer::Unit::Import::Common::Model::Mixin::Skip::Action)
+              subclass.skip_action(:skipped, :failed)
+            end
 
             def process
               resource_iteration do |sub_resource|

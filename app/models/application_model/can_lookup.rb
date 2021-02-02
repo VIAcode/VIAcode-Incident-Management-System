@@ -36,7 +36,7 @@ return possible lookup keys for model
 
 returns
 
-  [:id, :name] # or fror users [:id, :login, :email]
+  [:id, :name] # or, for users: [:id, :login, :email]
 
 =end
 
@@ -47,15 +47,17 @@ returns
     private
 
     def find_and_save_to_cache_by(attr)
-      if !Rails.application.config.db_case_sensitive && string_key?(attr.keys.first)
-        where(attr).find { |r| r[attr.keys.first] == attr.values.first }
-      else
-        find_by(attr)
-      end.tap { |r| cache_set(attr.values.first, r) }
+      record = find_by(attr)
+      return nil if string_key?(attr.keys.first) && (record&.send(attr.keys.first) != attr.values.first.to_s) # enforce case-sensitivity on MySQL
+      return record if ActiveRecord::Base.connection.transaction_open? # rollbacks can invalidate cache entries
+
+      cache_set(attr.values.first, record)
+      record
     end
 
     def string_key?(key)
       type_for_attribute(key.to_s).type == :string
     end
+
   end
 end

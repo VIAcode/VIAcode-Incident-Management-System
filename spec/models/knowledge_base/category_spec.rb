@@ -2,7 +2,7 @@ require 'rails_helper'
 require 'models/concerns/checks_kb_client_notification_examples'
 require 'models/contexts/factory_context'
 
-RSpec.describe KnowledgeBase::Category, type: :model do
+RSpec.describe KnowledgeBase::Category, type: :model, current_user_id: 1 do
   subject(:kb_category) { create(:knowledge_base_category) }
 
   include_context 'factory'
@@ -93,5 +93,35 @@ RSpec.describe KnowledgeBase::Category, type: :model do
         expect(kb_category_with_tree).not_to be_self_parent(grandchild_category)
       end
     end
+  end
+
+  describe '#public_content?' do
+    shared_examples 'verify visibility in given state' do |state:, is_visible:|
+      it "returns #{is_visible} when contains #{state} answer" do
+        object = create(:knowledge_base_category, "containing_#{state}")
+
+        expect(object).send is_visible ? :to : :not_to, be_public_content(object.translations.first.kb_locale)
+      end
+    end
+
+    include_examples 'verify visibility in given state', state: :published, is_visible: true
+    include_examples 'verify visibility in given state', state: :internal,  is_visible: false
+    include_examples 'verify visibility in given state', state: :draft,     is_visible: false
+    include_examples 'verify visibility in given state', state: :archived,  is_visible: false
+  end
+
+  describe '#internal_content?' do
+    shared_examples 'verify visibility in given state' do |state:, is_visible:|
+      it "returns #{is_visible} when contains #{state} answer" do
+        object = create(:knowledge_base_category, "containing_#{state}")
+
+        expect(object).send is_visible ? :to : :not_to, be_internal_content(object.translations.first.kb_locale)
+      end
+    end
+
+    include_examples 'verify visibility in given state', state: :published, is_visible: true
+    include_examples 'verify visibility in given state', state: :internal,  is_visible: true
+    include_examples 'verify visibility in given state', state: :draft,     is_visible: false
+    include_examples 'verify visibility in given state', state: :archived,  is_visible: false
   end
 end

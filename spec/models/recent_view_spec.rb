@@ -1,9 +1,9 @@
 require 'rails_helper'
 
 RSpec.describe RecentView, type: :model do
-  let(:admin)    { create(:admin_user) }
-  let(:agent)    { create(:agent_user) }
-  let(:customer) { create(:customer_user) }
+  let(:admin)    { create(:admin) }
+  let(:agent)    { create(:agent) }
+  let(:customer) { create(:customer) }
   let(:ticket)   { create(:ticket, owner: owner, customer: customer) }
   let(:tickets)  { create_list(:ticket, 15, owner: owner, customer: customer) }
   let(:owner)    { admin }
@@ -138,21 +138,21 @@ RSpec.describe RecentView, type: :model do
     it 'wraps RecentView.create' do
       expect do
         described_class.log(viewed_object.class.name, viewed_object.id, admin)
-      end.to change(RecentView, :count).by(1)
+      end.to change(described_class, :count).by(1)
     end
 
     describe 'access privileges' do
       let(:owner) { agent }
 
       it 'does not create RecentView for records the given user cannot read' do
-        ticket.update(owner:        User.first,    # read access may come from ticket ownership,
+        ticket.update(owner:        User.first, # read access may come from ticket ownership,
                       customer:     User.first, # customer status,
                       organization: nil)    # organization's 'shared' status,
         agent.update(groups: [])            # and membership in the Ticket's group
 
         expect do
           described_class.log(viewed_object.class.name, viewed_object.id, agent)
-        end.not_to change(RecentView, :count)
+        end.not_to change(described_class, :count)
       end
     end
 
@@ -160,19 +160,19 @@ RSpec.describe RecentView, type: :model do
       it 'does not create RecentView for non-existent record' do
         expect do
           described_class.log('User', 99_999_999, admin)
-        end.not_to change(RecentView, :count)
+        end.not_to change(described_class, :count)
       end
 
       it 'does not create RecentView for instance of non-ObjectLookup class' do
         expect do
           described_class.log('Overview', 1, admin)
-        end.not_to change(RecentView, :count)
+        end.not_to change(described_class, :count)
       end
 
       it 'does not create RecentView for instance of non-existent class' do
         expect do
           described_class.log('NonExistentClass', 1, admin)
-        end.not_to change(RecentView, :count)
+        end.not_to change(described_class, :count)
       end
     end
   end

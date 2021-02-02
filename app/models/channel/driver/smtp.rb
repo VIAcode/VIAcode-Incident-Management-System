@@ -13,7 +13,7 @@ class Channel::Driver::Smtp
       openssl_verify_mode:  'none', # optional
       user:                 'someuser',
       password:             'somepass'
-      authentication:       nil, # nil, autodetection - to use certain schema use 'plain', 'login' or 'cram_md5'
+      authentication:       nil, # nil, autodetection - to use certain schema use 'plain', 'login', 'xoauth2' or 'cram_md5'
     },
     mail_attributes,
     notification
@@ -30,10 +30,8 @@ class Channel::Driver::Smtp
     if !options.key?(:port) || options[:port].blank?
       options[:port] = 25
     end
-    if !options.key?(:ssl)
-      if options[:port].to_i == 465
-        options[:ssl] = true
-      end
+    if !options.key?(:ssl) && options[:port].to_i == 465
+      options[:ssl] = true
     end
     if !options.key?(:domain)
       # set fqdn, if local fqdn - use domain of sender
@@ -55,7 +53,8 @@ class Channel::Driver::Smtp
 
     # set system_bcc of config if defined
     system_bcc = Setting.get('system_bcc')
-    if system_bcc.present? && system_bcc =~ /@/
+    email_address_validation = EmailAddressValidation.new(system_bcc)
+    if system_bcc.present? && email_address_validation.valid_format?
       attr[:bcc] ||= ''
       attr[:bcc] += ', ' if attr[:bcc].present?
       attr[:bcc] += system_bcc

@@ -1,7 +1,10 @@
 # Copyright (C) 2012-2016 Zammad Foundation, http://zammad-foundation.org/
 
 class MonitoringController < ApplicationController
-  prepend_before_action -> { authentication_check(permission: 'admin.monitoring') }, except: %i[health_check status amount_check]
+  prepend_before_action { authorize! }
+  prepend_before_action -> { authentication_check }, except: %i[health_check status amount_check]
+  prepend_before_action -> { authentication_check_only }, only: %i[health_check status amount_check]
+
   skip_before_action :verify_csrf_token
 
 =begin
@@ -27,19 +30,18 @@ curl http://localhost/api/v1/monitoring/health_check?token=XXX
 =end
 
   def health_check
-    token_or_permission_check
-
     issues = []
     actions = Set.new
 
     # channel check
     last_run_tolerance = Time.zone.now - 1.hour
+    options_keys = %w[host user uid]
     Channel.where(active: true).each do |channel|
 
       # inbound channel
       if channel.status_in == 'error'
         message = "Channel: #{channel.area} in "
-        %w[host user uid].each do |key|
+        options_keys.each do |key|
           next if channel.options[key].blank?
 
           message += "key:#{channel.options[key]};"
@@ -55,7 +57,7 @@ curl http://localhost/api/v1/monitoring/health_check?token=XXX
       next if channel.status_out != 'error'
 
       message = "Channel: #{channel.area} out "
-      %w[host user uid].each do |key|
+      options_keys.each do |key|
         next if channel.options[key].blank?
 
         message += "key:#{channel.options[key]};"
@@ -64,7 +66,7 @@ curl http://localhost/api/v1/monitoring/health_check?token=XXX
     end
 
     # unprocessable mail check
-    directory = Rails.root.join('tmp', 'unprocessable_mail').to_s
+    directory = Rails.root.join('tmp/unprocessable_mail').to_s
     if File.exist?(directory)
       count = 0
       Dir.glob("#{directory}/*.eml") do |_entry|
@@ -102,7 +104,7 @@ curl http://localhost/api/v1/monitoring/health_check?token=XXX
     handler_attempts_map = {}
     failed_jobs.order(:created_at).limit(10).each do |job|
 
-      job_name = if job.class.name == 'Delayed::Backend::ActiveRecord::Job'.freeze && job.payload_object.respond_to?(:job_data)
+      job_name = if job.instance_of?(Delayed::Backend::ActiveRecord::Job) && job.payload_object.respond_to?(:job_data)
                    job.payload_object.job_data['job_class']
                  else
                    job.name
@@ -148,7 +150,7 @@ curl http://localhost/api/v1/monitoring/health_check?token=XXX
     end
 
     # stuck import jobs
-    import_backends.each do |backend|
+    import_backends.each do |backend| # rubocop:disable Style/CombinableLoops
 
       job = ImportJob.where(
         name:        backend,
@@ -161,12 +163,18 @@ curl http://localhost/api/v1/monitoring/health_check?token=XXX
       issues.push "Stuck import backend '#{backend}' detected. Last update: #{job.updated_at}"
     end
 
+    # stuck data privacy tasks
+    DataPrivacyTask.where.not(state: 'completed').where('updated_at <= ?', 30.minutes.ago).find_each do |task|
+      issues.push "Stuck data privacy task (ID #{task.id}) detected. Last update: #{task.updated_at}"
+    end
+
     token = Setting.get('monitoring_token')
 
     if issues.blank?
       result = {
         healthy: true,
         message: 'success',
+        issues:  issues,
         token:   token,
       }
       render json: result
@@ -210,10 +218,8 @@ curl http://localhost/api/v1/monitoring/status?token=XXX
 =end
 
   def status
-    token_or_permission_check
-
     last_login = nil
-    last_login_user = User.where('last_login IS NOT NULL').order(last_login: :desc).limit(1).first
+    last_login_user = User.where.not(last_login: nil).order(last_login: :desc).limit(1).first
     if last_login_user
       last_login = last_login_user.last_login
     end
@@ -298,23 +304,22 @@ curl http://localhost/api/v1/monitoring/amount_check?token=XXX&periode=1h
 =end
 
   def amount_check
-    token_or_permission_check
-
     raise Exceptions::UnprocessableEntity, 'periode is missing!' if params[:periode].blank?
 
     scale = params[:periode][-1, 1]
-    raise Exceptions::UnprocessableEntity, 'periode need to have s, m, h or d as last!' if scale !~ /^(s|m|h|d)$/
+    raise Exceptions::UnprocessableEntity, 'periode need to have s, m, h or d as last!' if !scale.match?(/^(s|m|h|d)$/)
 
     periode = params[:periode][0, params[:periode].length - 1]
     raise Exceptions::UnprocessableEntity, 'periode need to be an integer!' if periode.to_i.zero?
 
-    if scale == 's'
+    case scale
+    when 's'
       created_at = Time.zone.now - periode.to_i.seconds
-    elsif scale == 'm'
+    when 'm'
       created_at = Time.zone.now - periode.to_i.minutes
-    elsif scale == 'h'
+    when 'h'
       created_at = Time.zone.now - periode.to_i.hours
-    elsif scale == 'd'
+    when 'd'
       created_at = Time.zone.now - periode.to_i.days
     end
 
@@ -370,7 +375,6 @@ curl http://localhost/api/v1/monitoring/amount_check?token=XXX&periode=1h
   end
 
   def token
-    access_check
     token = SecureRandom.urlsafe_base64(40)
     Setting.set('monitoring_token', token)
 
@@ -381,27 +385,8 @@ curl http://localhost/api/v1/monitoring/amount_check?token=XXX&periode=1h
   end
 
   def restart_failed_jobs
-    access_check
-
     Scheduler.restart_failed_jobs
 
     render json: {}, status: :ok
   end
-
-  private
-
-  def token_or_permission_check
-    user = authentication_check_only(permission: 'admin.monitoring')
-    return if user
-    return if Setting.get('monitoring_token') == params[:token]
-
-    raise Exceptions::NotAuthorized
-  end
-
-  def access_check
-    return if Permission.find_by(name: 'admin.monitoring', active: true)
-
-    raise Exceptions::NotAuthorized
-  end
-
 end

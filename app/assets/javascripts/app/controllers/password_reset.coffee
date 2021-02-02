@@ -12,7 +12,7 @@ class Index extends App.ControllerContent
       @navigate '#'
       return
 
-    # if we are logged in, no passwort reset is wanted, redirect to app
+    # if we are logged in, no password reset is wanted, redirect to app
     if @authenticateCheck()
       @navigate '#'
       return
@@ -58,22 +58,13 @@ class Index extends App.ControllerContent
     )
 
   success: (data) =>
-    if data.message is 'ok'
 
-      # if in developer mode, redirect to set new password
-      if data.token && @Config.get('developer_mode') is true
-        redirect = =>
-          @navigate "#password_reset_verify/#{data.token}"
-        @delay(redirect, 2000)
-      @render(sent: true)
-
-    else
-      @$('[name=username]').val('')
-      @notify(
-        type: 'error'
-        msg:  App.i18n.translateContent('Username or email address invalid, please try again.')
-      )
-      @formEnable( @el.find('.form-password') )
+    # if in developer mode, redirect to set new password
+    if data.token && @Config.get('developer_mode') is true
+      redirect = =>
+        @navigate "#password_reset_verify/#{data.token}"
+      @delay(redirect, 2000)
+    @render(sent: true)
 
 App.Config.set('password_reset', Index, 'Routes')
 

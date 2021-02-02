@@ -5,8 +5,12 @@ class UserDevice < ApplicationModel
   store     :location_details
   validates :name, presence: true
 
+  belongs_to :user
+
   before_create  :fingerprint_validation
   before_update  :fingerprint_validation
+
+  association_attributes_ignored :user
 
 =begin
 
@@ -106,9 +110,7 @@ store new device for user if device not already known
       fingerprint: fingerprint,
     )
 
-    if user_device
-      return action(user_device.id, user_agent, ip, user_id, type) if user_device
-    end
+    return action(user_device.id, user_agent, ip, user_id, type) if user_device
 
     # create new device
     user_device = create!(
@@ -161,7 +163,7 @@ log user device action
       user_device.ip = ip
       location_details = Service::GeoIp.location(ip)
 
-      # if we do not have any data from backend (e. g. geo ip ist out of service), ignore log
+      # if we do not have any data from backend (e.g. geo ip is out of service), ignore log
       if location_details && location_details['country_name']
 
         user_device.location_details = location_details
@@ -202,6 +204,11 @@ send user notification about new device or new location for device
   def notification_send(template)
     user = User.find(user_id)
 
+    if user.email.blank?
+      Rails.logger.info { "Unable to notification (#{template}) to user_id: #{user.id} be cause of missing email address." }
+      return false
+    end
+
     Rails.logger.debug { "Send notification (#{template}) to: #{user.email}" }
 
     NotificationFactory::Mailer.notification(
@@ -212,6 +219,8 @@ send user notification about new device or new location for device
         user:        user,
       }
     )
+
+    true
   end
 
 =begin

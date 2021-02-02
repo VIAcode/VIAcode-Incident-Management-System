@@ -12,7 +12,7 @@ class TicketArticleCommunicateEmailJob < ApplicationJob
 
     subject_prefix_mode = record.preferences[:subtype]
 
-    subject = ticket.subject_build(record.subject,  subject_prefix_mode)
+    subject = ticket.subject_build(record.subject, subject_prefix_mode)
 
     # set retry count
     record.preferences['delivery_retry'] ||= 0
@@ -62,7 +62,8 @@ class TicketArticleCommunicateEmailJob < ApplicationJob
           subject:      subject,
           content_type: record.content_type,
           body:         record.body,
-          attachments:  record.attachments
+          attachments:  record.attachments,
+          security:     record.preferences[:security],
         },
         notification
       )
@@ -154,6 +155,7 @@ class TicketArticleCommunicateEmailJob < ApplicationJob
           notification:                true,
         },
       )
+
       ticket       = Ticket.find(local_record.ticket_id)
       ticket.state = Ticket::State.find_by(default_follow_up: true)
       ticket.save!

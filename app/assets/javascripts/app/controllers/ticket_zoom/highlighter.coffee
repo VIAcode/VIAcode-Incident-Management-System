@@ -36,7 +36,7 @@ class App.TicketZoomHighlighter extends App.Controller
   constructor: ->
     super
 
-    return if !@permissionCheck('ticket.agent')
+    return if @ticket.currentView() isnt 'agent'
 
     @currentHighlights = {}
 
@@ -91,9 +91,9 @@ class App.TicketZoomHighlighter extends App.Controller
     articles.off('mousedown', @onMouseDown)
     articles.on('mousedown', @onMouseDown) #future: touchend
 
-  # for testing purposes the highlights get stored in atrticle preferences
+  # for testing purposes the highlights get stored in article preferences
   loadHighlights: (ticket_article_id) ->
-    return if !@permissionCheck('ticket.agent')
+    return if @ticket.currentView() isnt 'agent'
     article = App.TicketArticle.find(ticket_article_id)
     return if !article.preferences
     return if !article.preferences.highlight
@@ -103,7 +103,7 @@ class App.TicketZoomHighlighter extends App.Controller
     @currentHighlights[ticket_article_id] = article.preferences.highlight
     @highlighter.deserialize(article.preferences.highlight)
 
-  # the serialization creates one string for the entiery ticket
+  # the serialization creates one string for the entire ticket
   # containing the offsets and the highlight classes
   #
   # we have to check how it works with having open several tickets - it might break

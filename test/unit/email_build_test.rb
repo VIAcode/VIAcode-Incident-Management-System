@@ -6,20 +6,20 @@ class EmailBuildTest < ActiveSupport::TestCase
     html   = '<b>test</b>'
     result = Channel::EmailBuild.html_complete_check(html)
 
-    assert(result =~ /^<\!DOCTYPE/, 'test 1')
-    assert(result !~ /^.+?<\!DOCTYPE/, 'test 1')
-    assert(result =~ /<html>/, 'test 1')
-    assert(result =~ /font-family/, 'test 1')
-    assert(result =~ %r{<b>test</b>}, 'test 1')
+    assert(result.start_with?('<!DOCTYPE'), 'test 1')
+    assert(result !~ /^.+?<!DOCTYPE/, 'test 1')
+    assert(result.include?('<html>'), 'test 1')
+    assert(result.include?('font-family'), 'test 1')
+    assert(result.include?('<b>test</b>'), 'test 1')
 
     html   = 'invalid <!DOCTYPE html><html><b>test</b></html>'
     result = Channel::EmailBuild.html_complete_check(html)
 
-    assert(result !~ /^<\!DOCTYPE/, 'test 2')
-    assert(result =~ /^.+?<\!DOCTYPE/, 'test 2')
-    assert(result =~ /<html>/, 'test 2')
+    assert(result !~ /^<!DOCTYPE/, 'test 2')
+    assert(result =~ /^.+?<!DOCTYPE/, 'test 2')
+    assert(result.include?('<html>'), 'test 2')
     assert(result !~ /font-family/, 'test 2')
-    assert(result =~ %r{<b>test</b>}, 'test 2')
+    assert(result.include?('<b>test</b>'), 'test 2')
 
     # Issue #1230, missing backslashes
     # 'Test URL: \\storage\project\100242-Inc'
@@ -89,12 +89,13 @@ class EmailBuildTest < ActiveSupport::TestCase
 
     # check attachments
     data[:attachments]&.each do |attachment|
-      if attachment[:filename] == 'message.html'
+      case attachment[:filename]
+      when 'message.html'
         assert_nil(attachment[:preferences]['Content-ID'])
         assert_equal(true, attachment[:preferences]['content-alternative'])
         assert_equal('text/html', attachment[:preferences]['Mime-Type'])
         assert_equal('UTF-8', attachment[:preferences]['Charset'])
-      elsif attachment[:filename] == 'somename.png'
+      when 'somename.png'
         assert_nil(attachment[:preferences]['Content-ID'])
         assert_nil(attachment[:preferences]['content-alternative'])
         assert_equal('image/png', attachment[:preferences]['Mime-Type'])

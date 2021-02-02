@@ -2,7 +2,7 @@
 
 module Channel::Filter::BounceDeliveryTemporaryFailed
 
-  def self.run(_channel, mail)
+  def self.run(_channel, mail, _transaction_params)
     return if !mail[:mail_instance]
     return if !mail[:attachments]
     return if mail[:mail_instance].action != 'delayed'
@@ -10,7 +10,7 @@ module Channel::Filter::BounceDeliveryTemporaryFailed
     return if mail[:mail_instance].error_status != '4.4.1'
 
     # if header is available, do change current ticket state
-    mail['x-zammad-out-of-office'.to_sym] = true
+    mail[:'x-zammad-out-of-office'] = true
 
     true
   end

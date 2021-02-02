@@ -41,7 +41,7 @@ module HasGroups
         query      = select("#{ActiveRecord::Base.connection.quote_table_name('groups')}.*, #{ActiveRecord::Base.connection.quote_table_name(table_name)}.*")
         return query if access.blank?
 
-        access.push('full') if !access.include?('full')
+        access.push('full') if access.exclude?('full')
 
         query.where("#{table_name}.access" => access)
       end
@@ -250,6 +250,7 @@ module HasGroups
     yield
     self.group_access_buffer = nil
     cache_delete
+    push_ticket_create_screen_background_job
   end
 
   def process_group_access_buffer
@@ -354,7 +355,7 @@ module HasGroups
     #
     # @return [Symbol] The relation identifier
     def group_through_identifier
-      "#{name.downcase}_groups".to_sym
+      :"#{name.downcase}_groups"
     end
 
     def ensure_group_id_parameter(group_or_id)
@@ -365,7 +366,7 @@ module HasGroups
 
     def ensure_group_access_list_parameter(access)
       access = [access] if access.is_a?(String)
-      access.push('full') if !access.include?('full')
+      access.push('full') if access.exclude?('full')
       access
     end
   end

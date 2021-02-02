@@ -17,10 +17,7 @@ class Integration::CheckMkController < ApplicationController
     group_id = Setting.get('check_mk_group_id')
     state_recovery_match = '(OK|UP)'
 
-    # check if ticket with host is open
-    customer = User.lookup(id: 1)
-
-    # follow up detection by meta data
+    # follow-up detection by meta data
     integration = 'check_mk'
     open_states = Ticket::State.by_category(:open)
     ticket_ids = Ticket.where(state: open_states).order(created_at: :desc).limit(5000).pluck(:id)
@@ -42,11 +39,11 @@ class Integration::CheckMkController < ApplicationController
     title = "#{params[:host]} is #{params[:state]}"
     body = "EventID: #{params[:event_id]}
 Host: #{params[:host]}
-Service: #{params[:service]}
+Service: #{params[:service] || '-'}
 State: #{params[:state]}
-Text: #{params[:text]}
+Text: #{params[:text] || '-'}
 RemoteIP: #{request.remote_ip}
-UserAgent: #{request.env['HTTP_USER_AGENT']}
+UserAgent: #{request.env['HTTP_USER_AGENT'] || '-'}
 "
 
     # add article
@@ -95,17 +92,32 @@ UserAgent: #{request.env['HTTP_USER_AGENT']}
       return
     end
 
-    ticket = Ticket.create!(
-      group_id:    group_id,
-      customer_id: customer.id,
-      title:       title,
-      preferences: {
-        check_mk: {
-          host:    params[:host],
-          service: params[:service],
-        },
-      }
-    )
+    # define customer of ticket
+    customer = nil
+    if params[:customer].present?
+      customer = User.find_by(login: params[:customer].downcase)
+      if !customer
+        customer = User.find_by(email: params[:customer].downcase)
+      end
+    end
+    if !customer
+      customer = User.lookup(id: 1)
+    end
+
+    params[:state] = nil
+    params[:customer] = nil
+    ticket = Ticket.new(Ticket.param_cleanup(Ticket.association_name_to_id_convert(params)))
+    ticket.group_id ||= group_id
+    ticket.customer_id = customer.id
+    ticket.title = title
+    ticket.preferences = {
+      check_mk: {
+        host:    params[:host],
+        service: params[:service],
+      },
+    }
+    ticket.save!
+
     Ticket::Article.create!(
       ticket_id: ticket.id,
       type_id:   Ticket::Article::Type.find_by(name: 'web').id,

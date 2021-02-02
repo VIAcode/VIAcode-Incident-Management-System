@@ -5,8 +5,8 @@ class App.Overview extends App.Model
   @configure_attributes = [
     { name: 'name',       display: 'Name',                tag: 'input',    type: 'text', limit: 100, 'null': false },
     { name: 'link',       display: 'Link',                readonly: 1 },
-    { name: 'role_ids',   display: 'Available for Role',  tag: 'column_select', multiple: true, null: false, relation: 'Role', translate: true },
-    { name: 'user_ids',   display: 'Available for User',  tag: 'column_select', multiple: true, null: true,  relation: 'User', sortBy: 'firstname' },
+    { name: 'role_ids',   display: 'Available for the following roles',    tag: 'column_select', multiple: true, null: false, relation: 'Role', translate: true },
+    { name: 'user_ids',   display: 'Restrict to only the following users', tag: 'column_select', multiple: true, null: true,  relation: 'User', sortBy: 'firstname' },
     { name: 'organization_shared', display: 'Only available for Users with shared Organization', tag: 'select', options: { true: 'yes', false: 'no' }, default: false, null: true },
     { name: 'out_of_office', display: 'Only available for Users which are replacements for other users.', tag: 'select', options: { true: 'yes', false: 'no' }, default: false, null: true },
     { name: 'condition',  display: 'Conditions for shown Tickets', tag: 'ticket_selector', null: false, out_of_office: true },
@@ -81,7 +81,7 @@ class App.Overview extends App.Model
   @description = '''
 You can create **overviews** for your agents and your customers. These could for instance serve as a sort of work list for items for which your agents would work.
 
-You can also create overvies and limit them to specific agents or to groups of agents.
+You can also create overviews and limit them to specific agents or to groups of agents.
 '''
 
   uiUrl: ->

@@ -12,12 +12,14 @@ module ChecksHtmlSanitized
     return true if html_attributes.blank?
 
     html_attributes.each do |attribute|
+      next if changes[attribute].blank?
+
       value = send(attribute)
 
       next if value.blank?
       next if !sanitizeable?(attribute, value)
 
-      send("#{attribute}=".to_sym, HtmlSanitizer.strict(value))
+      send(:"#{attribute}=", HtmlSanitizer.strict(value))
     end
     true
   end

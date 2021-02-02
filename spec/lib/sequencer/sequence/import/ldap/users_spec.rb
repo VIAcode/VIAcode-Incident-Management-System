@@ -23,7 +23,8 @@ RSpec.describe ::Sequencer::Sequence::Import::Ldap::Users, sequencer: :sequence 
               group_entry.dn => [1, 2]
             },
             user_attributes:  {
-              'first_name' => 'firstname',
+              'samaccountname' => 'login',
+              'first_name'     => 'firstname',
             },
             user_uid:         'objectguid',
             unassigned_users: 'skip_sync',
@@ -40,14 +41,14 @@ RSpec.describe ::Sequencer::Sequence::Import::Ldap::Users, sequencer: :sequence 
         )
 
         # LDAP::Group
-        expect(connection).to receive(:search).and_yield(group_entry)
-        expect(connection).to receive(:entries?).and_return(true)
+        allow(connection).to receive(:search).and_yield(group_entry)
+        allow(connection).to receive(:entries?).and_return(true)
 
         # Sequencer::Unit::Import::Ldap::Users::Total
-        expect(connection).to receive(:count).and_return(1)
+        allow(connection).to receive(:count).and_return(1)
 
         # Sequencer::Unit::Import::Ldap::Users::SubSequence
-        expect(connection).to receive(:search).and_yield(user_entry)
+        allow(connection).to receive(:search).and_yield(user_entry)
 
         expect do
           process(
@@ -70,15 +71,8 @@ RSpec.describe ::Sequencer::Sequence::Import::Ldap::Users, sequencer: :sequence 
         group_entry['member'] = ['some.other.dn']
 
         # LDAP::Group
-        expect(connection).to receive(:search).and_yield(group_entry)
-        expect(connection).to receive(:entries?).and_return(true)
-
-        # Sequencer::Unit::Import::Ldap::Users::Total
-        # cached
-        # expect(connection).to receive(:count).and_return(1)
-
-        # Sequencer::Unit::Import::Ldap::Users::SubSequence
-        expect(connection).to receive(:search).and_yield(user_entry)
+        allow(connection).to receive(:search).and_yield(group_entry)
+        allow(connection).to receive(:entries?).and_return(true)
 
         expect do
           process(
@@ -114,7 +108,8 @@ RSpec.describe ::Sequencer::Sequence::Import::Ldap::Users, sequencer: :sequence 
               group_entry.dn => agent_admin_role_ids
             },
             user_attributes: {
-              'first_name' => 'firstname',
+              'samaccountname' => 'login',
+              'first_name'     => 'firstname',
             },
             user_uid:        'objectguid',
           }
@@ -129,15 +124,12 @@ RSpec.describe ::Sequencer::Sequence::Import::Ldap::Users, sequencer: :sequence 
           base_dn: 'test'
         )
 
-        # LDAP::Group
-        expect(connection).to receive(:search).and_yield(group_entry)
-        expect(connection).to receive(:entries?).and_return(true)
+        # LDAP::Group and Sequencer::Unit::Import::Ldap::Users::SubSequence
+        allow(connection).to receive(:search).and_yield(group_entry).and_yield(user_entry)
+        allow(connection).to receive(:entries?).and_return(true)
 
         # Sequencer::Unit::Import::Ldap::Users::Total
-        expect(connection).to receive(:count).and_return(1)
-
-        # Sequencer::Unit::Import::Ldap::Users::SubSequence
-        expect(connection).to receive(:search).and_yield(user_entry)
+        allow(connection).to receive(:count).and_return(1)
 
         expect do
           process(
@@ -160,15 +152,15 @@ RSpec.describe ::Sequencer::Sequence::Import::Ldap::Users, sequencer: :sequence 
         group_entry['member'] = ['some.other.dn']
 
         # LDAP::Group
-        expect(connection).to receive(:search).and_yield(group_entry)
-        expect(connection).to receive(:entries?).and_return(true)
+        allow(connection).to receive(:search).and_yield(group_entry)
+        allow(connection).to receive(:entries?).and_return(true)
 
         # Sequencer::Unit::Import::Ldap::Users::Total
         # cached
         # expect(connection).to receive(:count).and_return(1)
 
         # Sequencer::Unit::Import::Ldap::Users::SubSequence
-        expect(connection).to receive(:search).and_yield(user_entry)
+        allow(connection).to receive(:search).and_yield(user_entry)
 
         expect do
           process(

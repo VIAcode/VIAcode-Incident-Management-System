@@ -33,11 +33,6 @@ Zammad::Application.routes.draw do
         end
       end
 
-      # add routes
-      %w[locales layouts].each do |route_name|
-        resources route_name, controller: "knowledge_base/#{route_name}", except: %i[new edit]
-      end
-
       resources :categories, controller: 'knowledge_base/categories',
                              except:     %i[new edit] do
 
@@ -51,10 +46,14 @@ Zammad::Application.routes.draw do
       end
 
       resources :answers, controller: 'knowledge_base/answers',
-                          except:     %i[new edit],
+                          only:       %i[create update show destroy],
                           concerns:   :has_publishing do
 
-        resources :attachments, controller: 'knowledge_base/answer/attachments', only: %i[create destroy]
+        resources :attachments, controller: 'knowledge_base/answer/attachments', only: %i[create destroy] do
+          collection do
+            post :clone_to_form
+          end
+        end
       end
     end
   end

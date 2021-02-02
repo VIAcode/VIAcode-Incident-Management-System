@@ -651,12 +651,6 @@ class UserTest < ActiveSupport::TestCase
       created_by_id: 1,
     )
 
-    assert_raises(RuntimeError) do
-      customer3.roles = Role.where(name: %w[Customer Admin])
-    end
-    assert_raises(RuntimeError) do
-      customer3.roles = Role.where(name: %w[Customer Agent])
-    end
     customer3.roles = Role.where(name: %w[Admin Agent])
     customer3.roles.each do |role|
       assert_not_equal(role.name, 'Customer')
@@ -1028,10 +1022,10 @@ class UserTest < ActiveSupport::TestCase
     )
     roles = Role.where(name: 'Agent')
     User.create_or_update(
-      login:         "agent-default-vaild_agent_group_permission-1#{name}@example.com",
-      firstname:     'vaild_agent_group_permission-1',
+      login:         "agent-default-valid_agent_group_permission-1#{name}@example.com",
+      firstname:     'valid_agent_group_permission-1',
       lastname:      "Agent#{name}",
-      email:         "agent-default-vaild_agent_group_permission-1#{name}@example.com",
+      email:         "agent-default-valid_agent_group_permission-1#{name}@example.com",
       password:      'agentpw',
       active:        true,
       roles:         roles,
@@ -1040,10 +1034,10 @@ class UserTest < ActiveSupport::TestCase
       created_by_id: 1,
     )
     agent2 = User.create_or_update(
-      login:         "agent-default-vaild_agent_group_permission-2#{name}@example.com",
-      firstname:     'vaild_agent_group_permission-2',
+      login:         "agent-default-valid_agent_group_permission-2#{name}@example.com",
+      firstname:     'valid_agent_group_permission-2',
       lastname:      "Agent#{name}",
-      email:         "agent-default-vaild_agent_group_permission-2#{name}@example.com",
+      email:         "agent-default-valid_agent_group_permission-2#{name}@example.com",
       password:      'agentpw',
       active:        true,
       roles:         roles,
@@ -1065,10 +1059,12 @@ class UserTest < ActiveSupport::TestCase
   end
 
   test 'preferences[:notification_sound][:enabled] value check' do
-    roles  = Role.where(name: 'Agent')
+    name  = rand(999_999_999)
+    roles = Role.where(name: 'Agent')
+
     agent1 = User.create!(
       login:         "agent-default-preferences-1#{name}@example.com",
-      firstname:     'vaild_agent_group_permission-1',
+      firstname:     'valid_agent_group_permission-1',
       lastname:      "Agent#{name}",
       email:         "agent-default-preferences-1#{name}@example.com",
       password:      'agentpw',
@@ -1086,7 +1082,7 @@ class UserTest < ActiveSupport::TestCase
 
     agent2 = User.create!(
       login:         "agent-default-preferences-2#{name}@example.com",
-      firstname:     'vaild_agent_group_permission-2',
+      firstname:     'valid_agent_group_permission-2',
       lastname:      "Agent#{name}",
       email:         "agent-default-preferences-2#{name}@example.com",
       password:      'agentpw',
@@ -1104,7 +1100,7 @@ class UserTest < ActiveSupport::TestCase
 
     agent3 = User.create!(
       login:         "agent-default-preferences-3#{name}@example.com",
-      firstname:     'vaild_agent_group_permission-3',
+      firstname:     'valid_agent_group_permission-3',
       lastname:      "Agent#{name}",
       email:         "agent-default-preferences-3#{name}@example.com",
       password:      'agentpw',
@@ -1126,7 +1122,7 @@ class UserTest < ActiveSupport::TestCase
 
     agent4 = User.create!(
       login:         "agent-default-preferences-4#{name}@example.com",
-      firstname:     'vaild_agent_group_permission-4',
+      firstname:     'valid_agent_group_permission-4',
       lastname:      "Agent#{name}",
       email:         "agent-default-preferences-4#{name}@example.com",
       password:      'agentpw',
@@ -1154,7 +1150,7 @@ class UserTest < ActiveSupport::TestCase
     assert_raises(Exceptions::UnprocessableEntity) do
       User.create!(
         login:         "agent-default-preferences-5#{name}@example.com",
-        firstname:     'vaild_agent_group_permission-5',
+        firstname:     'valid_agent_group_permission-5',
         lastname:      "Agent#{name}",
         email:         "agent-default-preferences-5#{name}@example.com",
         password:      'agentpw',
@@ -1175,7 +1171,7 @@ class UserTest < ActiveSupport::TestCase
   test 'cleanup references on destroy' do
     agent1 = User.create!(
       login:         "agent-cleanup_check-1#{name}@example.com",
-      firstname:     'vaild_agent_group_permission-1',
+      firstname:     'valid_agent_group_permission-1',
       lastname:      "Agent#{name}",
       email:         "agent-cleanup_check-1#{name}@example.com",
       password:      'agentpw',
@@ -1261,18 +1257,16 @@ class UserTest < ActiveSupport::TestCase
 
     Token.create!(action: 'api', user_id: agent1_id)
 
-    StatsStore.add(
-      object:        'User',
-      o_id:          agent1_id,
-      key:           'some_key',
-      data:          { A: 1, B: 2 },
-      created_at:    Time.zone.now,
-      created_by_id: 1,
+    StatsStore.create(
+      stats_storable: agent1,
+      key:            'some_key',
+      data:           { A: 1, B: 2 },
+      created_at:     Time.zone.now,
+      created_by_id:  1,
     )
-    item = StatsStore.search(
-      object: 'User',
-      o_id:   agent1_id,
-      key:    'some_key',
+    item = StatsStore.find_by(
+      stats_storable: agent1,
+      key:            'some_key',
     )
     assert(item)
 
@@ -1288,10 +1282,9 @@ class UserTest < ActiveSupport::TestCase
     assert_equal(0, RecentView.where(created_by_id: agent1_id).count)
     assert_equal(0, Token.where(user_id: agent1_id).count)
     assert_equal(0, Token.where(user_id: agent1_id).count)
-    item = StatsStore.search(
-      object: 'User',
-      o_id:   agent1_id,
-      key:    'some_key',
+    item = StatsStore.find_by(
+      stats_storable: agent1,
+      key:            'some_key',
     )
     assert_nil(item)
   end
@@ -1299,7 +1292,7 @@ class UserTest < ActiveSupport::TestCase
   test 'adding group drops cache' do
     agent1 = User.create!(
       login:         "agent-cleanup_check-1#{name}@example.com",
-      firstname:     'vaild_agent_group_permission-1',
+      firstname:     'valid_agent_group_permission-1',
       lastname:      "Agent#{name}",
       email:         "agent-cleanup_check-1#{name}@example.com",
       password:      'agentpw',

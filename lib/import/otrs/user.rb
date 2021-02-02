@@ -102,7 +102,7 @@ module Import
           permissions ||= user['GroupIDs'][ queue['GroupID'].to_s ]
 
           next if !permissions
-          next if !permissions.include?('rw')
+          next if permissions.exclude?('rw')
 
           result.push queue['QueueID']
         end
@@ -153,6 +153,7 @@ module Import
         return result if role_object['GroupIDs'].blank?
 
         permissions = role_object['GroupIDs'][ group['ID'] ]
+        permissions ||= role_object['GroupIDs'][ group['ID'].to_s ]
 
         return result if !permissions
 
@@ -160,7 +161,7 @@ module Import
           result.push 'Admin'
         end
 
-        return result if group['Name'] !~ /^(stats|report)/
+        return result if !group['Name'].match?(/^(stats|report)/)
         return result if !( permissions.include?('ro') || permissions.include?('rw') )
 
         result.push 'Report'
@@ -171,7 +172,7 @@ module Import
         result = []
         roles  = Import::OTRS::Requester.load('Role')
         roles.each do |role|
-          next if !user['RoleIDs'].include?(role['ID'])
+          next if user['RoleIDs'].exclude?(role['ID'])
 
           result += groups_from_otrs_groups(role)
         end

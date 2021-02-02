@@ -13,9 +13,7 @@ RSpec.describe ::ObjectManager::Attribute::Validation::Required do
   let(:record) { build(:user) }
   let(:attribute) { build(:object_manager_attribute_date) }
 
-  before do
-    allow(subject).to receive(:value).and_return(value)
-  end
+  it_behaves_like 'validate backend'
 
   context 'when validation should be performed' do
 
@@ -23,7 +21,7 @@ RSpec.describe ::ObjectManager::Attribute::Validation::Required do
 
     shared_examples 'a permission based validator' do |permission:|
 
-      let(:performing_user) { create(:agent_user) }
+      let(:performing_user) { create(:agent) }
 
       before { UserInfo.current_user_id = performing_user.id }
 
@@ -87,7 +85,7 @@ RSpec.describe ::ObjectManager::Attribute::Validation::Required do
 
       context 'for required => false' do
 
-        let(:performing_user) { create(:agent_user) }
+        let(:performing_user) { create(:agent) }
 
         before { UserInfo.current_user_id = performing_user.id }
 

@@ -3,12 +3,7 @@ class Sequencer
     module Import
       module Zendesk
         class Organizations < Sequencer::Unit::Import::Zendesk::SubSequence::Object
-
-          private
-
-          def resource_iteration_method
-            :all!
-          end
+          include ::Sequencer::Unit::Import::Zendesk::Mixin::IncrementalExport
         end
       end
     end

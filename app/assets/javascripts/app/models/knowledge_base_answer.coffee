@@ -4,6 +4,8 @@ class App.KnowledgeBaseAnswer extends App.Model
   @extend App.KnowledgeBaseActions
   @extend App.KnowledgeBaseCanBePublished
 
+  @serverClassName: 'KnowledgeBase::Answer'
+
   url: ->
     @knowledge_base().generateURL('answers')
 
@@ -62,6 +64,8 @@ class App.KnowledgeBaseAnswer extends App.Model
         buttons: [
           'link'
           'link_answer'
+          'insert_image'
+          'embed_video'
         ]
         display: 'Content'
         tag:     'richtext'

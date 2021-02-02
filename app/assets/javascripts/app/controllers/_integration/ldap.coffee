@@ -168,6 +168,8 @@ class State
     App.Setting.get('ldap_integration')
 
 class ConnectionWizard extends App.WizardModal
+  className: 'modal fade modal--large'
+
   wizardConfig: {}
   slideMethod:
     'js-bind': 'bindShow'
@@ -351,7 +353,7 @@ class ConnectionWizard extends App.WizardModal
           @showAlert('js-bind', 'Unable to retrive group information, please check your bind user permissions.')
           return
 
-        # update config if successfull
+        # update config if successful
         for key, value of params
           @wizardConfig[key] = value
 
@@ -459,13 +461,12 @@ class ConnectionWizard extends App.WizardModal
 
     el = []
     for source, dest of user_attribute_map
-      continue if !(source of @wizardConfig.wizardData.backend_user_attributes)
       el.push @buildRowUserAttribute(source, dest)
     el
 
   buildRowUserAttribute: (source, dest) =>
     el = $(App.view('integration/ldap_user_attribute_row')())
-    el.find('.js-ldapAttribute').html(@createSelection('source', @wizardConfig.wizardData.backend_user_attributes, source))
+    el.find('.js-ldapAttribute').html(@createSelection('source', @wizardConfig.wizardData.backend_user_attributes, source, true))
     el.find('.js-userAttribute').html(@createSelection('dest', @wizardConfig.wizardData.user_attributes, dest))
     el
 

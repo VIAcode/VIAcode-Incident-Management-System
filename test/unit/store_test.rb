@@ -4,7 +4,7 @@ class StoreTest < ActiveSupport::TestCase
   test 'store fs - get_location' do
     sha = 'ed7002b439e9ac845f22357d822bac1444730fbdb6016d3ec9432297b9ec9f73'
     location = Store::Provider::File.get_location(sha)
-    assert_equal(Rails.root.join('storage', 'fs', 'ed70', '02b4', '39e9a', 'c845f', '22357d8', '22bac14', '44730fbdb6016d3ec9432297b9ec9f73').to_s, location)
+    assert_equal(Rails.root.join('storage/fs/ed70/02b4/39e9a/c845f/22357d8/22bac14/44730fbdb6016d3ec9432297b9ec9f73').to_s, location)
   end
 
   test 'store fs - empty dir remove' do
@@ -18,11 +18,11 @@ class StoreTest < ActiveSupport::TestCase
     Store::Provider::File.delete(sha)
     exists = File.exist?(location)
     assert_not(exists)
-    exists = File.exist?(Rails.root.join('storage', 'fs', 'ed70', '02b4'))
+    exists = File.exist?(Rails.root.join('storage/fs/ed70/02b4'))
     assert_not(exists)
-    exists = File.exist?(Rails.root.join('storage', 'fs', 'ed70'))
+    exists = File.exist?(Rails.root.join('storage/fs/ed70'))
     assert_not(exists)
-    exists = File.exist?(Rails.root.join('storage', 'fs'))
+    exists = File.exist?(Rails.root.join('storage/fs'))
     assert(exists)
     exists = File.exist?(Rails.root.join('storage'))
     assert(exists)
@@ -41,12 +41,12 @@ class StoreTest < ActiveSupport::TestCase
         o_id:     2,
       },
       {
-        data:     File.binread(Rails.root.join('test', 'data', 'pdf', 'test1.pdf')),
+        data:     File.binread(Rails.root.join('test/data/pdf/test1.pdf')),
         filename: 'test.pdf',
         o_id:     3,
       },
       {
-        data:     File.binread(Rails.root.join('test', 'data', 'pdf', 'test1.pdf')),
+        data:     File.binread(Rails.root.join('test/data/pdf/test1.pdf')),
         filename: 'test-again.pdf',
         o_id:     4,
       },
@@ -75,7 +75,7 @@ class StoreTest < ActiveSupport::TestCase
 
       # sha check
       sha_new = Digest::SHA256.hexdigest(attachments[0].content)
-      assert_equal(sha, sha_new,  "check file #{file[:filename]}")
+      assert_equal(sha, sha_new, "check file #{file[:filename]}")
 
       # filename check
       assert_equal(file[:filename], attachments[0].filename)
@@ -101,7 +101,7 @@ class StoreTest < ActiveSupport::TestCase
 
       # sha check
       sha_new = Digest::SHA256.hexdigest(attachments[0].content)
-      assert_equal(sha, sha_new,  "check file #{file[:filename]}")
+      assert_equal(sha, sha_new, "check file #{file[:filename]}")
 
       # filename check
       assert_equal(file[:filename], attachments[0].filename)
@@ -128,7 +128,7 @@ class StoreTest < ActiveSupport::TestCase
 
       # sha check
       sha_new = Digest::SHA256.hexdigest(attachments[0].content)
-      assert_equal(sha, sha_new,  "check file #{file[:filename]}")
+      assert_equal(sha, sha_new, "check file #{file[:filename]}")
 
       # filename check
       assert_equal(file[:filename], attachments[0].filename)
@@ -158,7 +158,7 @@ class StoreTest < ActiveSupport::TestCase
     store = Store.add(
       object:        'SomeObject1',
       o_id:          rand(1_234_567_890),
-      data:          File.binread(Rails.root.join('test', 'data', 'upload', 'upload1.txt')),
+      data:          File.binread(Rails.root.join('test/data/upload/upload1.txt')),
       filename:      'test1.pdf',
       preferences:   {
         content_type: 'text/plain',
@@ -180,7 +180,7 @@ class StoreTest < ActiveSupport::TestCase
     store = Store.add(
       object:        'SomeObject2',
       o_id:          rand(1_234_567_890),
-      data:          File.binread(Rails.root.join('test', 'data', 'upload', 'upload1.txt')),
+      data:          File.binread(Rails.root.join('test/data/upload/upload1.txt')),
       filename:      'test1.pdf',
       preferences:   {
         content_type: 'image/jpg',
@@ -202,7 +202,7 @@ class StoreTest < ActiveSupport::TestCase
     store = Store.add(
       object:        'SomeObject3',
       o_id:          rand(1_234_567_890),
-      data:          File.binread(Rails.root.join('test', 'data', 'upload', 'upload2.jpg')),
+      data:          File.binread(Rails.root.join('test/data/upload/upload2.jpg')),
       filename:      'test1.pdf',
       preferences:   {
         content_type: 'image/jpg',
@@ -228,7 +228,7 @@ class StoreTest < ActiveSupport::TestCase
     store = Store.add(
       object:        'SomeObject4',
       o_id:          rand(1_234_567_890),
-      data:          File.binread(Rails.root.join('test', 'data', 'image', '1000x1000.png')),
+      data:          File.binread(Rails.root.join('test/data/image/1000x1000.png')),
       filename:      'test1.png',
       preferences:   {
         content_type: 'image/png',
@@ -252,7 +252,7 @@ class StoreTest < ActiveSupport::TestCase
     store = Store.add(
       object:        'SomeObject5',
       o_id:          rand(1_234_567_890),
-      data:          File.binread(Rails.root.join('test', 'data', 'image', '1x1.png')),
+      data:          File.binread(Rails.root.join('test/data/image/1x1.png')),
       filename:      'test1.png',
       preferences:   {
         content_type: 'image/png',
@@ -274,7 +274,7 @@ class StoreTest < ActiveSupport::TestCase
     store = Store.add(
       object:        'SomeObject6',
       o_id:          rand(1_234_567_890),
-      data:          File.binread(Rails.root.join('test', 'data', 'image', '4000x1.jpg')),
+      data:          File.binread(Rails.root.join('test/data/image/4000x1.jpg')),
       filename:      'test1.jpg',
       preferences:   {
         content_type: 'image/jpg',
@@ -290,7 +290,7 @@ class StoreTest < ActiveSupport::TestCase
     store = Store.add(
       object:        'SomeObject7',
       o_id:          rand(1_234_567_890),
-      data:          File.binread(Rails.root.join('test', 'data', 'image', '8000x25.jpg')),
+      data:          File.binread(Rails.root.join('test/data/image/8000x25.jpg')),
       filename:      'test1.jpg',
       preferences:   {
         content_type: 'image/jpg',
@@ -306,7 +306,7 @@ class StoreTest < ActiveSupport::TestCase
     store = Store.add(
       object:        'SomeObject8',
       o_id:          rand(1_234_567_890),
-      data:          File.binread(Rails.root.join('test', 'data', 'image', '8000x300.jpg')),
+      data:          File.binread(Rails.root.join('test/data/image/8000x300.jpg')),
       filename:      'test1.jpg',
       preferences:   {
         content_type: 'image/jpg',
@@ -318,5 +318,105 @@ class StoreTest < ActiveSupport::TestCase
     assert_equal(store.preferences[:content_inline], true)
     assert_equal(store.preferences[:content_preview], true)
 
+    # possible, but skipped (preview and inline)
+    Setting.set('import_mode', true)
+    store = Store.add(
+      object:        'SomeObject3',
+      o_id:          rand(1_234_567_890),
+      data:          File.binread(Rails.root.join('test/data/upload/upload2.jpg')),
+      filename:      'test1.pdf',
+      preferences:   {
+        content_type: 'image/jpg',
+        content_id:   234,
+      },
+      created_by_id: 1,
+    )
+    assert_nil(store.preferences[:resizable])
+    assert_nil(store.preferences[:content_inline])
+    assert_nil(store.preferences[:content_preview])
   end
+
+  test 'test maximal preferences size check with one oversized content' do
+    store = Store.add(
+      object:        'SomeObject1',
+      o_id:          rand(1_234_567_890),
+      data:          File.binread(Rails.root.join('test/data/upload/upload1.txt')),
+      filename:      'test1.pdf',
+      preferences:   {
+        content_type: 'text/plain',
+        content_id:   234,
+        some_key:     '0' * 2500,
+      },
+      created_by_id: 1,
+    )
+    assert_not(store.preferences.key?(:some_key))
+    assert(store.preferences.key?(:content_id))
+    assert(store.preferences.key?(:content_type))
+  end
+
+  test 'test maximal preferences size check with two oversized content' do
+    store = Store.add(
+      object:        'SomeObject1',
+      o_id:          rand(1_234_567_890),
+      data:          File.binread(Rails.root.join('test/data/upload/upload1.txt')),
+      filename:      'test1.pdf',
+      preferences:   {
+        content_type: 'text/plain',
+        content_id:   234,
+        some_key1:    '0' * 2000,
+        some_key2:    '0' * 2000,
+      },
+      created_by_id: 1,
+    )
+    assert_not(store.preferences.key?(:some_key1))
+    assert(store.preferences.key?(:some_key2))
+    assert(store.preferences.key?(:content_id))
+    assert(store.preferences.key?(:content_type))
+  end
+
+  test 'test maximal preferences size check with one oversized key' do
+    preferences = {
+      content_type: 'text/plain',
+      content_id:   234,
+    }
+    some_key1 = '0' * 2500
+    preferences[some_key1] = 'some content'
+
+    store = Store.add(
+      object:        'SomeObject1',
+      o_id:          rand(1_234_567_890),
+      data:          File.binread(Rails.root.join('test/data/upload/upload1.txt')),
+      filename:      'test1.pdf',
+      preferences:   preferences,
+      created_by_id: 1,
+    )
+    assert_not(store.preferences.key?(some_key1))
+    assert(store.preferences.key?(:content_id))
+    assert(store.preferences.key?(:content_type))
+  end
+
+  test 'test maximal preferences size check with two oversized key' do
+    preferences = {
+      content_type: 'text/plain',
+      content_id:   234,
+    }
+    some_key1 = '0' * 1500
+    preferences[some_key1] = 'some content'
+    some_key2 = '1' * 1500
+    preferences[some_key2] = 'some content'
+
+    store = Store.add(
+      object:        'SomeObject1',
+      o_id:          rand(1_234_567_890),
+      data:          File.binread(Rails.root.join('test/data/upload/upload1.txt')),
+      filename:      'test1.pdf',
+      preferences:   preferences,
+      created_by_id: 1,
+    )
+    assert_not(store.preferences.key?(some_key1))
+    assert(store.preferences.key?(some_key2))
+    assert(store.preferences.key?(:content_id))
+    assert(store.preferences.key?(:content_type))
+  end
+
 end

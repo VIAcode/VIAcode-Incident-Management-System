@@ -563,7 +563,7 @@ ObjectManager::Attribute.add(
   data_type:   'richtext',
   data_option: {
     type:      'richtext',
-    maxlength: 20_000,
+    maxlength: 150_000,
     upload:    true,
     rows:      8,
     null:      true,
@@ -1741,7 +1741,7 @@ ObjectManager::Attribute.add(
   force:       true,
   object:      'Group',
   name:        'follow_up_possible',
-  display:     'Follow up possible',
+  display:     'Follow-up possible',
   data_type:   'select',
   data_option: {
     default:   'yes',
@@ -1750,7 +1750,7 @@ ObjectManager::Attribute.add(
       new_ticket: 'do not reopen Ticket but create new Ticket'
     },
     null:      false,
-    note:      'Follow up for closed ticket possible or not.',
+    note:      'Follow-up for closed ticket possible or not.',
     translate: true
   },
   editable:    false,
@@ -1777,7 +1777,7 @@ ObjectManager::Attribute.add(
   force:       true,
   object:      'Group',
   name:        'follow_up_assignment',
-  display:     'Assign Follow Ups',
+  display:     'Assign Follow-Ups',
   data_type:   'select',
   data_option: {
     default:   'yes',
@@ -1786,7 +1786,7 @@ ObjectManager::Attribute.add(
       false: 'no',
     },
     null:      false,
-    note:      'Assign follow up to latest agent again.',
+    note:      'Assign follow-up to latest agent again.',
     translate: true
   },
   editable:    false,

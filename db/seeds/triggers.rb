@@ -42,7 +42,7 @@ Trigger.create_or_update(
   updated_by_id: 1,
 )
 Trigger.create_or_update(
-  name:          'auto reply (on follow up of tickets)',
+  name:          'auto reply (on follow-up of tickets)',
   condition:     {
     'ticket.action'     => {
       'operator' => 'is',
@@ -73,7 +73,7 @@ Trigger.create_or_update(
 <br/>
 <div><p>Let VIAcode deal with these alerts & manage your Azure cloud operation for free; <a href="https://www.viacode.com/services/azure-managed-services/?utm_source=product&utm_medium=email&utm_campaign=VIMS&utm_content=passwordchangeemail">activate here</a></p></div>',
       'recipient' => 'article_last_sender',
-      'subject'   => 'Thanks for your follow up (#{ticket.title})', # rubocop:disable Lint/InterpolationCheck
+      'subject'   => 'Thanks for your follow-up (#{ticket.title})', # rubocop:disable Lint/InterpolationCheck
     },
   },
   active:        false,

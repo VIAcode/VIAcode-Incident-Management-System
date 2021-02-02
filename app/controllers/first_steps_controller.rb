@@ -3,9 +3,9 @@
 class FirstStepsController < ApplicationController
   prepend_before_action :authentication_check
 
-  def index
-    return if !access?
+  before_action -> { render json: [] }, if: -> { !authorized? }
 
+  def index
     invite_agents = false
     #if User.of_role('Agent').count > 2
     #  invite_agents = true
@@ -19,9 +19,9 @@ class FirstStepsController < ApplicationController
     if Setting.get('chat')
       chat_active = true
     end
-    from_active = false
+    form_active = false
     if Setting.get('form_ticket_create')
-      from_active = true
+      form_active = true
     end
     twitter_active = false
     if Channel.where(area: 'Twitter::Account').count.positive?
@@ -125,7 +125,7 @@ class FirstStepsController < ApplicationController
             },
             {
               name:     'Online Forms',
-              checked:  from_active,
+              checked:  form_active,
               location: '#channels/form',
             },
           ],
@@ -169,15 +169,13 @@ class FirstStepsController < ApplicationController
   end
 
   def test_ticket
-    return if !access?
-
     agent = current_user
     customer = test_customer
     from = "#{customer.fullname} <#{customer.email}>"
     original_user_id = UserInfo.current_user_id
     result = NotificationFactory::Mailer.template(
       template: 'test_ticket',
-      locale:   agent.preferences[:locale] || Setting.get('locale_default') || 'en-us',
+      locale:   agent.locale,
       objects:  {
         agent:    agent,
         customer: customer,
@@ -219,13 +217,6 @@ class FirstStepsController < ApplicationController
 
   def test_customer
     User.find_by(login: 'nicole.braun@zammad.org')
-  end
-
-  def access?
-    return true if current_user.permissions?(['admin', 'ticket.agent'])
-
-    render json: []
-    false
   end
 
   def check_availability(result)

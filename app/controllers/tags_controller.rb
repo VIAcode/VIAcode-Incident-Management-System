@@ -1,7 +1,8 @@
 # Copyright (C) 2012-2016 Zammad Foundation, http://zammad-foundation.org/
 
 class TagsController < ApplicationController
-  prepend_before_action :authentication_check
+  prepend_before_action -> { authorize! }, only: %i[admin_list admin_create admin_rename admin_delete]
+  prepend_before_action { authentication_check }
 
   # GET /api/v1/tag_search?term=abc
   def search
@@ -30,7 +31,7 @@ class TagsController < ApplicationController
     }
   end
 
-  # POST /api/v1/tag/add
+  # POST /api/v1/tags/add
   def add
     success = Tag.tag_add(
       object: params[:object],
@@ -44,7 +45,7 @@ class TagsController < ApplicationController
     end
   end
 
-  # DELETE /api/v1/tag/remove
+  # DELETE /api/v1/tags/remove
   def remove
     success = Tag.tag_remove(
       object: params[:object],
@@ -60,7 +61,6 @@ class TagsController < ApplicationController
 
   # GET /api/v1/tag_list
   def admin_list
-    permission_check('admin.tag')
     list = Tag::Item.order(name: :asc).limit(params[:limit] || 1000)
     results = []
     list.each do |item|
@@ -76,14 +76,12 @@ class TagsController < ApplicationController
 
   # POST /api/v1/tag_list
   def admin_create
-    permission_check('admin.tag')
     Tag::Item.lookup_by_name_and_create(params[:name])
     render json: {}
   end
 
   # PUT /api/v1/tag_list/:id
   def admin_rename
-    permission_check('admin.tag')
     Tag::Item.rename(
       id:   params[:id],
       name: params[:name],
@@ -93,7 +91,6 @@ class TagsController < ApplicationController
 
   # DELETE /api/v1/tag_list/:id
   def admin_delete
-    permission_check('admin.tag')
     Tag::Item.remove(params[:id])
     render json: {}
   end

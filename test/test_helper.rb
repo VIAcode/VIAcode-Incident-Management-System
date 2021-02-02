@@ -14,8 +14,8 @@ class ActiveSupport::TestCase
   Cache.clear
 
   # load seeds
-  load Rails.root.join('db', 'seeds.rb')
-  load Rails.root.join('test', 'fixtures', 'seeds.rb')
+  load Rails.root.join('db/seeds.rb')
+  load Rails.root.join('test/fixtures/seeds.rb')
 
   # set system mode to done / to activate
   Setting.set('system_init_done', true)
@@ -65,9 +65,9 @@ class ActiveSupport::TestCase
     end
     count = 0
     lines.reverse_each do |line|
-      break if line.match?(/\+\+\+\+NEW\+\+\+\+TEST\+\+\+\+/)
-      next if line !~ /Send notification \(#{type}\)/
-      next if line !~ /to:\s#{recipient}/
+      break if line.include?('++++NEW++++TEST++++')
+      next if !line.match?(/Send notification \(#{type}\)/)
+      next if !line.match?(/to:\s#{recipient}/)
 
       count += 1
     end

@@ -117,7 +117,7 @@ returns
         next if !mail
 
         # check if verify message exists
-        next if mail !~ /#{verify_string}/
+        next if !mail.match?(/#{verify_string}/)
 
         Rails.logger.info " - verify email #{verify_string} found"
         m.delete
@@ -136,47 +136,54 @@ returns
     count_all             = mails.size
     count                 = 0
     count_fetched         = 0
+    too_large_messages    = []
     active_check_interval = 20
     notice                = ''
     mails.first(2000).each do |m|
       count += 1
 
-      if (count % active_check_interval).zero?
-        break if channel_has_changed?(channel)
-      end
+      break if (count % active_check_interval).zero? && channel_has_changed?(channel)
 
       Rails.logger.info " - message #{count}/#{count_all}"
       mail = m.pop
       next if !mail
 
       # ignore verify messages
-      if mail.match?(/(X-Zammad-Ignore: true|X-Zammad-Verify: true)/)
-        if mail =~ /X-Zammad-Verify-Time:\s(.+?)\s/
-          begin
-            verify_time = Time.zone.parse($1)
-            if verify_time > Time.zone.now - 30.minutes
-              info = "  - ignore message #{count}/#{count_all} - because it's a verify message"
-              Rails.logger.info info
-              next
-            end
-          rescue => e
-            Rails.logger.error e
+      if mail.match?(/(X-Zammad-Ignore: true|X-Zammad-Verify: true)/) && mail =~ /X-Zammad-Verify-Time:\s(.+?)\s/
+        begin
+          verify_time = Time.zone.parse($1)
+          if verify_time > Time.zone.now - 30.minutes
+            info = "  - ignore message #{count}/#{count_all} - because it's a verify message"
+            Rails.logger.info info
+            next
           end
+        rescue => e
+          Rails.logger.error e
         end
       end
 
-      # ignore to big messages
+      # do not process too large messages, instead download and send postmaster reply
       max_message_size = Setting.get('postmaster_max_size').to_f
       real_message_size = mail.size.to_f / 1024 / 1024
       if real_message_size > max_message_size
-        info = "  - ignore message #{count}/#{count_all} - because message is too big (is:#{real_message_size} MB/max:#{max_message_size} MB)"
-        Rails.logger.info info
-        notice += "#{info}\n"
-        next
-      end
+        if Setting.get('postmaster_send_reject_if_mail_too_large') == true
+          info = "  - download message #{count}/#{count_all} - ignore message because it's too large (is:#{real_message_size} MB/max:#{max_message_size} MB)"
+          Rails.logger.info info
+          notice += "#{info}\n"
+          process_oversized_mail(channel, mail)
+        else
+          info = "  - ignore message #{count}/#{count_all} - because message is too large (is:#{real_message_size} MB/max:#{max_message_size} MB)"
+          Rails.logger.info info
+          notice += "#{info}\n"
+          too_large_messages.push info
+          next
+        end
 
       # delete email from server after article was created
-      process(channel, m.pop, false)
+      else
+        process(channel, m.pop, false)
+      end
+
       m.delete
       count_fetched += 1
     end
@@ -184,6 +191,11 @@ returns
     if count.zero?
       Rails.logger.info ' - no message'
     end
+
+    if too_large_messages.present?
+      raise too_large_messages.join("\n")
+    end
+
     Rails.logger.info 'done'
     {
       result:  'ok',

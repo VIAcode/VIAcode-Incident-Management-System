@@ -1,3 +1,9 @@
+Dir[ Rails.root.join('lib/omniauth/*') ].sort.each do |file|
+  if File.file?(file)
+    require file
+  end
+end
+
 Rails.application.config.middleware.use OmniAuth::Builder do
 
   # twitter database connect
@@ -49,6 +55,8 @@ Rails.application.config.middleware.use OmniAuth::Builder do
   # weibo database connect
   provider :weibo_database, 'not_change_will_be_set_by_database', 'not_change_will_be_set_by_database'
 
+  # SAML database connect
+  provider :saml_database
 end
 
 # This fixes issue #1642 and is required for setups in which Zammad is used
@@ -58,3 +66,5 @@ end
 OmniAuth.config.full_host = proc {
   "#{Setting.get('http_type')}://#{Setting.get('fqdn')}"
 }
+
+OmniAuth.config.logger = Rails.logger

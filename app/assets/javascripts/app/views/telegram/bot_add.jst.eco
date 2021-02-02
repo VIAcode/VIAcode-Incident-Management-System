@@ -1,6 +1,6 @@
 <div class="alert alert--danger hidden" role="alert"></div>
 <p>
-  <%- @T('The tutorial on how to manage a %s is hosted on our online documentation %l.', 'Telegram Bot', 'https://admin-docs.zammad.org/en/latest/channels-telegram.html') %>
+  <%- @T('The tutorial on how to manage a %s is hosted on our online documentation %l.', 'Telegram Bot', 'https://admin-docs.zammad.org/en/latest/channels/telegram.html') %>
 </p>
 <fieldset>
   <h2><%- @T('Enter your %s App Keys', 'Telegram') %></h2>
@@ -23,7 +23,15 @@
   </div>
   <div class="input form-group">
     <div class="formGroup-label">
-      <label for=""><%- @T('Choose which group %s will get added to.', 'messages') %> <span>*</span></label>
+      <label for="goodbye"><%- @T('Goodbye message') %> <span>*</span></label>
+    </div>
+    <div class="controls">
+      <input id="goodbye" type="text" name="goodbye" value="" placeholder="<%- @Ti('Have a nice day.') %>" class="form-control" required autocomplete="off">
+    </div>
+  </div>
+  <div class="input form-group">
+    <div class="formGroup-label">
+      <label for=""><%- @T('Choose the group in which messages will get added to.') %> <span>*</span></label>
     </div>
     <div class="controls">
       <div class="js-messagesGroup"></div>

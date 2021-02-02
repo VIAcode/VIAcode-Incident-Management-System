@@ -17,14 +17,14 @@ check token and return bot attributes of token
     begin
       bot = api.getMe()
     rescue
-      raise 'invalid api token'
+      raise Exceptions::UnprocessableEntity, 'invalid api token'
     end
     bot
   end
 
 =begin
 
-set webhool for bot
+set webhook for bot
 
   success = Telegram.set_webhook('token', callback_url)
 
@@ -36,14 +36,14 @@ returns
 
   def self.set_webhook(token, callback_url)
     if callback_url.match?(%r{^http://}i)
-      raise 'webhook url need to start with https://, you use http://'
+      raise Exceptions::UnprocessableEntity, 'webhook url need to start with https://, you use http://'
     end
 
     api = TelegramAPI.new(token)
     begin
       api.setWebhook(callback_url)
     rescue
-      raise 'Unable to set webhook at Telegram, seems to be a invalid url.'
+      raise Exceptions::UnprocessableEntity, 'Unable to set webhook at Telegram, seems to be a invalid url.'
     end
     true
   end
@@ -65,22 +65,20 @@ returns
     # verify token
     bot = Telegram.check_token(token)
 
-    if !channel
-      if Telegram.bot_duplicate?(bot['id'])
-        raise 'Bot already exists!'
-      end
+    if !channel && Telegram.bot_duplicate?(bot['id'])
+      raise Exceptions::UnprocessableEntity, 'Bot already exists!'
     end
 
     if params[:group_id].blank?
-      raise 'Group needed!'
+      raise Exceptions::UnprocessableEntity, 'Group needed!'
     end
 
     group = Group.find_by(id: params[:group_id])
     if !group
-      raise 'Group invalid!'
+      raise Exceptions::UnprocessableEntity, 'Group invalid!'
     end
 
-    # generate randam callback token
+    # generate random callback token
     callback_token = if Rails.env.test?
                        'callback_token'
                      else
@@ -109,6 +107,7 @@ returns
       callback_url:   callback_url,
       api_token:      token,
       welcome:        params[:welcome],
+      goodbye:        params[:goodbye],
     }
     channel.group_id = group.id
     channel.active = true
@@ -212,12 +211,21 @@ returns
 
 =begin
 
-  client.message(chat_id, 'some message')
+  client.message(chat_id, 'some message', language_code)
 
 =end
 
-  def message(chat_id, message)
+  def message(chat_id, message, language_code = 'en')
     return if Rails.env.test?
+
+    locale = Locale.find_by(alias: language_code)
+    if !locale
+      locale = Locale.where('locale LIKE :prefix', prefix: "#{language_code}%").first
+    end
+
+    if locale
+      message = Translation.translate(locale[:locale], message)
+    end
 
     @api.sendMessage(chat_id, message)
   end
@@ -312,10 +320,11 @@ returns
     end
 
     # find ticket or create one
-    state_ids = Ticket::State.where(name: %w[closed merged removed]).pluck(:id)
-    ticket = Ticket.where(customer_id: user.id).where.not(state_id: state_ids).order(:updated_at).first
-    if ticket
+    state_ids        = Ticket::State.where(name: %w[closed merged removed]).pluck(:id)
+    possible_tickets = Ticket.where(customer_id: user.id).where.not(state_id: state_ids).order(:updated_at)
+    ticket           = possible_tickets.find_each.find { |possible_ticket| possible_ticket.preferences[:channel_id] == channel.id }
 
+    if ticket
       # check if title need to be updated
       if ticket.title == '-'
         ticket.title = title
@@ -388,14 +397,15 @@ returns
       )
     end
 
-    # add article
+    # add photo
     if params[:message][:photo]
 
       # find photo with best resolution for us
-      photo = nil
-      max_width = 650 * 2
-      last_width = 0
+      photo       = nil
+      max_width   = 650 * 2
+      last_width  = 0
       last_height = 0
+
       params[:message][:photo].each do |file|
         if !photo
           photo = file
@@ -404,8 +414,8 @@ returns
         end
         next if file['width'].to_i >= max_width || file['width'].to_i <= last_width
 
-        photo = file
-        last_width = file['width'].to_i
+        photo       = file
+        last_width  = file['width'].to_i
         last_height = file['height'].to_i
       end
       if last_width > 650
@@ -413,40 +423,40 @@ returns
         last_height = (last_height / 2).to_i
       end
 
-      # download image
-      result = download_file(photo['file_id'])
-      if !result.success? || !result.body
-        raise "Unable for download image from telegram: #{result.code}"
-      end
+      # download photo
+      photo_result = get_file(params, photo)
+      body = "<img style=\"width:#{last_width}px;height:#{last_height}px;\" src=\"data:image/png;base64,#{Base64.strict_encode64(photo_result.body)}\">"
 
-      body = "<img style=\"width:#{last_width}px;height:#{last_height}px;\" src=\"data:image/png;base64,#{Base64.strict_encode64(result.body)}\">"
       if params[:message][:caption]
         body += "<br>#{params[:message][:caption].text2html}"
       end
       article.content_type = 'text/html'
-      article.body = body
+      article.body         = body
       article.save!
       return article
     end
 
     # add document
     if params[:message][:document]
-      thumb = params[:message][:document][:thumb]
-      body = '&nbsp;'
-      if thumb
-        width = thumb[:width]
-        height = thumb[:height]
-        result = download_file(thumb['file_id'])
-        if !result.success? || !result.body
-          raise "Unable for download image from telegram: #{result.code}"
-        end
 
-        body = "<img style=\"width:#{width}px;height:#{height}px;\" src=\"data:image/png;base64,#{Base64.strict_encode64(result.body)}\">"
+      document = params[:message][:document]
+      thumb    = params[:message][:document][:thumb]
+      body     = '&nbsp;'
+
+      if thumb
+        width        = thumb[:width]
+        height       = thumb[:height]
+        thumb_result = get_file(params, thumb)
+        body         = "<img style=\"width:#{width}px;height:#{height}px;\" src=\"data:image/png;base64,#{Base64.strict_encode64(thumb_result.body)}\">"
       end
-      document_result = download_file(params[:message][:document][:file_id])
+      if params[:message][:caption]
+        body += "<br>#{params[:message][:caption].text2html}"
+      end
+      document_result      = get_file(params, document)
       article.content_type = 'text/html'
-      article.body = body
+      article.body         = body
       article.save!
+
       Store.remove(
         object: 'Ticket::Article',
         o_id:   article.id,
@@ -455,24 +465,70 @@ returns
         object:      'Ticket::Article',
         o_id:        article.id,
         data:        document_result.body,
-        filename:    params[:message][:document][:file_name],
+        filename:    document[:file_name],
         preferences: {
-          'Mime-Type' => params[:message][:document][:mime_type],
+          'Mime-Type' => document[:mime_type],
         },
       )
       return article
     end
 
-    # voice
-    if params[:message][:voice]
+    # add video
+    if params[:message][:video]
+
+      video = params[:message][:video]
+      thumb = params[:message][:video][:thumb]
       body = '&nbsp;'
+
+      if thumb
+        width        = thumb[:width]
+        height       = thumb[:height]
+        thumb_result = get_file(params, thumb)
+        body         = "<img style=\"width:#{width}px;height:#{height}px;\" src=\"data:image/png;base64,#{Base64.strict_encode64(thumb_result.body)}\">"
+      end
+
+      if params[:message][:caption]
+        body += "<br>#{params[:message][:caption].text2html}"
+      end
+      video_result         = get_file(params, video)
+      article.content_type = 'text/html'
+      article.body         = body
+      article.save!
+
+      Store.remove(
+        object: 'Ticket::Article',
+        o_id:   article.id,
+      )
+
+      # get video type
+      type = video[:mime_type].gsub(%r{(.+/)}, '')
+      Store.add(
+        object:      'Ticket::Article',
+        o_id:        article.id,
+        data:        video_result.body,
+        filename:    video[:file_name] || "video-#{video[:file_id]}.#{type}",
+        preferences: {
+          'Mime-Type' => video[:mime_type],
+        },
+      )
+      return article
+    end
+
+    # add voice
+    if params[:message][:voice]
+
+      voice = params[:message][:voice]
+      body  = '&nbsp;'
+
       if params[:message][:caption]
         body = "<br>#{params[:message][:caption].text2html}"
       end
-      document_result = download_file(params[:message][:voice][:file_id])
+
+      document_result      = get_file(params, voice)
       article.content_type = 'text/html'
-      article.body = body
+      article.body         = body
       article.save!
+
       Store.remove(
         object: 'Ticket::Article',
         o_id:   article.id,
@@ -481,37 +537,39 @@ returns
         object:      'Ticket::Article',
         o_id:        article.id,
         data:        document_result.body,
-        filename:    params[:message][:voice][:file_path] || "audio-#{params[:message][:voice][:file_id]}.ogg",
+        filename:    voice[:file_path] || "audio-#{voice[:file_id]}.ogg",
         preferences: {
-          'Mime-Type' => params[:message][:voice][:mime_type],
+          'Mime-Type' => voice[:mime_type],
         },
       )
       return article
     end
 
+    # add sticker
     if params[:message][:sticker]
-      emoji = params[:message][:sticker][:emoji]
-      thumb = params[:message][:sticker][:thumb]
-      body = '&nbsp;'
-      if thumb
-        width = thumb[:width]
-        height = thumb[:height]
-        result = download_file(thumb['file_id'])
-        if !result.success? || !result.body
-          raise "Unable for download image from telegram: #{result.code}"
-        end
 
-        body = "<img style=\"width:#{width}px;height:#{height}px;\" src=\"data:image/webp;base64,#{Base64.strict_encode64(result.body)}\">"
+      sticker = params[:message][:sticker]
+      emoji   = sticker[:emoji]
+      thumb   = sticker[:thumb]
+      body    = '&nbsp;'
+
+      if thumb
+        width  = thumb[:width]
+        height = thumb[:height]
+        thumb_result = get_file(params, thumb)
+        body = "<img style=\"width:#{width}px;height:#{height}px;\" src=\"data:image/webp;base64,#{Base64.strict_encode64(thumb_result.body)}\">"
         article.content_type = 'text/html'
       elsif emoji
         article.content_type = 'text/plain'
         body = emoji
       end
+
       article.body = body
       article.save!
 
-      if params[:message][:sticker][:file_id]
-        document_result = download_file(params[:message][:sticker][:file_id])
+      if sticker[:file_id]
+
+        document_result = get_file(params, sticker)
         Store.remove(
           object: 'Ticket::Article',
           o_id:   article.id,
@@ -520,7 +578,7 @@ returns
           object:      'Ticket::Article',
           o_id:        article.id,
           data:        document_result.body,
-          filename:    params[:message][:sticker][:file_name] || "#{params[:message][:sticker][:set_name]}.webp",
+          filename:    sticker[:file_name] || "#{sticker[:set_name]}.webp",
           preferences: {
             'Mime-Type' => 'image/webp', # mime type is not given from Telegram API but this is actually WebP
           },
@@ -529,14 +587,14 @@ returns
       return article
     end
 
-    # text
+    # add text
     if params[:message][:text]
       article.content_type = 'text/plain'
       article.body = params[:message][:text]
       article.save!
       return article
     end
-    raise 'invalid action'
+    raise Exceptions::UnprocessableEntity, 'invalid telegram message'
   end
 
   def to_group(params, group_id, channel)
@@ -554,12 +612,26 @@ returns
           file_name: params.dig(:channel_post, :document, :file_name),
           mime_type: params.dig(:channel_post, :document, :mime_type),
           file_id:   params.dig(:channel_post, :document, :file_id),
-          file_size: params.dig(:channel_post, :document, :filesize),
+          file_size: params.dig(:channel_post, :document, :file_size),
           thumb:     {
             file_id:   params.dig(:channel_post, :document, :thumb, :file_id),
             file_size: params.dig(:channel_post, :document, :thumb, :file_size),
             width:     params.dig(:channel_post, :document, :thumb, :width),
             height:    params.dig(:channel_post, :document, :thumb, :height)
+          }.compact
+        }.delete_if { |_, v| v.blank? },
+        video:      {
+          duration:  params.dig(:channel_post, :video, :duration),
+          width:     params.dig(:channel_post, :video, :width),
+          height:    params.dig(:channel_post, :video, :height),
+          mime_type: params.dig(:channel_post, :video, :mime_type),
+          file_id:   params.dig(:channel_post, :video, :file_id),
+          file_size: params.dig(:channel_post, :video, :file_size),
+          thumb:     {
+            file_id:   params.dig(:channel_post, :video, :thumb, :file_id),
+            file_size: params.dig(:channel_post, :video, :thumb, :file_size),
+            width:     params.dig(:channel_post, :video, :thumb, :width),
+            height:    params.dig(:channel_post, :video, :thumb, :height)
           }.compact
         }.delete_if { |_, v| v.blank? },
         voice:      {
@@ -575,11 +647,12 @@ returns
           set_name:  params.dig(:channel_post, :sticker, :set_name),
           file_id:   params.dig(:channel_post, :sticker, :file_id),
           file_path: params.dig(:channel_post, :sticker, :file_path),
+          file_size: params.dig(:channel_post, :sticker, :file_size),
           thumb:     {
             file_id:   params.dig(:channel_post, :sticker, :thumb, :file_id),
             file_size: params.dig(:channel_post, :sticker, :thumb, :file_size),
             width:     params.dig(:channel_post, :sticker, :thumb, :width),
-            height:    params.dig(:channel_post, :sticker, :thumb, :file_id),
+            height:    params.dig(:channel_post, :sticker, :thumb, :height),
             file_path: params.dig(:channel_post, :sticker, :thumb, :file_path)
           }.compact
         }.delete_if { |_, v| v.blank? },
@@ -628,10 +701,8 @@ returns
       params.delete(:edited_channel_post) # discard unused :edited_channel_post hash
     end
 
-    # prevent multible update
-    if !params[:edited_message]
-      return if Ticket::Article.find_by(message_id: Telegram.message_id(params))
-    end
+    # prevent multiple update
+    return if !params[:edited_message] && Ticket::Article.exists?(message_id: Telegram.message_id(params))
 
     # update article
     if params[:edited_message]
@@ -646,16 +717,27 @@ returns
 
     # send welcome message and don't create ticket
     text = params[:message][:text]
-    if text.present? && text =~ %r{^/start}
-      message(params[:message][:chat][:id], channel.options[:welcome] || 'You are welcome! Just ask me something!')
+    if text.present? && text.start_with?('/start')
+      message(params[:message][:chat][:id], channel.options[:welcome] || 'You are welcome! Just ask me something!', params[:message][:from][:language_code])
       return
 
     # find ticket and close it
-    elsif text.present? && text =~ %r{^/end}
+    elsif text.present? && text.start_with?('/end')
       user = to_user(params)
-      ticket = Ticket.where(customer_id: user.id).order(:updated_at).first
+
+      # get the last ticket of customer which is not closed yet, and close it
+      state_ids        = Ticket::State.where(name: %w[closed merged removed]).pluck(:id)
+      possible_tickets = Ticket.where(customer_id: user.id).where.not(state_id: state_ids).order(:updated_at)
+      ticket           = possible_tickets.find_each.find { |possible_ticket| possible_ticket.preferences[:channel_id] == channel.id }
+
+      return if !ticket
+
       ticket.state = Ticket::State.find_by(name: 'closed')
       ticket.save!
+
+      return if !channel.options[:goodbye]
+
+      message(params[:message][:chat][:id], channel.options[:goodbye], params[:message][:from][:language_code])
       return
     end
 
@@ -663,7 +745,7 @@ returns
 
     # use transaction
     Transaction.execute(reset_user_id: true) do
-      user = to_user(params)
+      user   = to_user(params)
       ticket = to_ticket(params, user, group_id, channel)
       to_article(params, user, ticket, channel)
     end
@@ -683,23 +765,25 @@ returns
     message
   end
 
-  def get_state(channel, telegram_update, ticket = nil)
-    message = telegram_update['message']
-    message_user = user(message)
+  def get_file(params, file)
 
-    # no changes in post is from page user it self
-    if channel.options[:bot][:id].to_s == message_user[:id].to_s
-      if !ticket
-        return Ticket::State.find_by(name: 'closed') if !ticket
-      end
-      return ticket.state
+    # telegram bot files are limited up to 20MB
+    # https://core.telegram.org/bots/api#getfile
+    if !validate_file_size(file)
+      message_text = 'Telegram file is to big. (Maximum 20mb)'
+      message(params[:message][:chat][:id], "Sorry, we could not handle your message. #{message_text}", params[:message][:from][:language_code])
+      raise Exceptions::UnprocessableEntity, message_text
     end
 
-    state = Ticket::State.find_by(default_create: true)
-    return state if !ticket
-    return ticket.state if ticket.state.id == state.id
+    result = download_file(file[:file_id])
 
-    Ticket::State.find_by(default_follow_up: true)
+    if !validate_download(result)
+      message_text = 'Unable to get you file from bot.'
+      message(params[:message][:chat][:id], "Sorry, we could not handle your message. #{message_text}", params[:message][:from][:language_code])
+      raise Exceptions::UnprocessableEntity, message_text
+    end
+
+    result
   end
 
   def download_file(file_id)
@@ -713,6 +797,20 @@ returns
         read_timeout: 40,
       },
     )
+  end
+
+  def validate_file_size(file)
+    Rails.logger.error 'validate_file_size'
+    Rails.logger.error file[:file_size]
+    return false if file[:file_size] >= 20.megabytes
+
+    true
+  end
+
+  def validate_download(result)
+    return false if !result.success? || !result.body
+
+    true
   end
 
 end

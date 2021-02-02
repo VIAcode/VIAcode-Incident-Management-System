@@ -97,8 +97,6 @@ class App.ControllerTable extends App.Controller
   checkBoxColWidth: 30
   radioColWidth: 22
   sortableColWidth: 36
-  destroyColWidth: 70
-  cloneColWidth: 70
 
   events:
     'click .js-sort': 'sortByColumn'
@@ -198,6 +196,29 @@ class App.ControllerTable extends App.Controller
     App.QueueManager.run('tableRender')
 
   renderPager: (el, find = false) =>
+    if @pagerAjax
+      @renderPagerAjax(el, find)
+    else
+      @renderPagerStatic(el, find)
+
+  renderPagerAjax: (el, find = false) =>
+    pages = parseInt((@pagerTotalCount - 1)  / @pagerPerPage)
+    if pages < 1
+      if find
+        el.find('.js-pager').html('')
+      else
+        el.filter('.js-pager').html('')
+      return
+    pager = App.view('generic/table_pager')(
+      page:  @pagerSelected - 1
+      pages: pages
+    )
+    if find
+      el.find('.js-pager').html(pager)
+    else
+      el.filter('.js-pager').html(pager)
+
+  renderPagerStatic: (el, find = false) =>
     pages = parseInt(((@objects.length - 1)  / @shownPerPage))
     if pages < 1
       if find
@@ -216,6 +237,11 @@ class App.ControllerTable extends App.Controller
 
   render: =>
     @setMaxPage()
+
+    # always render pager in case of ajax pagination
+    if @pagerTotalCount
+      @renderPager(@el, true)
+
     if @renderState is undefined
 
       # check if table is empty
@@ -307,9 +333,9 @@ class App.ControllerTable extends App.Controller
       explanation: @explanation
     )
 
-  renderTableFull: (rows) =>
+  renderTableFull: (rows, options = {}) =>
     @log 'debug', 'table.renderTableFull', @orderBy, @orderDirection
-    @tableHeaders()
+    @tableHeaders(options)
     @sortList()
     bulkIds = @getBulkSelected()
     container = @renderTableContainer()
@@ -453,11 +479,14 @@ class App.ControllerTable extends App.Controller
     container.delegate('.js-page', 'click', (e) =>
       e.stopPropagation()
       page = $(e.currentTarget).attr 'data-page'
-      render = =>
-        @shownPage = page
-        @renderTableFull()
-      App.QueueManager.add('tableRender', render)
-      App.QueueManager.run('tableRender')
+      if @pagerAjax
+        @navigate "#{@pagerBaseUrl}#{(parseInt(page) + 1)}"
+      else
+        render = =>
+          @shownPage = page
+          @renderTableFull()
+        App.QueueManager.add('tableRender', render)
+        App.QueueManager.run('tableRender')
     )
 
     @el.html(container)
@@ -534,7 +563,7 @@ class App.ControllerTable extends App.Controller
     return true if @overviewAttributes isnt @lastOverview
     false
 
-  tableHeaders: =>
+  tableHeaders: (options = {}) =>
     orderBy = @customOrderBy || @orderBy
     orderDirection = @customOrderDirection || @orderDirection
 
@@ -557,27 +586,11 @@ class App.ControllerTable extends App.Controller
           if !attribute.style
             attribute.style = {}
 
-          if attributeName is item
+          if attributeName is item || (attributeName is "#{item}_id" || attributeName is "#{item}_ids")
             # e.g. column: owner
             headerFound = true
-            if @headerWidth[attribute.name]
-              attribute.displayWidth = @headerWidth[attribute.name] * availableWidth
-            else if !attribute.width
-              attribute.displayWidth = @baseColWidth
-            else
-              # convert percentages to pixels
-              value = parseInt attribute.width, 10
-              unit = attribute.width.match(/[px|%]+/)[0]
 
-              if unit is '%'
-                attribute.displayWidth = value / 100 * availableWidth
-              else
-                attribute.displayWidth = value
-            @headers.push attribute
-          else
-            # e.g. column: owner_id or owner_ids
-            if attributeName is "#{item}_id" || attributeName is "#{item}_ids"
-              headerFound = true
+            if !options.skipHeadersResize
               if @headerWidth[attribute.name]
                 attribute.displayWidth = @headerWidth[attribute.name] * availableWidth
               else if !attribute.width
@@ -591,8 +604,7 @@ class App.ControllerTable extends App.Controller
                   attribute.displayWidth = value / 100 * availableWidth
                 else
                   attribute.displayWidth = value
-              @headers.push attribute
-
+            @headers.push attribute
 
     # execute header callback
     if @callbackHeader
@@ -647,6 +659,7 @@ class App.ControllerTable extends App.Controller
           click: @toggleActionDropdown
 
     @calculateHeaderWidths()
+    @storeHeaderWidths()
 
     @columnsLength = @headers.length
     if @checkbox || @radio
@@ -677,6 +690,19 @@ class App.ControllerTable extends App.Controller
     return if @lastSortedobjects is @objects && @lastOrderDirection is orderDirection && @lastOrderBy is orderBy
     @lastOrderDirection = orderDirection
     @lastOrderBy = orderBy
+
+    # sorting for ajax pagination will be made in the backend
+    # so we only set the arrow for the sort direction
+    if @pagerAjax
+      for header in @headers
+        if header.name is orderBy || "#{header.name}_id" is orderBy || header.name is "#{orderBy}_id"
+          if orderDirection is 'DESC'
+            header.sortOrderIcon = ['arrow-down', 'table-sort-arrow']
+          else
+            header.sortOrderIcon = ['arrow-up', 'table-sort-arrow']
+        else
+          header.sortOrderIcon = undefined
+      return
 
     # Underscore's sortBy cannot deal with null values, so we replace null values with a place holder string
     sortBy = (list, iteratee) ->
@@ -841,8 +867,12 @@ class App.ControllerTable extends App.Controller
 
     availableWidth = @availableWidth
 
-    widths = @getHeaderWidths()
-    shrinkBy = Math.ceil (widths - availableWidth) / @getShrinkableHeadersCount()
+    # ensure all widths are integers
+    @headers = _.map @headers, (col) ->
+      col.displayWidth = Math.floor(col.displayWidth)
+      return col
+
+    shrinkBy = Math.ceil (@getHeaderWidths() - availableWidth) / @getShrinkableHeadersCount()
 
     # make all cols evenly smaller
     @headers = _.map @headers, (col) =>
@@ -878,12 +908,6 @@ class App.ControllerTable extends App.Controller
     if @dndCallback
       widths += @sortableColWidth
 
-    if @destroy
-      widths += @destroyColWidth
-
-    if @clone
-      widths += @cloneColWidth
-
     widths
 
   setHeaderWidths: =>
@@ -900,6 +924,8 @@ class App.ControllerTable extends App.Controller
     for header in @headers
       widths[header.name] = header.displayWidth / @availableWidth
 
+    @headerWidth = widths
+
     App.LocalStorage.set(@preferencesStoreKey(), { headerWidth: widths }, @Session.get('id'))
 
   onResize: =>
@@ -911,6 +937,7 @@ class App.ControllerTable extends App.Controller
     @availableWidth = localWidth
     localDelay = =>
       localSetHeaderWidths = =>
+        @availableWidth = @el.width()
         @setHeaderWidths()
       App.QueueManager.add('tableRender', localSetHeaderWidths)
       App.QueueManager.run('tableRender')
@@ -934,7 +961,10 @@ class App.ControllerTable extends App.Controller
 
   onColResizeMousemove: (event) =>
     # use pixels while moving for max precision
-    difference = event.pageX - @resizeStartX
+    if App.i18n.dir() is 'rtl'
+      difference = @resizeStartX - event.pageX
+    else
+      difference = event.pageX - @resizeStartX
 
     if @resizeLeftStartWidth + difference < @minColWidth
       difference = - (@resizeLeftStartWidth - @minColWidth)
@@ -950,8 +980,8 @@ class App.ControllerTable extends App.Controller
 
     # switch to percentage
     resizeBaseWidth = @resizeTargetLeft.parents('table').width()
-    leftWidth = @resizeTargetLeft.width() / resizeBaseWidth
-    rightWidth = @resizeTargetRight.width() / resizeBaseWidth
+    leftWidth = @resizeTargetLeft.outerWidth() / resizeBaseWidth
+    rightWidth = @resizeTargetRight.outerWidth() / resizeBaseWidth
 
     leftColumnKey = @resizeTargetLeft.attr('data-column-key')
     rightColumnKey = @resizeTargetRight.attr('data-column-key')
@@ -978,6 +1008,10 @@ class App.ControllerTable extends App.Controller
   sortByColumn: (event) =>
     column = $(event.currentTarget).closest('[data-column-key]').attr('data-column-key')
 
+    # for ajax pagination we only accept valid attributes for sorting
+    if @model && @pagerAjax
+      return if !@attributesList[column]
+
     orderBy = @customOrderBy || @orderBy
     orderDirection = @customOrderDirection || @orderDirection
 
@@ -1000,8 +1034,12 @@ class App.ControllerTable extends App.Controller
     @preferencesStore('order', 'customOrderBy', @orderBy)
     @preferencesStore('order', 'customOrderDirection', @orderDirection)
     render = =>
-      @renderTableFull()
+      @renderTableFull(false, skipHeadersResize: true)
     App.QueueManager.add('tableRender', render)
+
+    if @sortRenderCallback
+      App.QueueManager.add('tableRender', @sortRenderCallback)
+
     App.QueueManager.run('tableRender')
 
   preferencesStore: (type, key, value) ->

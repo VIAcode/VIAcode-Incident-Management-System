@@ -25,9 +25,9 @@ examples how to use
 
 =end
 
-  def initialize(objects:, locale: nil, timezone: nil, template:, escape: true)
-    @objects = objects
-    @locale = locale || Setting.get('locale_default') || 'en-us'
+  def initialize(objects:, template:, locale: nil, timezone: nil, escape: true)
+    @objects  = objects
+    @locale   = locale || Locale.default
     @timezone = timezone || Setting.get('timezone_default')
     @template = NotificationFactory::Template.new(template, escape)
     @escape = escape
@@ -41,7 +41,7 @@ examples how to use
   # d('user.firstname', htmlEscape)
   def d(key, escape = nil)
 
-    # do validaton, ignore some methodes
+    # do validation, ignore some methods
     return "\#{#{key} / not allowed}" if !data_key_valid?(key)
 
     # aliases
@@ -72,7 +72,7 @@ examples how to use
 
     object_refs = @objects[object_name] || @objects[object_name.to_sym]
 
-    # if object is not in avalable objects, just return
+    # if object is not in available objects, just return
     return "\#{#{object_name} / no such object}" if !object_refs
 
     # if content of method is a complex datatype, just return
@@ -105,7 +105,7 @@ examples how to use
       end
 
       arguments = nil
-      if /\A(?<method_id>[^\(]+)\((?<parameter>[^\)]+)\)\z/ =~ method
+      if /\A(?<method_id>[^(]+)\((?<parameter>[^)]+)\)\z/ =~ method
 
         if parameter != parameter.to_i.to_s
           value = "\#{#{object_name}.#{object_methods_s} / invalid parameter: #{parameter}}"
@@ -139,11 +139,7 @@ examples how to use
         break
       end
     end
-    placeholder = if !value
-                    object_refs
-                  else
-                    value
-                  end
+    placeholder = value || object_refs
 
     escaping(convert_to_timezone(placeholder), escape)
   end
@@ -173,8 +169,8 @@ examples how to use
   private
 
   def convert_to_timezone(value)
-    return Translation.timestamp(@locale, @timezone, value) if value.class == ActiveSupport::TimeWithZone
-    return Translation.date(@locale, value) if value.class == Date
+    return Translation.timestamp(@locale, @timezone, value) if value.instance_of?(ActiveSupport::TimeWithZone)
+    return Translation.date(@locale, value) if value.instance_of?(Date)
 
     value
   end

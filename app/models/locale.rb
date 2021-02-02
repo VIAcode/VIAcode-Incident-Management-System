@@ -22,7 +22,7 @@ returns
   def self.to_sync
     locales = Locale.where(active: true)
     if Rails.env.test?
-      locales = Locale.where(active: true, locale: ['en-us', 'de-de'])
+      locales = Locale.where(active: true, locale: %w[en-us de-de])
     end
 
     # read used locales based on env, e. g. export Z_LOCALES='en-us:de-de'
@@ -117,6 +117,14 @@ all:
       YAML.dump(result.data, out)
     end
     result.data
+  end
+
+  #  Default system locale
+  #
+  #  @example
+  #    Locale.default
+  def self.default
+    Setting.get('locale_default') || 'en-us'
   end
 
   private_class_method def self.to_database(data)

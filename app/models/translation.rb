@@ -226,7 +226,7 @@ or
 
   def self.timestamp(locale, timezone, timestamp)
 
-    if timestamp.class == String
+    if timestamp.instance_of?(String)
       begin
         timestamp_parsed = Time.zone.parse(timestamp)
         return timestamp.to_s if !timestamp_parsed
@@ -237,23 +237,24 @@ or
       end
     end
 
-    record = Translation.where(locale: locale, source: 'timestamp', format: 'time').pluck(:target).first
-    return timestamp.to_s if !record
-
     begin
       timestamp = timestamp.in_time_zone(timezone)
     rescue
       return timestamp.to_s
     end
-    record.sub!('dd', format('%02d', timestamp.day))
+
+    record = Translation.where(locale: locale, source: 'timestamp', format: 'time').pluck(:target).first
+    return timestamp.to_s if !record
+
+    record.sub!('dd', format('%<day>02d', day: timestamp.day))
     record.sub!('d', timestamp.day.to_s)
-    record.sub!('mm', format('%02d', timestamp.month))
+    record.sub!('mm', format('%<month>02d', month: timestamp.month))
     record.sub!('m', timestamp.month.to_s)
     record.sub!('yyyy', timestamp.year.to_s)
     record.sub!('yy', timestamp.year.to_s.last(2))
-    record.sub!('SS', format('%02d', timestamp.sec.to_s))
-    record.sub!('MM', format('%02d', timestamp.min.to_s))
-    record.sub!('HH', format('%02d', timestamp.hour.to_s))
+    record.sub!('SS', format('%<second>02d', second: timestamp.sec.to_s))
+    record.sub!('MM', format('%<minute>02d', minute: timestamp.min.to_s))
+    record.sub!('HH', format('%<hour>02d', hour: timestamp.hour.to_s))
     "#{record} (#{timezone})"
   end
 
@@ -271,7 +272,7 @@ or
 
   def self.date(locale, date)
 
-    if date.class == String
+    if date.instance_of?(String)
       begin
         date_parsed = Date.parse(date)
         return date.to_s if !date_parsed
@@ -287,9 +288,9 @@ or
     record = Translation.where(locale: locale, source: 'date', format: 'time').pluck(:target).first
     return date.to_s if !record
 
-    record.sub!('dd', format('%02d', date.day))
+    record.sub!('dd', format('%<day>02d', day: date.day))
     record.sub!('d', date.day.to_s)
-    record.sub!('mm', format('%02d', date.month))
+    record.sub!('mm', format('%<month>02d', month: date.month))
     record.sub!('m', date.month.to_s)
     record.sub!('yyyy', date.year.to_s)
     record.sub!('yy', date.year.to_s.last(2))
@@ -312,7 +313,7 @@ all:
 
   def self.load_from_file(dedicated_locale = nil)
     version = Version.get
-    directory = Rails.root.join('config', 'translations')
+    directory = Rails.root.join('config/translations')
     locals_to_sync(dedicated_locale).each do |locale|
       file = Rails.root.join(directory, "#{locale}-#{version}.yml")
       return false if !File.exist?(file)
@@ -357,7 +358,7 @@ all:
       )
       raise "Can't load translations from #{url}: #{result.error}" if !result.success?
 
-      directory = Rails.root.join('config', 'translations')
+      directory = Rails.root.join('config/translations')
       if !File.directory?(directory)
         Dir.mkdir(directory, 0o755)
       end
@@ -404,7 +405,7 @@ Get source file at https://i18n.zammad.com/api/v1/translations_empty_translation
       col_sep: ',',
     }
     rows = ::CSV.parse(content, params)
-    rows.shift  # remove header
+    rows.shift # remove header
 
     translation_raw = []
     rows.each do |row|
@@ -415,7 +416,7 @@ Get source file at https://i18n.zammad.com/api/v1/translations_empty_translation
         next
       end
       raise "Can't import translation, format is missing" if row[2].blank?
-      raise "Can't import translation, format is invalid (#{row[2]})" if row[2] !~ /^(time|string)$/
+      raise "Can't import translation, format is invalid (#{row[2]})" if !row[2].match?(/^(time|string)$/)
 
       item = {
         'locale'         => locale.locale,
@@ -469,13 +470,13 @@ Get source file at https://i18n.zammad.com/api/v1/translations_empty_translation
 
   private_class_method def self.locals_to_sync(dedicated_locale = nil)
     locales_list = []
-    if !dedicated_locale
+    if dedicated_locale
+      locales_list = [dedicated_locale]
+    else
       locales = Locale.to_sync
       locales.each do |locale|
         locales_list.push locale.locale
       end
-    else
-      locales_list = [dedicated_locale]
     end
     locales_list
   end
@@ -491,17 +492,17 @@ Get source file at https://i18n.zammad.com/api/v1/translations_empty_translation
   end
 
   def cache_clear
-    Cache.delete('TranslationMapOnlyContent::' + locale.downcase)
+    Cache.delete("TranslationMapOnlyContent::#{locale.downcase}")
     true
   end
 
   def self.cache_set(locale, data)
-    Cache.write('TranslationMapOnlyContent::' + locale.downcase, data)
+    Cache.write("TranslationMapOnlyContent::#{locale.downcase}", data)
   end
   private_class_method :cache_set
 
   def self.cache_get(locale)
-    Cache.get('TranslationMapOnlyContent::' + locale.downcase)
+    Cache.get("TranslationMapOnlyContent::#{locale.downcase}")
   end
   private_class_method :cache_get
 end

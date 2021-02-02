@@ -128,6 +128,15 @@ Scheduler.create_or_update(
   created_by_id: 1,
 )
 Scheduler.create_or_update(
+  name:          'Cleanup ActiveJob locks.',
+  method:        'ActiveJobLockCleanupJob.perform_now',
+  period:        1.day,
+  prio:          2,
+  active:        true,
+  updated_by_id: 1,
+  created_by_id: 1,
+)
+Scheduler.create_or_update(
   name:          'Sync calendars with ical feeds.',
   method:        'Calendar.sync',
   period:        1.day,
@@ -172,6 +181,15 @@ Scheduler.create_if_not_exists(
   updated_by_id: 1,
   created_by_id: 1,
 )
+Scheduler.create_or_update(
+  name:          'Delete obsolete classic IMAP backup.',
+  method:        'ImapAuthenticationMigrationCleanupJob.perform_now',
+  period:        1.day,
+  prio:          2,
+  active:        true,
+  updated_by_id: 1,
+  created_by_id: 1,
+)
 Scheduler.create_if_not_exists(
   name:          'Import Jobs',
   method:        'ImportJob.start_registered',
@@ -180,4 +198,14 @@ Scheduler.create_if_not_exists(
   active:        true,
   updated_by_id: 1,
   created_by_id: 1
+)
+Scheduler.create_if_not_exists(
+  name:          'Handle data privacy tasks.',
+  method:        'DataPrivacyTaskJob.perform_now',
+  period:        10.minutes,
+  last_run:      Time.zone.now,
+  prio:          2,
+  active:        true,
+  updated_by_id: 1,
+  created_by_id: 1,
 )

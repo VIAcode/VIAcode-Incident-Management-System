@@ -4,7 +4,7 @@ RSpec.configure do |config|
   config.before(:each, type: :system) do
 
     # start a silenced Puma as application server
-    Capybara.server = :puma, { Silent: true, Host: '0.0.0.0' }
+    Capybara.server = :puma, { Silent: true, Host: '0.0.0.0', Threads: '0:16' }
 
     # set the Host from gather container IP for CI runs
     if ENV['CI'].present?
@@ -14,6 +14,6 @@ RSpec.configure do |config|
 
     # set custom Zammad driver (e.g. zammad_chrome) for special
     # functionalities and CI requirements
-    driven_by("zammad_#{ENV.fetch('BROWSER', 'firefox')}".to_sym)
+    driven_by(:"zammad_#{ENV.fetch('BROWSER', 'firefox')}")
   end
 end

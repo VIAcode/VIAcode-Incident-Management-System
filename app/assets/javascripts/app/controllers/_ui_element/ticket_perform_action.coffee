@@ -16,13 +16,14 @@ class App.UiElement.ticket_perform_action
         name: 'Notification'
         model: 'Notification'
 
-    # megre config
+    # merge config
     elements = {}
     for groupKey, groupMeta of groups
       if !groupMeta.model || !App[groupMeta.model]
         if groupKey is 'notification'
           elements["#{groupKey}.email"] = { name: 'email', display: 'Email' }
           elements["#{groupKey}.sms"] = { name: 'sms', display: 'SMS' }
+          elements["#{groupKey}.webhook"] = { name: 'webhook', display: 'Webhook' }
         else if groupKey is 'article'
           elements["#{groupKey}.note"] = { name: 'note', display: 'Note' }
       else
@@ -35,8 +36,13 @@ class App.UiElement.ticket_perform_action
             # ignore readonly attributes
             if !row.readonly
               config = _.clone(row)
-              if config.tag is 'tag'
-                config.operator = ['add', 'remove']
+
+              switch config.tag
+                when 'datetime'
+                  config.operator = ['static', 'relative']
+                when 'tag'
+                  config.operator = ['add', 'remove']
+
               elements["#{groupKey}.#{config.name}"] = config
 
     # add ticket deletion action
@@ -99,7 +105,7 @@ class App.UiElement.ticket_perform_action
       @buildOperator(item, elementRow, groupAndAttribute, elements, {}, attribute)
     )
 
-    # build inital params
+    # build initial params
     if _.isEmpty(params[attribute.name])
 
       for groupAndAttribute in defaults
@@ -109,14 +115,16 @@ class App.UiElement.ticket_perform_action
         item.append(element)
         @rebuildAttributeSelectors(item, element, groupAndAttribute, elements, {}, attribute)
 
-      return item
+    else
 
-    for groupAndAttribute, meta of params[attribute.name]
+      for groupAndAttribute, meta of params[attribute.name]
 
-      # build and append
-      element = @placeholder(item, attribute, params, groups, elements)
-      @rebuildAttributeSelectors(item, element, groupAndAttribute, elements, meta, attribute)
-      item.append(element)
+        # build and append
+        element = @placeholder(item, attribute, params, groups, elements)
+        @rebuildAttributeSelectors(item, element, groupAndAttribute, elements, meta, attribute)
+        item.append(element)
+
+    @disableRemoveForOneAttribute(item)
     item
 
   @buildAttributeSelector: (elementFull, groups, elements) ->
@@ -145,6 +153,13 @@ class App.UiElement.ticket_perform_action
           optgroup.append("<option value=\"#{elementKey}\" #{selected}>#{displayName}</option>")
     selection
 
+  # disable - if we only have one attribute
+  @disableRemoveForOneAttribute: (elementFull) ->
+    if elementFull.find('.js-attributeSelector select').length > 1
+      elementFull.find('.js-remove').removeClass('is-disabled')
+    else
+      elementFull.find('.js-remove').addClass('is-disabled')
+
   @updateAttributeSelectors: (elementFull) ->
 
     # enable all
@@ -157,10 +172,7 @@ class App.UiElement.ticket_perform_action
     )
 
     # disable - if we only have one attribute
-    if elementFull.find('.js-attributeSelector select').length > 1
-      elementFull.find('.js-remove').removeClass('is-disabled')
-    else
-      elementFull.find('.js-remove').addClass('is-disabled')
+    @disableRemoveForOneAttribute(elementFull)
 
   @rebuildAttributeSelectors: (elementFull, elementRow, groupAndAttribute, elements, meta, attribute) ->
 
@@ -263,12 +275,14 @@ class App.UiElement.ticket_perform_action
       options =
         'current_user.id': App.i18n.translateInline('current user')
         'specific': App.i18n.translateInline('specific user')
-        #'set': App.i18n.translateInline('set')
+
+      if attributeSelected.null is true
+        options['not_set'] = App.i18n.translateInline('unassign user')
+
     else if preCondition is 'org'
       options =
         'current_user.organization_id': App.i18n.translateInline('current user organization')
         'specific': App.i18n.translateInline('specific organization')
-        #'set': App.i18n.translateInline('set')
 
     for key, value of options
       selected = ''
@@ -304,7 +318,7 @@ class App.UiElement.ticket_perform_action
       if attribute.value && attribute.value[groupAndAttribute]
         config['value'] = _.clone(attribute.value[groupAndAttribute]['value'])
       config.multiple = false
-      config.nulloption = false
+      config.nulloption = config.null
       if config.tag is 'checkbox'
         config.tag = 'select'
       tagSearch = "#{config.tag}_search"
@@ -312,13 +326,22 @@ class App.UiElement.ticket_perform_action
         item = App.UiElement[tagSearch].render(config, {})
       else
         item = App.UiElement[config.tag].render(config, {})
-    if meta.operator is 'before (relative)' || meta.operator is 'within next (relative)' || meta.operator is 'within last (relative)' || meta.operator is 'after (relative)'
+
+    relative_operators = [
+      'before (relative)',
+      'within next (relative)',
+      'within last (relative)',
+      'after (relative)',
+      'relative'
+    ]
+
+    if _.include(relative_operators, meta.operator)
       config['name'] = "#{attribute.name}::#{groupAndAttribute}"
       if attribute.value && attribute.value[groupAndAttribute]
         config['value'] = _.clone(attribute.value[groupAndAttribute])
       item = App.UiElement['time_range'].render(config, {})
 
-    elementRow.find('.js-value').removeClass('hide').html(item)
+    elementRow.find('.js-setAttribute > .flex > .js-value').removeClass('hide').html(item)
 
   @buildNotificationArea: (notificationType, elementFull, elementRow, groupAndAttribute, elements, meta, attribute) ->
 
@@ -342,28 +365,63 @@ class App.UiElement.ticket_perform_action
     if !_.isArray(meta.recipient)
       meta.recipient = [meta.recipient]
 
-    column_select_options = []
+    columnSelectOptions = []
     for key, value of options
       selected = undefined
       for recipient in meta.recipient
         if key is recipient
           selected = true
-      column_select_options.push({ value: key, name: App.i18n.translateInline(value), selected: selected })
+      columnSelectOptions.push({ value: key, name: App.i18n.translatePlain(value), selected: selected })
 
-    column_select = new App.ColumnSelect
+    columnSelectRecipientUserOptions = []
+    for user in App.User.all()
+      key = "userid_#{user.id}"
+      selected = undefined
+      for recipient in meta.recipient
+        if key is recipient
+          selected = true
+      columnSelectRecipientUserOptions.push({ value: key, name: "#{user.firstname} #{user.lastname}", selected: selected })
+
+    columnSelectRecipient = new App.ColumnSelect
       attribute:
         name:    "#{name}::recipient"
-        options: column_select_options
+        options: [
+          {
+            label: 'Variables',
+            group: columnSelectOptions
+          },
+          {
+            label: 'User',
+            group: columnSelectRecipientUserOptions
+          },
+        ]
 
-    selection = column_select.element()
+    selectionRecipient = columnSelectRecipient.element()
 
-    notificationElement = $( App.view('generic/ticket_perform_action/notification')(
+    elementTemplate = 'notification'
+    if notificationType is 'webhook'
+      elementTemplate =  'webhook'
+
+    notificationElement = $( App.view("generic/ticket_perform_action/#{elementTemplate}")(
       attribute: attribute
       name: name
       notificationType: notificationType
       meta: meta || {}
     ))
-    notificationElement.find('.js-recipient select').replaceWith(selection)
+
+    notificationElement.find('.js-recipient select').replaceWith(selectionRecipient)
+
+    visibilitySelection = App.UiElement.select.render(
+      name: "#{name}::internal"
+      multiple: false
+      null: false
+      options: { true: 'internal', false: 'public' }
+      value: meta.internal || 'false'
+      translate: true
+    )
+
+    notificationElement.find('.js-internal').html(visibilitySelection)
+
     notificationElement.find('.js-body div[contenteditable="true"]').ce(
       mode: 'richtext'
       placeholder: 'message'
@@ -392,6 +450,35 @@ class App.UiElement.ticket_perform_action
 
     elementRow.find('.js-setNotification').html(notificationElement).removeClass('hide')
 
+    if App.Config.get('smime_integration') == true
+      selection = App.UiElement.select.render(
+        name: "#{name}::sign"
+        multiple: false
+        options: {
+          'no': 'Do not sign email'
+          'discard': 'Sign email (if not possible, discard notification)'
+          'always': 'Sign email (if not possible, send notification anyway)'
+        }
+        value: meta.sign
+        translate: true
+      )
+
+      elementRow.find('.js-sign').html(selection)
+
+      selection = App.UiElement.select.render(
+        name: "#{name}::encryption"
+        multiple: false
+        options: {
+          'no': 'Do not encrypt email'
+          'discard': 'Encrypt email (if not possible, discard notification)'
+          'always': 'Encrypt email (if not possible, send notification anyway)'
+        }
+        value: meta.encryption
+        translate: true
+      )
+
+      elementRow.find('.js-encryption').html(selection)
+
   @buildArticleArea: (articleType, elementFull, elementRow, groupAndAttribute, elements, meta, attribute) ->
 
     return if elementRow.find(".js-setArticle .js-body-#{articleType}").get(0)
@@ -404,9 +491,9 @@ class App.UiElement.ticket_perform_action
       name: "#{name}::internal"
       multiple: false
       null: false
+      label: 'Visibility'
       options: { true: 'internal', false: 'public' }
       value: meta.internal
-      class: 'form-control--small'
       translate: true
     )
     articleElement = $( App.view('generic/ticket_perform_action/article')(

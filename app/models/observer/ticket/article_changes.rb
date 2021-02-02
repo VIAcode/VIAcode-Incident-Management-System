@@ -48,14 +48,14 @@ class Observer::Ticket::ArticleChanges < ActiveRecord::Observer
   def article_count_update(record)
     current_count = record.ticket.article_count
     sender = Ticket::Article::Sender.lookup(name: 'System')
-    count = Ticket::Article.where(ticket_id: record.ticket_id).where('sender_id NOT IN (?)', sender.id).count
+    count = Ticket::Article.where(ticket_id: record.ticket_id).where.not(sender_id: sender.id).count
     return false if current_count == count
 
     record.ticket.article_count = count
     true
   end
 
-  # set frist response
+  # set first response
   def first_response_at_update(record)
 
     # return if we run import mode
@@ -111,7 +111,7 @@ class Observer::Ticket::ArticleChanges < ActiveRecord::Observer
     ticket = record.ticket
     if sender.name == 'Customer'
 
-      # in case, update last_contact_customer_at on any customer follow up
+      # in case, update last_contact_customer_at on any customer follow-up
       if Setting.get('ticket_last_contact_behaviour') == 'based_on_customer_reaction'
 
         # set last_contact_at customer
@@ -123,7 +123,7 @@ class Observer::Ticket::ArticleChanges < ActiveRecord::Observer
         return true
       end
 
-      # if customer is sending agains, ignore update of last contact (usecase of update escalation)
+      # if customer is sending again, ignore update of last contact (use case of update escalation)
       return false if ticket.last_contact_customer_at &&
                       ticket.last_contact_at &&
                       ticket.last_contact_customer_at == ticket.last_contact_at

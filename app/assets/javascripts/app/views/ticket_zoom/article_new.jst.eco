@@ -56,6 +56,19 @@
         </div>
         <div class="controls"><input type="text" name="subject" value="<%= @article.subject %>" class="form-control js-mail-inputs2 js-subject"></div>
       </div>
+      <div class="form-group js-securityOptions">
+        <div class="formGroup-label">
+          <label for=""><%- @T('Security') %></label>
+        </div>
+        <div class="horizontal">
+          <span class="js-securityEncryptComment">
+            <div class="btn btn--action js-securityEncrypt js-active-toggle" disabled><%- @Icon('lock-open', 'btn-inactive-icon') %><%- @Icon('lock', 'btn-active-icon') %><%- @T('Encrypt') %></div>
+          </span>
+          <span class="js-securitySignComment" style="margin-left: 10px;">
+            <div class="btn btn--action js-securitySign js-active-toggle" disabled><%- @Icon('not-signed', 'btn-inactive-icon') %><%- @Icon('signed', 'btn-active-icon') %><%- @T('Sign') %></div>
+          </span>
+        </div>
+      </div>
 
       <div class="textBubble js-writeArea">
         <div class="bubble-arrow"></div>
@@ -68,7 +81,7 @@
         <div class="attachments"></div>
         <div class="article-attachment">
           <div class="attachmentPlaceholder">
-            <span class="attachmentPlaceholder-hint"><%- @T('Enter Answer or') %></span>
+            <span class="attachmentPlaceholder-hint"><%- @T('Enter Note or') %></span>
             <span class="attachmentPlaceholder-inputHolder fileUpload">
               <% uid =  _.uniqueId('fileUpload_') %>
               <input multiple="multiple" type="file" name="file" id="<%- uid %>">

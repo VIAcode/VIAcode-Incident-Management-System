@@ -3,14 +3,16 @@ require 'rails_helper'
 RSpec.describe Import::OTRS::Priority do
 
   def creates_with(zammad_structure)
-    expect(import_object).to receive(:new).with(zammad_structure).and_call_original
+    allow(import_object).to receive(:new).with(zammad_structure).and_call_original
+
     expect_any_instance_of(import_object).to receive(:save)
     expect_any_instance_of(described_class).to receive(:reset_primary_key_sequence)
     start_import_test
   end
 
   def updates_with(zammad_structure)
-    expect(import_object).to receive(:find_by).and_return(existing_object)
+    allow(import_object).to receive(:find_by).and_return(existing_object)
+
     expect(existing_object).to receive(:update!).with(zammad_structure)
     expect(import_object).not_to receive(:new)
     start_import_test
@@ -34,6 +36,8 @@ RSpec.describe Import::OTRS::Priority do
         active:        true,
         updated_at:    '2014-04-28 10:53:18',
         created_at:    '2014-04-28 10:53:18',
+        ui_color:      'high-priority',
+        ui_icon:       'important',
         name:          '4 high',
         id:            '4'
       }
@@ -41,6 +45,50 @@ RSpec.describe Import::OTRS::Priority do
 
     it 'creates' do
       creates_with(zammad_structure)
+    end
+
+    it 'updates' do
+      updates_with(zammad_structure)
+    end
+  end
+
+  context 'normal' do
+
+    let(:object_structure) { load_priority_json('normal') }
+    let(:zammad_structure) do
+      {
+        created_by_id: '1',
+        updated_by_id: '1',
+        active:        true,
+        updated_at:    '2014-04-28 10:53:18',
+        created_at:    '2014-04-28 10:53:18',
+        ui_color:      nil,
+        ui_icon:       nil,
+        name:          '3 normal',
+        id:            '3'
+      }
+    end
+
+    it 'updates' do
+      updates_with(zammad_structure)
+    end
+  end
+
+  context 'low' do
+
+    let(:object_structure) { load_priority_json('low') }
+    let(:zammad_structure) do
+      {
+        created_by_id: '1',
+        updated_by_id: '1',
+        active:        true,
+        updated_at:    '2014-04-28 10:53:18',
+        created_at:    '2014-04-28 10:53:18',
+        ui_color:      'low-priority',
+        ui_icon:       'low-priority',
+        name:          '2 low',
+        id:            '2'
+      }
     end
 
     it 'updates' do

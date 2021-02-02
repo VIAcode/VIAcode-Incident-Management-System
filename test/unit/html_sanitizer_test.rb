@@ -53,9 +53,9 @@ class HtmlSanitizerTest < ActiveSupport::TestCase
     assert_equal(HtmlSanitizer.strict(' <HEAD><META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=UTF-7"> </HEAD>+ADw-SCRIPT+AD4-alert(\'XSS\');+ADw-/SCRIPT+AD4-'), '  +ADw-SCRIPT+AD4-alert(\'XSS\');+ADw-/SCRIPT+AD4-')
     assert_equal(HtmlSanitizer.strict('<SCRIPT a=">" SRC="httx://xss.rocks/xss.js"></SCRIPT>'), '')
     assert_equal(HtmlSanitizer.strict('<A HREF="h
-tt  p://6 6.000146.0x7.147/">XSS</A>'), '<a href="htt%20%20p://6%206.000146.0x7.147/" rel="nofollow noreferrer noopener" target="_blank" title="htt  p://6 6.000146.0x7.147/">XSS</a>')
+tt  p://6 6.000146.0x7.147/">XSS</A>'), '<a href="h%0Att%20%20p://6%206.000146.0x7.147/" rel="nofollow noreferrer noopener" target="_blank" title="h%0Att%20%20p://6%206.000146.0x7.147/">XSS</a>')
     assert_equal(HtmlSanitizer.strict('<A HREF="h
-tt  p://6 6.000146.0x7.147/">XSS</A>', true), '<a href="htt%20%20p://6%206.000146.0x7.147/" rel="nofollow noreferrer noopener" target="_blank" title="htt  p://6 6.000146.0x7.147/">XSS</a>')
+tt  p://6 6.000146.0x7.147/">XSS</A>', true), '<a href="http://h%0Att%20%20p://6%206.000146.0x7.147/" rel="nofollow noreferrer noopener" target="_blank" title="http://h%0Att%20%20p://6%206.000146.0x7.147/">XSS</a>')
     assert_equal(HtmlSanitizer.strict('<A HREF="//www.google.com/">XSS</A>'), '<a href="//www.google.com/" rel="nofollow noreferrer noopener" target="_blank" title="//www.google.com/">XSS</a>')
     assert_equal(HtmlSanitizer.strict('<A HREF="//www.google.com/">XSS</A>', true), '<a href="//www.google.com/" rel="nofollow noreferrer noopener" target="_blank" title="//www.google.com/">XSS</a>')
     assert_equal(HtmlSanitizer.strict('<form id="test"></form><button form="test" formaction="javascript:alert(1)">X</button>'), 'X')
@@ -104,6 +104,21 @@ style="BORDER-LEFT: #000000 2px solid; PADDING-LEFT: 5px; PADDING-RIGHT: 0px; MA
 test 123
 <blockquote></blockquote>
 </div>')
+    assert_equal(HtmlSanitizer.strict('<style><!--
+/* Font Definitions */
+@font-face
+  {font-family:"Cambria Math";
+  panose-1:2 4 5 3 5 4 6 3 2 4;}
+  {page:WordSection1;}</style><!--[if gte mso 9]><xml>
+<o:shapedefaults v:ext="edit" spidmax="1026" />
+</xml><![endif]--><!--[if gte mso 9]><xml>
+<o:shapelayout v:ext="edit">
+<o:idmap v:ext="edit" data="1" />
+</o:shapelayout></xml><![endif]-->
+<div>123</div>
+<a href="#DAB4FAD8-2DD7-40BB-A1B8-4E2AA1F9FDF2" width="1" height="1">abc</a></div>'), '
+<div>123</div>
+<a href="#DAB4FAD8-2DD7-40BB-A1B8-4E2AA1F9FDF2">abc</a>')
     assert_equal(HtmlSanitizer.strict('<table><tr style="font-size: 0"><td>123</td></tr></table>'), '<table><tr><td>123</td></tr></table>')
     assert_equal(HtmlSanitizer.strict('<table><tr style="font-size: 0px"><td>123</td></tr></table>'), '<table><tr><td>123</td></tr></table>')
     assert_equal(HtmlSanitizer.strict('<table><tr style="font-size:0"><td>123</td></tr></table>'), '<table><tr><td>123</td></tr></table>')
@@ -114,8 +129,8 @@ test 123
     assert_equal(HtmlSanitizer.strict('<table><tr style="font-size:0%;visibility:hidden;"><td>123</td></tr></table>'), '<table><tr><td>123</td></tr></table>')
     assert_equal(HtmlSanitizer.strict('<table><tr style="font-size:0%;visibility:hidden;"><td>123</td></tr></table>'), '<table><tr><td>123</td></tr></table>')
     assert_equal(HtmlSanitizer.strict('<a href="/some/path%20test.pdf">test</a>'), '<a href="/some/path%20test.pdf">test</a>')
-    assert_equal(HtmlSanitizer.strict('<a href="https://somehost.domain/path%20test.pdf">test</a>'), '<a href="https://somehost.domain/path%20test.pdf" rel="nofollow noreferrer noopener" target="_blank" title="https://somehost.domain/path test.pdf">test</a>')
-    assert_equal(HtmlSanitizer.strict('<a href="https://somehost.domain/zaihan%20test">test</a>'), '<a href="https://somehost.domain/zaihan%20test" rel="nofollow noreferrer noopener" target="_blank" title="https://somehost.domain/zaihan test">test</a>')
+    assert_equal(HtmlSanitizer.strict('<a href="https://somehost.domain/path%20test.pdf">test</a>'), '<a href="https://somehost.domain/path%20test.pdf" rel="nofollow noreferrer noopener" target="_blank" title="https://somehost.domain/path%20test.pdf">test</a>')
+    assert_equal(HtmlSanitizer.strict('<a href="https://somehost.domain/zaihan%20test">test</a>'), '<a href="https://somehost.domain/zaihan%20test" rel="nofollow noreferrer noopener" target="_blank" title="https://somehost.domain/zaihan%20test">test</a>')
 
     api_path            = Rails.configuration.api_path
     http_type           = Setting.get('http_type')

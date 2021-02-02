@@ -1,4 +1,4 @@
-module EmailHelper
+class EmailHelper
   class Probe
 
 =begin
@@ -56,7 +56,7 @@ returns on fail
         return {
           result:   'invalid',
           messages: {
-            email: 'Invalid email.'
+            email: "Invalid email '#{params[:email]}'."
           },
         }
       end
@@ -67,11 +67,11 @@ returns on fail
 
       # get mx records, try to find provider based on mx records
       mx_records = EmailHelper.mx_records(domain)
-      domains = domains.concat(mx_records)
+      domains.concat(mx_records)
       provider_map.each_value do |settings|
         domains.each do |domain_to_check|
 
-          next if domain_to_check !~ /#{settings[:domain]}/i
+          next if !domain_to_check.match?(/#{settings[:domain]}/i)
 
           # add folder to config if needed
           if params[:folder].present? && settings[:inbound] && settings[:inbound][:options]
@@ -91,9 +91,11 @@ returns on fail
           next if result_outbound[:result] != 'ok'
 
           return {
-            result:           'ok',
-            content_messages: result_inbound[:content_messages],
-            setting:          settings,
+            result:             'ok',
+            content_messages:   result_inbound[:content_messages],
+            archive_possible:   result_inbound[:archive_possible],
+            archive_week_range: result_inbound[:archive_week_range],
+            setting:            settings,
           }
         end
       end
@@ -122,9 +124,11 @@ returns on fail
 
         next if result_inbound[:result] != 'ok'
 
-        success                    = true
-        result[:setting][:inbound] = config
-        result[:content_messages]  = result_inbound[:content_messages]
+        success                     = true
+        result[:setting][:inbound]  = config
+        result[:content_messages]   = result_inbound[:content_messages]
+        result[:archive_possible]   = result_inbound[:archive_possible]
+        result[:archive_week_range] = result_inbound[:archive_week_range]
 
         break
       end
@@ -172,7 +176,7 @@ get result of inbound probe
 
   result = EmailHelper::Probe.inbound(
     adapter: 'imap',
-    settings: {
+    options: {
       host: 'imap.gmail.com',
       port: 993,
       ssl: true,
@@ -227,6 +231,8 @@ returns on fail
         driver_instance = driver_class.new
         result_inbound  = driver_instance.fetch(params[:options], nil, 'check')
       rescue => e
+        Rails.logger.debug { e }
+
         return {
           result:        'invalid',
           settings:      params,
@@ -331,6 +337,8 @@ returns on fail
           mail,
         )
       rescue => e
+        Rails.logger.debug { e }
+
         # check if sending email was ok, but mailserver rejected
         if !subject
           white_map = {
@@ -339,7 +347,7 @@ returns on fail
           }
           white_map.each_key do |key|
 
-            next if e.message !~ /#{Regexp.escape(key)}/i
+            next if !e.message.match?(/#{Regexp.escape(key)}/i)
 
             return {
               result:   'ok',
@@ -348,6 +356,7 @@ returns on fail
             }
           end
         end
+
         return {
           result:        'invalid',
           settings:      params,
@@ -400,6 +409,7 @@ returns on fail
         'Incorrect username'                                        => 'Authentication failed, username incorrect!',
         'Lookup failed'                                             => 'Authentication failed, username incorrect!',
         'Invalid credentials'                                       => 'Authentication failed, invalid credentials!',
+        'authentication not enabled'                                => 'Authentication not possible (not offered by the service)',
         'getaddrinfo: nodename nor servname provided, or not known' => 'Hostname not found!',
         'getaddrinfo: Name or service not known'                    => 'Hostname not found!',
         'No route to host'                                          => 'No route to host!',

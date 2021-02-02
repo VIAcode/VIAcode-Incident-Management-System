@@ -87,9 +87,9 @@ class App.TicketOverview extends App.Controller
 
   startDragItem: (event) =>
     return if !@batchSupport
-    @grabbedItem = $(event.currentTarget)
-    offset = @grabbedItem.offset()
-    @batchDragger = $(App.view('ticket_overview/batch_dragger')())
+    @grabbedItem      = $(event.currentTarget)
+    offset            = @grabbedItem.offset()
+    @batchDragger     = $(App.view('ticket_overview/batch_dragger')())
     @grabbedItemClone = @grabbedItem.clone()
     @grabbedItemClone.data('offset', @grabbedItem.offset())
     @grabbedItemClone.addClass('batch-dragger-item js-main-item')
@@ -642,10 +642,35 @@ class App.TicketOverview extends App.Controller
     ))
 
   renderOptionsMacros: =>
-    macros = App.Macro.search(filter: { active: true }, sortBy:'name', order:'DESC')
+
+    @possibleMacros = []
+    macros          = App.Macro.getList()
+
+    items = @el.find('[name="bulk"]:checked')
+
+    group_ids =[]
+    for item in items
+      ticket = App.Ticket.find($(item).val())
+      group_ids.push ticket.group_id
+
+    group_ids = _.uniq(group_ids)
+
+    for macro in macros
+
+      # push if no group_ids exists
+      if _.isEmpty(macro.group_ids) && !_.includes(@possibleMacros, macro)
+        @possibleMacros.push macro
+
+      # push if group_ids are equal
+      if _.isEqual(macro.group_ids, group_ids) && !_.includes(@possibleMacros, macro)
+        @possibleMacros.push macro
+
+      # push if all group_ids of tickets are in macro.group_ids
+      if !_.isEmpty(macro.group_ids) && _.isEmpty(_.difference(group_ids,macro.group_ids)) && !_.includes(@possibleMacros, macro)
+        @possibleMacros.push macro
 
     @batchMacro.html $(App.view('ticket_overview/batch_overlay_macro')(
-      macros: macros
+      macros: @possibleMacros
     ))
 
   active: (state) =>
@@ -911,6 +936,10 @@ class Navbar extends App.Controller
         if item.link is @view
           @title item.name, true
 
+    # send first view info
+    if !@view && data && data[0] && data[0].link
+      App.WebSocket.send(event:'ticket_overview_select', data: { view: data[0].link })
+
     # redirect to first view
     if @activeState && !@view && !@vertical
       view = data[0].link
@@ -1012,13 +1041,15 @@ class Table extends App.Controller
     @view_mode = App.LocalStorage.get("mode:#{@view}", @Session.get('id')) || 's'
     console.log 'notice', 'view:', @view, @view_mode
 
+    App.WebSocket.send(event:'ticket_overview_select', data: { view: @view })
+
     # get ticket list
     ticketListShow = []
     for ticket in tickets
       ticketListShow.push App.Ticket.find(ticket.id)
 
     # if customer and no ticket exists, show the following message only
-    if !ticketListShow[0] && @permissionCheck('ticket.customer')
+    if !ticketListShow[0] && !@permissionCheck('ticket.agent')
       @html App.view('customer_not_ticket_exists')()
       return
 
@@ -1026,27 +1057,26 @@ class Table extends App.Controller
     @overview = App.Overview.find(overview.id)
 
     # render init page
-    checkbox = true
+    checkbox = false
     edit     = false
     if @permissionCheck('admin.overview')
       edit = true
-    if @permissionCheck('ticket.customer')
-      checkbox = false
-      edit     = false
-    view_modes = [
-      {
-        name:  'S'
-        type:  's'
-        class: 'active' if @view_mode is 's'
-      },
-      {
-        name:  'M'
-        type:  'm'
-        class: 'active' if @view_mode is 'm'
-      }
-    ]
-    if @permissionCheck('ticket.customer')
-      view_modes = []
+    if @permissionCheck('ticket.agent')
+      checkbox = true
+    view_modes = []
+    if @permissionCheck('ticket.agent')
+      view_modes = [
+        {
+          name:  'S'
+          type:  's'
+          class: 'active' if @view_mode is 's'
+        },
+        {
+          name:  'M'
+          type:  'm'
+          class: 'active' if @view_mode is 'm'
+        }
+      ]
     html = App.view('agent_ticket_view/content')(
       overview:   @overview
       view_modes: view_modes
@@ -1332,6 +1362,10 @@ class BulkForm extends App.Controller
         localAttribute.null = true
         @configure_attributes_ticket.push localAttribute
 
+    time_attribute = _.findWhere(@configure_attributes_ticket, {'name': 'pending_time'})
+    time_attribute.orientation = 'top'
+    time_attribute.disableScroll = true
+
     @holder = @options.holder
     @visible = false
 
@@ -1540,39 +1574,43 @@ class BulkForm extends App.Controller
       if _.isEmpty(ticket.title)
         ticket.title = '-'
 
-      ticket.save(
-        done: (r) =>
-          @bulkCountIndex++
-
-          # reset form after save
-          if article
-            article.save(
-              fail: (r) =>
-                @log 'error', 'update article', r
-            )
-
-          # refresh view after all tickets are proceeded
-          if @bulkCountIndex == @bulkCount
-            @render()
-            @hide()
-
-            # fetch overview data again
-            App.Event.trigger('overview:fetch')
-
-        fail: (r) =>
-          @bulkCountIndex++
-          @log 'error', 'update ticket', r
-          App.Event.trigger 'notify', {
-            type: 'error'
-            msg: App.i18n.translateContent('Can\'t update Ticket %s!', ticket.number)
-          }
-      )
+      @saveTicketArticle(ticket, article)
 
     @holder.find('.table-overview').find('[name="bulk"]:checked').prop('checked', false)
     App.Event.trigger 'notify', {
       type: 'success'
       msg: App.i18n.translateContent('Bulk action executed!')
     }
+
+  saveTicketArticle: (ticket, article) =>
+    ticket.save(
+      done: (r) =>
+        @bulkCountIndex++
+
+        # reset form after save
+        if article
+          article.save(
+            fail: (r) =>
+              @log 'error', 'update article', r
+          )
+
+        # refresh view after all tickets are proceeded
+        if @bulkCountIndex == @bulkCount
+          @render()
+          @hide()
+
+          # fetch overview data again
+          App.Event.trigger('overview:fetch')
+
+      fail: (r) =>
+        @bulkCountIndex++
+        @log 'error', 'update ticket', r
+        App.Event.trigger 'notify', {
+          type: 'error'
+          msg: App.i18n.translateContent('Can\'t update Ticket %s!', ticket.number)
+        }
+    )
+
 
 class App.OverviewSettings extends App.ControllerModal
   buttonClose: true

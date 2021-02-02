@@ -12,6 +12,7 @@ class App.ControllerGenericNew extends App.ControllerModal
       params:    @item
       screen:    @screen || 'edit'
       autofocus: true
+      handlers: @handlers
     )
     @controller.form
 
@@ -20,6 +21,11 @@ class App.ControllerGenericNew extends App.ControllerModal
 
     object = new App[ @genericObject ]
     object.load(params)
+
+    # validate form using HTML5 validity check
+    element = $(e.target).closest('form').get(0)
+    if element && element.reportValidity && !element.reportValidity()
+      return false
 
     # validate
     errors = object.validate()
@@ -57,16 +63,22 @@ class App.ControllerGenericEdit extends App.ControllerModal
     @head = @pageData.head || @pageData.object
 
     @controller = new App.ControllerForm(
-      model:      App[ @genericObject ]
-      params:     @item
-      screen:     @screen || 'edit'
-      autofocus:  true
+      model:     App[ @genericObject ]
+      params:    @item
+      screen:    @screen || 'edit'
+      autofocus: true
+      handlers:  @handlers
     )
     @controller.form
 
   onSubmit: (e) ->
     params = @formParam(e.target)
     @item.load(params)
+
+    # validate form using HTML5 validity check
+    element = $(e.target).closest('form').get(0)
+    if element && element.reportValidity && !element.reportValidity()
+      return false
 
     # validate
     errors = @item.validate()
@@ -126,7 +138,7 @@ class App.ControllerGenericIndex extends App.Controller
     @render()
 
     # fetch all
-    if !@disableInitFetch
+    if !@disableInitFetch && !@pageData.pagerAjax
       App[ @genericObject ].fetchFull(
         ->
         clear: true
@@ -144,12 +156,45 @@ class App.ControllerGenericIndex extends App.Controller
     if @subscribeId
       App[ @genericObject ].unsubscribe(@subscribeId)
 
+  paginate: (page) =>
+    return if page is @pageData.pagerSelected
+    @pageData.pagerSelected = page
+    @render()
+
   render: =>
+    if @pageData.pagerAjax
+      sortBy  = @table?.customOrderBy || @table?.orderBy || @defaultSortBy  || 'id'
+      orderBy = @table?.customOrderDirection || @table?.orderDirection || @defaultOrder || 'ASC'
+
+      fallbackSortBy  = sortBy
+      fallbackOrderBy = orderBy
+      if sortBy isnt 'id'
+        fallbackSortBy  = "#{sortBy}, id"
+        fallbackOrderBy = "#{orderBy}, ASC"
+
+      @startLoading()
+      App[@genericObject].indexFull(
+        (collection, data) =>
+          @pageData.pagerTotalCount = data.total_count
+          @stopLoading()
+          @renderObjects(collection)
+        {
+          refresh: false
+          sort_by: fallbackSortBy
+          order_by:  fallbackOrderBy
+          page: @pageData.pagerSelected
+          per_page: @pageData.pagerPerPage
+        }
+      )
+      return
 
     objects = App[@genericObject].search(
       sortBy: @defaultSortBy || 'name'
       order:  @defaultOrder
     )
+    @renderObjects(objects)
+
+  renderObjects: (objects) =>
 
     # remove ignored items from collection
     if @ignoreObjectIDs
@@ -196,10 +241,24 @@ class App.ControllerGenericIndex extends App.Controller
       },
       @pageData.tableExtend
     )
+
+    if @pageData.pagerAjax
+      params = _.extend(
+        {
+          pagerAjax: @pageData.pagerAjax
+          pagerBaseUrl: @pageData.pagerBaseUrl
+          pagerSelected: @pageData.pagerSelected
+          pagerPerPage: @pageData.pagerPerPage
+          pagerTotalCount: @pageData.pagerTotalCount
+          sortRenderCallback: @render
+        },
+        params
+      )
+
     if !@table
       @table = new App.ControllerTable(params)
     else
-      @table.update(objects: objects)
+      @table.update(objects: objects, pagerSelected: @pageData.pagerSelected, pagerTotalCount: @pageData.pagerTotalCount)
 
   edit: (id, e) =>
     e.preventDefault()
@@ -214,7 +273,9 @@ class App.ControllerGenericIndex extends App.Controller
       pageData:      @pageData
       genericObject: @genericObject
       container:     @container
+      small:         @small
       large:         @large
+      veryLarge:     @veryLarge
     )
 
   new: (e) ->
@@ -223,7 +284,9 @@ class App.ControllerGenericIndex extends App.Controller
       pageData:      @pageData
       genericObject: @genericObject
       container:     @container
+      small:         @small
       large:         @large
+      veryLarge:     @veryLarge
     )
 
   import: (e) ->
@@ -243,7 +306,7 @@ class App.ControllerGenericDescription extends App.ControllerModal
   head: 'Description'
 
   content: =>
-    marked(@description)
+    marked(App.i18n.translateContent(@description))
 
   onSubmit: =>
     @close()
@@ -377,8 +440,9 @@ class App.ControllerTabs extends App.Controller
   events:
     'click .nav-tabs [data-toggle="tab"]': 'tabRemember'
 
-  constructor: ->
-    super
+  constructor: (params) ->
+    @originParams = params # remember params for sub-controller
+    super(params)
 
     # check authentication
     if @requiredPermission
@@ -416,7 +480,7 @@ class App.ControllerTabs extends App.Controller
         params.target = tab.target
         params.el = @$("##{tab.target}")
         @controllerList ||= []
-        @controllerList.push new tab.controller(params)
+        @controllerList.push new tab.controller(_.extend(@originParams, params))
 
     # check if tabs need to be show / cant' use .tab(), because tabs are note shown (only one tab exists)
     if @tabs.length <= 1
@@ -446,7 +510,7 @@ class App.ControllerNavSidbar extends App.Controller
     @bind('ui:rerender',
       =>
         @render(true)
-        @updateNavigation(true)
+        @updateNavigation(true, params)
     )
 
   show: (params = {}) =>
@@ -456,7 +520,7 @@ class App.ControllerNavSidbar extends App.Controller
       for key, value of params
         if key isnt 'el' && key isnt 'shown' && key isnt 'match'
           @[key] = value
-    @updateNavigation()
+    @updateNavigation(false, params)
     if @activeController && _.isFunction(@activeController.show)
       @activeController.show(params)
 
@@ -478,7 +542,7 @@ class App.ControllerNavSidbar extends App.Controller
       selectedItem: selectedItem
     )
 
-  updateNavigation: (force) =>
+  updateNavigation: (force, params) =>
     groups = @groupsSorted()
     selectedItem = @selectedItem(groups)
     return if !selectedItem
@@ -487,7 +551,7 @@ class App.ControllerNavSidbar extends App.Controller
     @$('.sidebar li').removeClass('active')
     @$(".sidebar li a[href=\"#{selectedItem.target}\"]").parent().addClass('active')
 
-    @executeController(selectedItem)
+    @executeController(selectedItem, params)
 
   groupsSorted: =>
 
@@ -548,16 +612,14 @@ class App.ControllerNavSidbar extends App.Controller
 
     selectedItem
 
-  executeController: (selectedItem) =>
+  executeController: (selectedItem, params) =>
 
     if @activeController
       @activeController.el.remove()
       @activeController = undefined
 
     @$('.main').append('<div>')
-    @activeController = new selectedItem.controller(
-      el: @$('.main div')
-    )
+    @activeController = new selectedItem.controller(_.extend(params, el: @$('.main div')))
 
   setPosition: (position) =>
     return if @shown
@@ -642,11 +704,17 @@ class App.GenericHistory extends App.ControllerModal
         content = "#{ @T( item.type ) } #{ @T( 'sent to' ) } '#{ item.value_to }'"
       else if item.type is 'received_merge'
         ticket = App.Ticket.find( item.id_from )
-        ticket_link = "<a href=\"#ticket/zoom/#{ item.id_from }\">##{ ticket.number }</a>"
+        ticket_link = if ticket
+                        "<a href=\"#ticket/zoom/#{ item.id_from }\">##{ ticket.number }</a>"
+                      else
+                        item.value_from
         content = "#{ @T( 'Ticket' ) } #{ ticket_link } #{ @T( 'was merged into this ticket' ) }"
       else if item.type is 'merged_into'
         ticket = App.Ticket.find( item.id_to )
-        ticket_link = "<a href=\"#ticket/zoom/#{ item.id_to }\">##{ ticket.number }</a>"
+        ticket_link = if ticket
+                        "<a href=\"#ticket/zoom/#{ item.id_to }\">##{ ticket.number }</a>"
+                      else
+                        item.value_to
         content = "#{ @T( 'This ticket was merged into' ) } #{ @T( 'ticket' ) } #{ ticket_link }"
       else
         content = "#{ @T( item.type ) } #{ @T(item.object) } "
@@ -667,8 +735,10 @@ class App.GenericHistory extends App.ControllerModal
 
         if item.value_to
           if item.value_from
-            content += " #{ @T( 'to' ) }"
+            content += ' &rarr;'
           content += " '#{ App.Utils.htmlEscape(item.value_to) }'"
+        else if item.value_from
+          content += " &rarr; '-'"
 
       newItem.records.push content
 
@@ -740,7 +810,7 @@ class App.Sidebar extends App.Controller
       dir:            App.i18n.dir()
     ))
 
-    # init sidebar badget
+    # init sidebar badge
     for item in itemsLocal
       el = localEl.find('.tabsSidebar-tab[data-tab="' + item.name + '"]')
       if item.badgeCallback

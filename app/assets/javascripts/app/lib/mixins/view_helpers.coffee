@@ -135,7 +135,7 @@ App.ViewHelpers =
     if escalation
       cssClass += ' escalation'
     humanTime = App.PrettyDate.humanTime(time, escalation)
-    "<time class=\"humanTimeFromNow #{cssClass}\" data-time=\"#{time}\" title=\"#{timestamp}\">#{humanTime}</time>"
+    "<time class=\"humanTimeFromNow #{cssClass}\" datetime=\"#{time}\" title=\"#{timestamp}\">#{humanTime}</time>"
 
   # Why not just use `Icon: App.Utils.icon`?
   # Because App.Utils isn't loaded until after this file.
@@ -193,6 +193,7 @@ App.ViewHelpers =
 
   canDownload: (contentType) ->
     contentType = App.Utils.contentTypeCleanup(contentType)
+    return false if contentType is 'application/pdf'
     contentType != 'text/html'
 
   canPreview: (contentType) ->
@@ -228,3 +229,13 @@ App.ViewHelpers =
       className: params.className
       iconset:   params.iconset
     )
+
+  replacePlaceholder: (template, items, encodeLink = false) ->
+    App.Utils.replaceTags(template, items, encodeLink)
+
+  # prints value depending on direction of active locale
+  dir: (ltr, rtl) ->
+    if App.i18n.dir() == 'ltr'
+      ltr
+    else
+      rtl

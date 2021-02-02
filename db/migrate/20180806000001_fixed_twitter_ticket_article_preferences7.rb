@@ -2,7 +2,7 @@ class FixedTwitterTicketArticlePreferences7 < ActiveRecord::Migration[5.0]
   def up
 
     # return if it's a new setup
-    return if !Setting.find_by(name: 'system_init_done')
+    return if !Setting.exists?(name: 'system_init_done')
 
     # find article preferences with Twitter::NullObject and replace it with nill to prevent elasticsearch index issue
     article_type_ids = Ticket::Article::Type.where(name: ['twitter status', 'twitter direct-message']).pluck(:id)
@@ -16,11 +16,11 @@ class FixedTwitterTicketArticlePreferences7 < ActiveRecord::Migration[5.0]
         next if value.class != ActiveSupport::HashWithIndifferentAccess
 
         value.each do |sub_key, sub_level|
-          if sub_level.class == NilClass
+          if sub_level.instance_of?(NilClass)
             value[sub_key] = nil
             next
           end
-          if sub_level.class == Twitter::Place || sub_level.class == Twitter::Geo
+          if sub_level.instance_of?(Twitter::Place) || sub_level.instance_of?(Twitter::Geo)
             value[sub_key] = sub_level.to_h
             changed = true
             next

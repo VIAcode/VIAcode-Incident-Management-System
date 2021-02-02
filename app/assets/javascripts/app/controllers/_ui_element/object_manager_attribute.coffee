@@ -194,9 +194,30 @@ class App.UiElement.object_manager_attribute extends App.UiElement.ApplicationUi
       noFieldset: true
       params: params
     )
+    configureAttributes = [
+      # coffeelint: disable=no_interpolation_in_single_quotes
+      { name: 'data_option::linktemplate', display: 'Link-Template', tag: 'input', type: 'text', null: true, default: '', placeholder: 'https://example.com/?q=#{object.attribute_name} - use ticket, user or organization as object' },
+      # coffeelint: enable=no_interpolation_in_single_quotes
+    ]
+    inputLinkTemplate = new App.ControllerForm(
+      model:
+        configure_attributes: configureAttributes
+      noFieldset: true
+      params: params
+    )
     item.find('.js-inputDefault').html(inputDefault.form)
     item.find('.js-inputType').html(inputType.form)
     item.find('.js-inputMaxlength').html(inputMaxlength.form)
+    item.find('.js-inputLinkTemplate').html(inputLinkTemplate.form)
+
+    item.find("select[name='data_option::type']").on('change', (e) ->
+      value = $(e.target).val()
+      if value is 'url'
+        item.find('.js-inputLinkTemplate').hide()
+      else
+        item.find('.js-inputLinkTemplate').show()
+    )
+    item.find("select[name='data_option::type']").trigger('change')
 
   @datetime: (item, localParams, params) ->
     configureAttributes = [
@@ -311,6 +332,18 @@ class App.UiElement.object_manager_attribute extends App.UiElement.ApplicationUi
         return
       lastSelected = value
     )
+    configureAttributes = [
+      # coffeelint: disable=no_interpolation_in_single_quotes
+      { name: 'data_option::linktemplate', display: 'Link-Template', tag: 'input', type: 'text', null: true, default: '', placeholder: 'https://example.com/?q=#{ticket.attribute_name}' },
+      # coffeelint: enable=no_interpolation_in_single_quotes
+    ]
+    inputLinkTemplate = new App.ControllerForm(
+      model:
+        configure_attributes: configureAttributes
+      noFieldset: true
+      params: params
+    )
+    item.find('.js-inputLinkTemplate').html(inputLinkTemplate.form)
 
   @buildRow: (element, child, level = 0, parentElement) ->
     newRow = element.find('.js-template').clone().removeClass('js-template')

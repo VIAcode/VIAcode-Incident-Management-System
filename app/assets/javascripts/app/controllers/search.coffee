@@ -24,8 +24,6 @@ class App.Search extends App.Controller
     # update taskbar with new meta data
     App.TaskManager.touch(@taskKey)
 
-    @throttledSearch = _.throttle @search, 200
-
     @globalSearch = new App.GlobalSearch(
       render: @renderResult
       limit: 50
@@ -39,10 +37,8 @@ class App.Search extends App.Controller
     )
 
   meta: =>
-    if @query
-      title = App.Utils.htmlEscape(@query)
-    else
-      title = App.i18n.translateInline('Extended Search')
+    title = @query || App.i18n.translateInline('Extended Search')
+
     meta =
       url:   @url()
       id:    ''
@@ -59,9 +55,11 @@ class App.Search extends App.Controller
       @table.show()
     @navupdate(url: '#search', type: 'menu')
     return if _.isEmpty(params.query)
+
     @$('.js-search').val(params.query).trigger('change')
     return if @shown
-    @throttledSearch(true)
+
+    @search(1000, true)
 
   hide: ->
     @shown = false
@@ -102,7 +100,7 @@ class App.Search extends App.Controller
     )
 
     if @query
-      @throttledSearch(true)
+      @search(500, true)
 
   listNavigate: (e) =>
     if e.keyCode is 27 # close on esc
@@ -110,7 +108,7 @@ class App.Search extends App.Controller
       return
 
     # on other keys, show result
-    @throttledSearch(200)
+    @search(0)
 
   empty: =>
     @searchInput.val('')
@@ -120,7 +118,7 @@ class App.Search extends App.Controller
 
     @delayedRemoveAnyPopover()
 
-  search: (force = false) =>
+  search: (delay, force = false) =>
     query = @searchInput.val().trim()
     if !force
       return if !query
@@ -128,7 +126,17 @@ class App.Search extends App.Controller
     @query = query
     @updateTask()
 
-    @globalSearch.search(query: @query)
+    if delay is 0
+      delay = 500
+      if query.length > 2
+        delay = 350
+      else if query.length > 4
+        delay = 200
+
+    @globalSearch.search(
+      delay: delay
+      query: @query
+    )
 
   renderResult: (result = []) =>
     @result = result

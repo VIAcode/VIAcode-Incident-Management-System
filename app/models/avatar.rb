@@ -105,7 +105,7 @@ add avatar by url
 
     # fetch image based on http url
     if data[:url].present?
-      if data[:url].class == Tempfile
+      if data[:url].instance_of?(Tempfile)
         logger.info "Reading image from tempfile '#{data[:url].inspect}'"
         content = data[:url].read
         filename = data[:url].path
@@ -126,10 +126,8 @@ add avatar by url
       elsif data[:url].to_s.match?(%r{^https?://})
         url = data[:url].to_s
 
-        # check if source ist already updated within last 2 minutes
-        if avatar_already_exists&.source_url == url
-          return if avatar_already_exists.updated_at > 2.minutes.ago
-        end
+        # check if source was updated within last 2 minutes
+        return if avatar_already_exists&.source_url == url && avatar_already_exists.updated_at > 2.minutes.ago
 
         # twitter workaround to get bigger avatar images
         # see also https://dev.twitter.com/overview/general/user-profile-images-and-banners
@@ -172,9 +170,7 @@ add avatar by url
         url = data[:url].to_s
 
         # check if source ist already updated within last 3 minutes
-        if avatar_already_exists&.source_url == url
-          return if avatar_already_exists.updated_at > 2.minutes.ago
-        end
+        return if avatar_already_exists&.source_url == url && avatar_already_exists.updated_at > 2.minutes.ago
 
         # fetch image
         image = Service::Image.user(url)

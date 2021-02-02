@@ -108,6 +108,10 @@ class App.UiElement.postmaster_match
             name:     'List-Id'
           },
           {
+            value:    'list-unsubscribe'
+            name:     'List-Unsubscribe'
+          },
+          {
             value:    'list-archive'
             name:     'List-Archive'
           },
@@ -151,6 +155,7 @@ class App.UiElement.postmaster_match
 
     # remove filter
     item.find('.js-remove').bind('click', (e) =>
+      return if $(e.currentTarget).hasClass('is-disabled')
       $(e.target).closest('.js-filterElement').remove()
       @rebuildAttributeSelectors(item)
     )
@@ -172,7 +177,7 @@ class App.UiElement.postmaster_match
       @buildValue(item, elementRow, key, groups, undefined, operator, attribute)
     )
 
-    # build inital params
+    # build initial params
     if _.isEmpty(params[attribute.name])
       item.find('.js-filterElement .js-attributeSelector select').trigger('change')
     else

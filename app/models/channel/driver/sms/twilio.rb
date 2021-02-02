@@ -33,7 +33,7 @@ class Channel::Driver::Sms::Twilio
     Rails.logger.info "Receiving SMS frim recipient #{attr[:From]}"
 
     # prevent already created articles
-    if Ticket::Article.find_by(message_id: attr[:SmsMessageSid])
+    if Ticket::Article.exists?(message_id: attr[:SmsMessageSid])
       return ['application/xml; charset=UTF-8;', Twilio::TwiML::MessagingResponse.new.to_s]
     end
 
@@ -41,10 +41,8 @@ class Channel::Driver::Sms::Twilio
     user = User.where(mobile: attr[:From]).order(:updated_at).first
     if !user
       _from_comment, preferences = Cti::CallerId.get_comment_preferences(attr[:From], 'from')
-      if preferences && preferences['from'] && preferences['from'][0]
-        if preferences['from'][0]['level'] == 'known' && preferences['from'][0]['object'] == 'User'
-          user = User.find_by(id: preferences['from'][0]['o_id'])
-        end
+      if preferences && preferences['from'] && preferences['from'][0] && preferences['from'][0]['level'] == 'known' && preferences['from'][0]['object'] == 'User'
+        user = User.find_by(id: preferences['from'][0]['o_id'])
       end
     end
     if !user

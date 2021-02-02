@@ -23,65 +23,26 @@ class SignupPasswordChangeAndResetTest < TestCase
     )
     set(
       css:   'input[name="password"]',
-      value: 'some-pass',
+      value: 'SOme-pass1',
     )
     set(
       css:   'input[name="password_confirm"]',
-      value: 'some-pass',
+      value: 'SOme-pass1',
     )
     click(css: 'button.js-submit')
 
-    watch_for_disappear(
-      css:     '.signup',
-      timeout: 10,
-    )
-
-    match(
-      css:       '.user-menu .user a',
-      value:     signup_user_email,
-      attribute: 'title',
-    )
-
-    # check email verify
-    location(url: "#{browser_url}#email_verify/not_existing")
     watch_for(
       css:   '#content',
-      value: 'Unable to verify email',
+      value: 'Registration successful!',
     )
-    logout()
 
-    login(
-      username: signup_user_email,
-      password: 'some-pass',
-      url:      "#{browser_url}#email_verify/not_existing2",
-    )
-    watch_for(
-      css:   '#content',
-      value: 'Unable to verify email',
-    )
-    execute(
-      js: 'App.Event.trigger("user_signup_verify", App.Session.get())',
-    )
-    modal_ready()
-    click(css: '.modal .js-submit')
+    # auto login via token trick in dev mode
+    click(css: '.signup .js-submitResend')
 
-    execute(
-      js: 'App.Auth.logout()',
-    )
-    sleep 6
     watch_for(
-      css: '#login',
+      css:   '.content.active',
+      value: 'Welcome!',
     )
-    login(
-      username: signup_user_email,
-      password: 'some-pass',
-    )
-    watch_for(
-      css:   '#content',
-      value: 'Your email address has been verified',
-    )
-    modal_disappear()
-    sleep 2
 
     # change password
     click(css: '.navbar-items-personal .user a')
@@ -109,7 +70,7 @@ class SignupPasswordChangeAndResetTest < TestCase
 
     set(
       css:   'input[name="password_old"]',
-      value: 'some-pass',
+      value: 'SOme-pass1',
     )
     set(
       css:   'input[name="password_new_confirm"]',
@@ -123,11 +84,11 @@ class SignupPasswordChangeAndResetTest < TestCase
 
     set(
       css:   'input[name="password_new"]',
-      value: 'some',
+      value: 'SOme-1',
     )
     set(
       css:   'input[name="password_new_confirm"]',
-      value: 'some',
+      value: 'SOme-1',
     )
     click(css: '.content .btn--primary')
 
@@ -138,11 +99,11 @@ class SignupPasswordChangeAndResetTest < TestCase
 
     set(
       css:   'input[name="password_new"]',
-      value: 'some-pass-new',
+      value: 'SOme-pass-new',
     )
     set(
       css:   'input[name="password_new_confirm"]',
-      value: 'some-pass-new',
+      value: 'SOme-pass-new',
     )
     click(css: '.content .btn--primary')
 
@@ -153,11 +114,11 @@ class SignupPasswordChangeAndResetTest < TestCase
 
     set(
       css:   'input[name="password_new"]',
-      value: 'some-pass-new2',
+      value: 'SOme-pass-new2',
     )
     set(
       css:   'input[name="password_new_confirm"]',
-      value: 'some-pass-new2',
+      value: 'SOme-pass-new2',
     )
     click(css: '.content .btn--primary')
 
@@ -170,12 +131,12 @@ class SignupPasswordChangeAndResetTest < TestCase
     # check login with new pw
     login(
       username: signup_user_email,
-      password: 'some-pass-new2',
+      password: 'SOme-pass-new2',
     )
     logout()
 
     # reset password (not possible)
-    location(url: browser_url + '/#password_reset_verify/not_existing_token')
+    location(url: "#{browser_url}/#password_reset_verify/not_existing_token")
 
     watch_for(
       css:   'body',
@@ -185,11 +146,11 @@ class SignupPasswordChangeAndResetTest < TestCase
     # reset password (with valid session - should not be possible)
     login(
       username: signup_user_email,
-      password: 'some-pass-new2',
+      password: 'SOme-pass-new2',
       url:      browser_url,
     )
 
-    location(url: browser_url + '/#password_reset')
+    location(url: "#{browser_url}/#password_reset")
     sleep 1
 
     match_not(
@@ -208,8 +169,10 @@ class SignupPasswordChangeAndResetTest < TestCase
     click(css: '.content .btn--primary')
     watch_for(
       css:   'body',
-      value: 'address invalid',
+      value: 'sent password reset instructions',
     )
+
+    click(css: '.content .btn--primary')
 
     set(
       css:   'input[name="username"]',
@@ -244,11 +207,11 @@ class SignupPasswordChangeAndResetTest < TestCase
 
     set(
       css:   'input[name="password"]',
-      value: 'some',
+      value: 'SOme-1',
     )
     set(
       css:   'input[name="password_confirm"]',
-      value: 'some',
+      value: 'SOme-1',
     )
     click(css: '.content .btn--primary')
     watch_for(
@@ -258,11 +221,11 @@ class SignupPasswordChangeAndResetTest < TestCase
 
     set(
       css:   'input[name="password"]',
-      value: 'some-pass-new',
+      value: 'SOme-pass-new',
     )
     set(
       css:   'input[name="password_confirm"]',
-      value: 'some-pass-new',
+      value: 'SOme-pass-new',
     )
     click(css: '.content .btn--primary')
     watch_for(
@@ -272,11 +235,11 @@ class SignupPasswordChangeAndResetTest < TestCase
 
     set(
       css:   'input[name="password"]',
-      value: 'some-pass-new2',
+      value: 'SOme-pass-new2',
     )
     set(
       css:   'input[name="password_confirm"]',
-      value: 'some-pass-new2',
+      value: 'SOme-pass-new2',
     )
     click(css: '.content .btn--primary')
     watch_for(

@@ -143,7 +143,7 @@ returns
 
 =end
 
-  def process(payload, channel)
+  def process(_adapter_options, payload, channel)
     @client = TwitterSync.new(channel.options[:auth], payload)
     @client.process_webhook(channel)
   end
@@ -178,7 +178,7 @@ returns
 
         # ignore older messages
         if @sync[:import_older_tweets] != true
-          if (@channel.created_at - 15.days) > tweet.created_at.dup.utc || older_import >= older_import_max
+          if (@channel.created_at - 15.days) > tweet.created_at.dup.utc || older_import >= older_import_max # rubocop:disable Style/SoleNestedConditional
             older_import += 1
             Rails.logger.debug { "tweet to old: #{tweet.id}/#{tweet.created_at}" }
             next
@@ -186,7 +186,7 @@ returns
         end
 
         next if @client.locale_sender?(tweet) && own_tweet_already_imported?(tweet)
-        next if Ticket::Article.find_by(message_id: tweet.id)
+        next if Ticket::Article.exists?(message_id: tweet.id)
         break if @client.tweet_limit_reached(tweet)
 
         @client.to_group(tweet, search[:group_id], @channel)
@@ -202,7 +202,7 @@ returns
     event_time = Time.zone.now
     sleep 4
     12.times do |loop_count|
-      if Ticket::Article.find_by(message_id: tweet.id)
+      if Ticket::Article.exists?(message_id: tweet.id)
         Rails.logger.debug { "Own tweet already imported, skipping tweet #{tweet.id}" }
         return true
       end
@@ -215,7 +215,7 @@ returns
       sleep sleep_time
     end
 
-    if Ticket::Article.find_by(message_id: tweet.id)
+    if Ticket::Article.exists?(message_id: tweet.id)
       Rails.logger.debug { "Own tweet already imported, skipping tweet #{tweet.id}" }
       return true
     end

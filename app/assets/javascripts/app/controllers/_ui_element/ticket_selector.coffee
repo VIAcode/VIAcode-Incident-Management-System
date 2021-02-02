@@ -17,6 +17,10 @@ class App.UiElement.ticket_selector
         name: 'Organization'
         model: 'Organization'
 
+    if attribute.executionTime
+      groups.execution_time =
+        name: 'Execution Time'
+
     operators_type =
       '^datetime$': ['before (absolute)', 'after (absolute)', 'before (relative)', 'after (relative)', 'within next (relative)', 'within last (relative)']
       '^timestamp$': ['before (absolute)', 'after (absolute)', 'before (relative)', 'after (relative)', 'within next (relative)', 'within last (relative)']
@@ -71,21 +75,38 @@ class App.UiElement.ticket_selector
         operator: ['is', 'is not']
 
     for groupKey, groupMeta of groups
-      for row in App[groupMeta.model].configure_attributes
+      if groupKey is 'execution_time'
+        if attribute.executionTime
+          elements['execution_time.calendar_id'] =
+            name: 'calendar_id'
+            display: 'Calendar'
+            tag: 'select'
+            relation: 'Calendar'
+            null: false
+            translate: false
+            operator: ['is in working time', 'is not in working time']
 
-        # ignore passwords and relations
-        if row.type isnt 'password' && row.name.substr(row.name.length-4,4) isnt '_ids' && row.searchable isnt false
-          config = _.clone(row)
-          for operatorRegEx, operator of operators_type
-            myRegExp = new RegExp(operatorRegEx, 'i')
-            if config.tag && config.tag.match(myRegExp)
-              config.operator = operator
-            elements["#{groupKey}.#{config.name}"] = config
-          for operatorRegEx, operator of operators_name
-            myRegExp = new RegExp(operatorRegEx, 'i')
-            if config.name && config.name.match(myRegExp)
-              config.operator = operator
-            elements["#{groupKey}.#{config.name}"] = config
+      else
+        for row in App[groupMeta.model].configure_attributes
+
+          # ignore passwords and relations
+          if row.type isnt 'password' && row.name.substr(row.name.length-4,4) isnt '_ids' && row.searchable isnt false
+            config = _.clone(row)
+            if config.type is 'email' || config.type is 'tel'
+              config.type = 'text'
+            for operatorRegEx, operator of operators_type
+              myRegExp = new RegExp(operatorRegEx, 'i')
+              if config.tag && config.tag.match(myRegExp)
+                config.operator = operator
+              elements["#{groupKey}.#{config.name}"] = config
+            for operatorRegEx, operator of operators_name
+              myRegExp = new RegExp(operatorRegEx, 'i')
+              if config.name && config.name.match(myRegExp)
+                config.operator = operator
+              elements["#{groupKey}.#{config.name}"] = config
+
+            if config.tag == 'select'
+              config.multiple = true
 
     if attribute.out_of_office
       elements['ticket.out_of_office_replacement_id'] =
@@ -140,7 +161,7 @@ class App.UiElement.ticket_selector
         @preview(item)
     )
 
-    # build inital params
+    # build initial params
     if !_.isEmpty(params[attribute.name])
       selectorExists = false
       for groupAndAttribute, meta of params[attribute.name]
@@ -197,6 +218,7 @@ class App.UiElement.ticket_selector
         triggerSearch()
       )
 
+    @disableRemoveForOneAttribute(item)
     item
 
   @preview: (item) ->
@@ -237,6 +259,13 @@ class App.UiElement.ticket_selector
             optgroup.append("<option value=\"#{elementKey}\">#{displayName}</option>")
     selection
 
+  # disable - if we only have one attribute
+  @disableRemoveForOneAttribute: (elementFull) ->
+    if elementFull.find('.js-attributeSelector select').length > 1
+      elementFull.find('.js-remove').removeClass('is-disabled')
+    else
+      elementFull.find('.js-remove').addClass('is-disabled')
+
   @updateAttributeSelectors: (elementFull) ->
 
     # enable all
@@ -249,10 +278,7 @@ class App.UiElement.ticket_selector
     )
 
     # disable - if we only have one attribute
-    if elementFull.find('.js-attributeSelector select').length > 1
-      elementFull.find('.js-remove').removeClass('is-disabled')
-    else
-      elementFull.find('.js-remove').addClass('is-disabled')
+    @disableRemoveForOneAttribute(elementFull)
 
 
   @rebuildAttributeSelectors: (elementFull, elementRow, groupAndAttribute, elements, meta, attribute) ->

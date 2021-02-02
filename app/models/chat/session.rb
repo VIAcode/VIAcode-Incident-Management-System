@@ -7,12 +7,35 @@ class Chat::Session < ApplicationModel
   include Chat::Session::Assets
 
   # rubocop:disable Rails/InverseOf
-  has_many :messages, class_name: 'Chat::Message', foreign_key: 'chat_session_id'
+  has_many   :messages, class_name: 'Chat::Message', foreign_key: 'chat_session_id'
+  belongs_to :user,     class_name: 'User', optional: true
+  belongs_to :chat,     class_name: 'Chat'
   # rubocop:enable Rails/InverseOf
 
   before_create :generate_session_id
 
   store :preferences
+
+  def agent_user
+    return if user_id.blank?
+
+    user = User.lookup(id: user_id)
+    return if user.blank?
+
+    fullname = user.fullname
+    chat_preferences = user.preferences[:chat] || {}
+    if chat_preferences[:alternative_name].present?
+      fullname = chat_preferences[:alternative_name]
+    end
+    url = nil
+    if user.image && user.image != 'none' && chat_preferences[:avatar_state] != 'disabled'
+      url = "#{Setting.get('http_type')}://#{Setting.get('fqdn')}/api/v1/users/image/#{user.image}"
+    end
+    {
+      name:   fullname,
+      avatar: url,
+    }
+  end
 
   def generate_session_id
     self.session_id = Digest::MD5.hexdigest(Time.zone.now.to_s + rand(99_999_999_999_999).to_s)

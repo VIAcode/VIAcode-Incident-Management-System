@@ -9,26 +9,26 @@ class Capybara::Node::Element
   # @param [Integer] checks the number of performed movement checks
   #
   # @example
-  #  find('.clues-close').in_fixed_postion.click
+  #  find('.clues-close').in_fixed_position.click
   # => waits till clues moved to final position and performs click afterwards
   #
   # @raise [RuntimeError] raised in case the element is
   #   still moving after max number of checks was passed
   #
   # @return [Capybara::Node::Element] the element/node
-  def in_fixed_postion(checks: 100)
-
+  def in_fixed_position(checks: 100)
     previous = native.location
-    (checks + 1).times do |check|
-      raise "Element still moving after #{checks} checks" if check == checks
+
+    (checks + 1).times do
+      sleep 0.2
 
       current = native.location
-      sleep 0.2 if ENV['CI']
-      break if previous == current
+
+      return self if previous == current
 
       previous = current
     end
 
-    self
+    raise "Element still moving after #{checks} checks"
   end
 end

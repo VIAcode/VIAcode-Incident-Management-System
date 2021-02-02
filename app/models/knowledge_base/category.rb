@@ -9,21 +9,19 @@ class KnowledgeBase::Category < ApplicationModel
 
   belongs_to :knowledge_base, inverse_of: :categories
 
-  has_many   :answers,  class_name:  'KnowledgeBase::Answer',
-                        foreign_key: :category_id,
-                        inverse_of:  :category,
-                        dependent:   :restrict_with_exception
+  has_many   :answers,  class_name: 'KnowledgeBase::Answer',
+                        inverse_of: :category,
+                        dependent:  :restrict_with_exception
 
   has_many   :children, class_name:  'KnowledgeBase::Category',
                         foreign_key: :parent_id,
                         inverse_of:  :parent,
                         dependent:   :restrict_with_exception
 
-  belongs_to :parent,   class_name:  'KnowledgeBase::Category',
-                        foreign_key: :parent_id,
-                        inverse_of:  :children,
-                        touch:       true,
-                        optional:    true
+  belongs_to :parent,   class_name: 'KnowledgeBase::Category',
+                        inverse_of: :children,
+                        touch:      true,
+                        optional:   true
 
   validates :category_icon, presence: true
 
@@ -95,7 +93,7 @@ class KnowledgeBase::Category < ApplicationModel
   def internal_content?(kb_locale = nil)
     scope = self_with_children_answers.internal
 
-    scope = scope.localed(kb_locale) if kb_locale
+    scope = scope.localed(kb_locale.system_locale) if kb_locale
 
     scope.any?
   end
@@ -124,7 +122,7 @@ class KnowledgeBase::Category < ApplicationModel
   def reordering_callback
     return if !parent_id_changed? && !position_changed?
 
-    # drop siblings cache to make sure orderign is always up to date
+    # drop siblings cache to make sure ordering is always up to date
     sibling_categories.each(&:cache_delete)
   end
   before_save :reordering_callback

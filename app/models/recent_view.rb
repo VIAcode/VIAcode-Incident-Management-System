@@ -6,11 +6,14 @@ class RecentView < ApplicationModel
   # rubocop:disable Rails/InverseOf
   belongs_to :ticket, foreign_key: 'o_id', optional: true
   belongs_to :object, class_name: 'ObjectLookup', foreign_key: 'recent_view_object_id', optional: true
+  belongs_to :created_by, class_name: 'User'
   # rubocop:enable Rails/InverseOf
 
   after_create  :notify_clients
   after_update  :notify_clients
   after_destroy :notify_clients
+
+  association_attributes_ignored :created_by
 
   def self.log(object, o_id, user)
     return if !access(object, o_id, user)
@@ -55,7 +58,7 @@ class RecentView < ApplicationModel
 
       viewable_ticket_ids = Ticket.where('id IN (?) AND state_id in (?)',
                                          recent_views.map(&:o_id),
-                                         Ticket::State.by_category(:viewable_agent_new).pluck(:id))
+                                         Ticket::State.by_category(:viewable_agent_new).pluck(:id)) # rubocop:disable Rails/PluckInWhere
                                   .pluck(:id)
 
       recent_views = recent_views.select { |rv| viewable_ticket_ids.include?(rv.o_id) }
@@ -76,12 +79,11 @@ class RecentView < ApplicationModel
   end
 
   def self.access(object, o_id, user)
-    object.to_s
-          .constantize
-          .try(:lookup, { id: o_id })
-          .try(:access?, user, 'read')
-  rescue NameError
-    false
+    record = object.to_s
+              .safe_constantize
+              .try(:lookup, { id: o_id })
+
+    Pundit.policy(user, record).try(:show?)
   end
 
 =begin

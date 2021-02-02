@@ -1,8 +1,8 @@
 require 'rails_helper'
 
 RSpec.describe 'Time Accounting API endpoints', type: :request do
-  let(:admin)    { create(:admin_user) }
-  let(:customer) { create(:customer_user) }
+  let(:admin)    { create(:admin) }
+  let(:customer) { create(:customer) }
   let(:year)     { Time.current.year }
   let(:month)    { Time.current.month }
 
@@ -61,5 +61,6 @@ RSpec.describe 'Time Accounting API endpoints', type: :request do
         expect(response['Content-Type']).to eq('application/vnd.ms-excel')
       end
     end
+
   end
 end

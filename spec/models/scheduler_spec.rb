@@ -2,29 +2,27 @@ require 'rails_helper'
 
 RSpec.describe Scheduler do
 
-  before do
-    module SpecSpace
-      class DelayedJobBackend
+  let(:test_backend_name) { 'SpecSpace::DelayedJobBackend' }
+  let(:test_backend_class) do
+    Class.new do
+      def self.start
+        # noop
+      end
 
-        def self.start
-          # noop
-        end
+      # rubocop:disable Style/TrivialAccessors
+      def self.reschedule=(reschedule)
+        @reschedule = reschedule
+      end
+      # rubocop:enable Style/TrivialAccessors
 
-        # rubocop:disable Style/TrivialAccessors
-        def self.reschedule=(reschedule)
-          @reschedule = reschedule
-        end
-        # rubocop:enable Style/TrivialAccessors
-
-        def self.reschedule?(_delayed_job)
-          @reschedule || false
-        end
+      def self.reschedule?(_delayed_job)
+        @reschedule || false
       end
     end
   end
 
-  after do
-    SpecSpace.send(:remove_const, :DelayedJobBackend)
+  before do
+    stub_const test_backend_name, test_backend_class
   end
 
   describe '.failed_jobs' do
@@ -69,7 +67,7 @@ RSpec.describe Scheduler do
   describe '.cleanup' do
 
     it 'gets called by .threads' do
-      expect(described_class).to receive(:cleanup).and_throw(:called)
+      allow(described_class).to receive(:cleanup).and_throw(:called)
       expect do
         described_class.threads
       end.to throw_symbol(:called)

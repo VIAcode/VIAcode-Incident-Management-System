@@ -128,7 +128,7 @@ class App.User extends App.Model
 
   @_fillUp: (data) ->
 
-    # set socal media links
+    # set social media links
     if data['accounts']
       for account of data['accounts']
         if account == 'twitter'
@@ -238,7 +238,7 @@ class App.User extends App.Model
               if permission_key.substr(0, length) is requiredPermission.substr(0, length)
                 localAccess = true
 
-        # verify name.explicite permissions
+        # verify name.explicit permissions
         if !localAccess
           for part in parts
             if partString isnt ''
@@ -288,11 +288,11 @@ class App.User extends App.Model
 
   @outOfOfficeTextPlaceholder: ->
     today = new Date()
-    outOfOfficeText = 'Christmas holiday'
+    outOfOfficeText = App.i18n.translateContent('Christmas holiday')
     if today.getMonth() < 3
-      outOfOfficeText = 'Easter holiday'
+      outOfOfficeText = App.i18n.translateContent('Easter holiday')
     else if today.getMonth() < 9
-      outOfOfficeText = 'Summer holiday'
+      outOfOfficeText = App.i18n.translateContent('Summer holiday')
     outOfOfficeText
 
   outOfOfficeText: ->
@@ -303,7 +303,7 @@ class App.User extends App.Model
 
     Checks if requester has given access level on requested.
     Possible access levels are: read, update and delete
-    See backend method User#access?
+    See backend policy UserPolicy
 
     requester = App.User.find(1)
     requested = App.User.find(3)

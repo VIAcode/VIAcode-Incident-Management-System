@@ -2,7 +2,7 @@ class FixedStoreUpgradeRor45 < ActiveRecord::Migration[5.0]
   def up
 
     # return if it's a new setup
-    return if !Setting.find_by(name: 'system_init_done')
+    return if !Setting.exists?(name: 'system_init_done')
 
     Cache.clear
     [Macro, Taskbar, Calendar, Trigger, Channel, Job, PostmasterFilter, Report::Profile, Setting, Sla, Template].each do |class_name|
@@ -34,7 +34,7 @@ class FixedStoreUpgradeRor45 < ActiveRecord::Migration[5.0]
   end
 
   def cleanup(value)
-    if value.class == ActionController::Parameters
+    if value.instance_of?(ActionController::Parameters)
       value = value.permit!.to_h
     end
     return value if value.class != ActiveSupport::HashWithIndifferentAccess && value.class != Hash

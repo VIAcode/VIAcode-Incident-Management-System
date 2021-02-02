@@ -1,7 +1,6 @@
 class Sessions::Backend::Base
 
-  attr_writer :user
-  attr_writer :time_now
+  attr_writer :user, :time_now
 
   def initialize(user, asset_lookup, client, client_id, ttl = 10)
     @user         = user
@@ -10,10 +9,19 @@ class Sessions::Backend::Base
     @ttl          = ttl
     @asset_lookup = asset_lookup
     @last_change  = nil
-    @time_now     = Time.zone.now.to_i
+  end
+
+  def to_run?
+    return true if !@time_now
+    return true if Time.zone.now.to_i > (@time_now + @ttl)
+
+    false
   end
 
   def asset_push(record, assets)
+    if !@time_now
+      @time_now = Time.zone.now.to_i
+    end
     class_name = record.class.to_s
     @asset_lookup[class_name] ||= {}
     @asset_lookup[class_name][record.id] = {

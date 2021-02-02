@@ -29,6 +29,7 @@ module Zammad
       'observer::_session',
       'observer::_ticket::_close_time',
       'observer::_ticket::_last_owner_update',
+      'observer::_ticket::_pending_time',
       'observer::_ticket::_user_ticket_counter',
       'observer::_ticket::_article_changes',
       'observer::_ticket::_article::_fillup_from_origin_by_id',
@@ -49,7 +50,6 @@ module Zammad
       'observer::_user::_ref_object_touch',
       'observer::_user::_ticket_organization',
       'observer::_user::_geo',
-      'observer::_organization::_ref_object_touch',
       'observer::_sla::_ticket_rebuild_escalation',
       'observer::_transaction'
 

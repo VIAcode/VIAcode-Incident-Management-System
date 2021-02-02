@@ -1,6 +1,8 @@
 # content of this tags will also be removed
 Rails.application.config.html_sanitizer_tags_remove_content = %w[
   style
+  comment
+  meta
 ]
 
 # content of this tags will will be inserted html quoted

@@ -4,6 +4,7 @@ $ok-color:        hsl(41,100%,49%);
 $bad-color:       hsl(30,93%,50%);
 $superbad-color:  hsl(19,90%,51%);
 $ghost-color:     hsl(0,0%,80%);
+$danger-color:    hsl(0,65%,55%);
 
 $task-state-closed-color: $supergood-color;
 $task-state-pending-color: hsl(206,7%,28%);
@@ -423,7 +424,7 @@ pre code.hljs {
   &--small {
     padding-top: 5px;
     padding-bottom: 4px;
-    
+
     &.btn--quad {
       padding: 4px 5px;
     }
@@ -469,7 +470,8 @@ pre code.hljs {
     min-width: 0;
 
     .icon {
-      margin: -2px 5px 0 -2px;
+      @include ltr(margin, -2px 5px 0 -2px);
+      @include rtl(margin, -2px -2px 0 5px);
     }
 
     .icon:only-child {
@@ -479,7 +481,7 @@ pre code.hljs {
     &.btn--slim {
       padding-left: 7px !important;
       padding-right: 7px !important;
-      
+
       .btn-label {
         @include bidi-style(margin-left, 0, margin-right, 0);
       }
@@ -491,19 +493,31 @@ pre code.hljs {
     }
 
     &.btn--small {
-      height: 27px;
+      height: 26px;
       font-size: 11px;
       padding-left: 8px;
       padding-right: 8px;
     }
   }
 
+  &-active-icon {
+    display: none;
+  }
+
   &--active {
-    background: hsla(0,0%,0%,.5);
+    background: hsl(204,7%,28%);
     color: white;
-    
+
     &:active {
       background: hsla(0,0%,0%,.55);
+    }
+
+    .btn-inactive-icon {
+      display: none;
+    }
+
+    .btn-active-icon {
+      display: inline;
     }
   }
 
@@ -512,7 +526,7 @@ pre code.hljs {
     background: hsla(200,100%,97%,0.15);
     border-color: hsl(250,7%,16%);
     color: white;
-    
+
     .icon {
       opacity: 1;
     }
@@ -521,7 +535,7 @@ pre code.hljs {
   // used in the sidebar
   &--onWhite {
     background: hsl(0,0%,98%);
-    
+
     &:active {
       background: hsl(0,0%,96%);
     }
@@ -530,9 +544,11 @@ pre code.hljs {
   &--primary {
     color: white;
     background: hsl(203,65%,55%);
+
     &:active {
       background: hsl(203,65%,45%);
     }
+
     .icon {
       fill: white;
       opacity: 1;
@@ -569,15 +585,15 @@ pre code.hljs {
 
   &--danger {
     color: white;
-    background: hsl(0,65%,55%);
-    
+    background: $danger-color;
+
     &:active {
-      background: hsl(0,65%,45%);
+      background: darken($danger-color, 10%);
     }
 
     &.btn--secondary {
       background: white;
-      color: hsl(0,65%,55%);
+      color: $danger-color;
 
       &:active {
         background: hsl(0,0%,98%);
@@ -610,7 +626,10 @@ pre code.hljs {
 
     .icon {
       opacity: 1;
-      margin-right: 6px;
+      @include ltr(margin-right, 6px);
+      @include ltr(margin-left, -2px);
+      @include rtl(margin-right, -2px);
+      @include rtl(margin-left, 6px);
       width: 16px;
       max-height: 16px;
       object-fit: contain;
@@ -640,7 +659,7 @@ pre code.hljs {
     }
 
     &.btn--danger {
-      color: hsl(0,65%,55%);
+      color: $danger-color;
 
       &:active {
         color: hsl(0,65%,40%);
@@ -726,7 +745,7 @@ pre code.hljs {
 .vertical > .btn:not(.hidden) + .btn {
   @include bidi-style(margin-left, 0, margin-right, 0);
   margin-top: 10px;
-  
+
   &--text {
     @include bidi-style(margin-left, -10px, margin-right, -10px);
     margin-top: 0;
@@ -810,12 +829,12 @@ pre code.hljs {
 
   .btn {
     &:not(:first-child) {
-      border-top-left-radius: 0;  
-      border-bottom-left-radius: 0;  
+      border-top-left-radius: 0;
+      border-bottom-left-radius: 0;
     }
 
     &:not(:last-child) {
-      border-top-right-radius: 0;  
+      border-top-right-radius: 0;
       border-bottom-right-radius: 0;
       border-right-width: 0;
     }
@@ -889,6 +908,23 @@ pre code.hljs {
 
 .status-fields {
   display: flex;
+  max-width: 100%;
+
+  .dropdown li {
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+  }
+
+  .dropdown-menu .status-badge {
+    margin-left: 10px;
+  }
+
+  .dropdown-menu .badge {
+    margin-top: -2px;
+    margin-right: 7px;
+    background: hsla(0,0%,0%,.5);
+  }
 }
 
 .status-field {
@@ -896,20 +932,21 @@ pre code.hljs {
   border: 1px solid hsl(0,0%,90%);
   display: flex;
   height: 34px;
+  flex-shrink: 1;
+  min-width: 20px;
+  padding: 5px 0;
   align-items: center;
-  line-height: 35px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
 
-  &.is-clickable {
+  &.is-active {
     background: hsl(203,65%,55%);
     color: white;
     border-color: hsl(203,65%,45%);
     box-shadow: 1px 0 hsl(203,65%,45%);
     position: relative;
     @extend %clickable;
-  }
-
-  &.is-blinking {
-    animation: pulsate 667ms ease-in-out infinite alternate;
   }
 
   &:not(:last-child):not(:only-child) {
@@ -919,6 +956,12 @@ pre code.hljs {
   &:first-child {
     border-radius: 5px 0 0 5px;
     @include rtl(border-radius, 0 5px 5px 0);
+
+    .dropdown.open & {
+      border-radius: 5px 0 0 0;
+
+      @include rtl(border-radius, 0 5px 0 0);
+    }
   }
 
   &:last-child {
@@ -931,7 +974,7 @@ pre code.hljs {
   }
 
   .badge {
-    @include bidi-style(margin, 0 5px 0 10px, margin, 0 10px 0 5px);
+    @include bidi-style(margin, 0 7px 0 10px, margin, 0 10px 0 7px);
     background: hsla(210,50%,10%,.24);
   }
 
@@ -941,6 +984,22 @@ pre code.hljs {
     align-items: center;
     justify-content: center;
     align-self: stretch;
+  }
+
+  &--arrow {
+    @extend %clickable;
+    border-left: none;
+    width: 34px;
+    justify-content: center;
+
+    .icon {
+      fill: currentColor;
+    }
+  }
+
+  &--spacer {
+    padding-left: 16px;
+    padding-right: 2px;
   }
 }
 
@@ -1099,6 +1158,10 @@ table {
 .table-column-head {
   display: flex;
   @extend %clickable;
+
+  &-unclickable {
+    cursor: default;
+  }
 }
 
 .table-column-sortIcon {
@@ -1117,7 +1180,7 @@ th.align-right {
 .table > tbody > tr > td {
   padding: 10px 10px 8px;
   border-color: hsl(0,0%,95%);
-  
+
   &.no-side-padding {
     padding-left: 0;
     padding-right: 0;
@@ -1185,8 +1248,13 @@ th.align-right {
   }
 
   .avatar {
+    opacity: 0.5;
+  }
+
+  .avatar--unique {
     background: hsl(120,1%,86%);
     text-shadow: none;
+    opacity: initial;
   }
 }
 
@@ -1250,7 +1318,7 @@ td .icon-trash {
   justify-content: center;
   position: relative;
   @extend .u-clickable;
-  
+
   > .icon {
     vertical-align: middle;
     margin-top: -2px;
@@ -1335,7 +1403,7 @@ td .icon-trash {
   input:focus ~ .icon-unchecked {
     border-radius: 100%;
   }
-  
+
   > .icon {
     margin-top: -3px;
   }
@@ -1345,7 +1413,7 @@ td .icon-trash {
 .table .radio-replacement {
   height: 40px;
   width: 40px;
-  
+
   &.checkbox-replacement--fullscreen {
     width: 100%;
     height: 100%;
@@ -1495,7 +1563,7 @@ label,
 .checkbox.form-group label,
 .label {
   text-transform: uppercase;
-  color: hsl(198,19%,72%);
+  color: hsl(198,15%,69%);
   display: block;
   font-size: 13px;
   font-weight: normal;
@@ -1504,7 +1572,7 @@ label,
   text-align: start;
   padding: 0;
   /* user-select: none; disabled because of chrome51 https://github.com/martini/zammad/issues/183 */
-  
+
   h2 & {
     color: inherit !important;
     font-size: inherit;
@@ -1608,6 +1676,18 @@ https://stackoverflow.com/questions/17408815/fieldset-resizes-wrong-appears-to-h
 */
 @-moz-document url-prefix() {
   fieldset { display: table-cell; }
+}
+
+.form-field-group {
+  padding: 20px;
+  background: hsl(0,0%,97%);
+  --background: hsl(0,0%,97%);
+  border-radius: 4px;
+  margin-bottom: 16px;
+
+  > .form-group:last-child {
+    margin-bottom: 0;
+  }
 }
 
 fieldset > .form-group {
@@ -1745,7 +1825,7 @@ fieldset > .form-group {
   position: relative;
   display: flex;
   align-items: center;
-  
+
   h2 & {
     padding: 0;
     margin: 0;
@@ -1840,7 +1920,7 @@ fieldset > .form-group {
 .controls-label {
   margin: 11px 10px 0;
   flex-shrink: 0;
-  
+
   .form-control--small + & {
     margin-top: 7px;
   }
@@ -1934,6 +2014,10 @@ input[type=url] {
   min-width: 400px;
 }
 
+.sidebar-content input[type=url] {
+  min-width: inherit;
+}
+
 .user-select.form-control {
   padding-right: 35px;
   min-width: 300px;
@@ -2003,7 +2087,7 @@ input.time.time--12 {
 
 textarea.form-control {
   height: 118px;
-  
+
   &[rows] {
     height: auto;
   }
@@ -2102,10 +2186,20 @@ input.has-error {
 
 .controls--button {
   display: flex;
+  flex-wrap: wrap;
+
+  .controls {
+    flex: 1;
+  }
+
+  .help-inline,
+  .help-block {
+    flex-basis: 100%;
+  }
 
   input,
   .form-control {
-    flex: 1;
+    flex: 1 1 0%;
     @include bidi-style(border-right-width, 0, border-left-width, 1px);
     @include bidi-style(border-top-right-radius, 0, border-top-left-radius, 3px);
     @include bidi-style(border-bottom-right-radius, 0, border-bottom-left-radius, 3px);
@@ -2154,6 +2248,14 @@ input.has-error {
   position: relative;
   border: 1px solid hsl(0, 0%, 90%);
   @include bidi-style(border-radius, 0 3px 3px 0, border-radius, 3px 0 0 3px);
+
+  .icon {
+    fill: hsl(0,0%,61%);
+  }
+
+  &:hover .icon {
+    fill: hsl(0,0%,33%);
+  }
 }
 
 .searchfield {
@@ -2244,7 +2346,7 @@ input.has-error {
   align-items: center;
   justify-content: center;
   flex: 1;
-  
+
   .icon {
     @include bidi-style(margin-right, 14px, margin-left, 0);
   }
@@ -2269,7 +2371,7 @@ input.has-error {
 
 .fullscreenMessage--placeholder {
   flex-direction: column;
-  
+
   .icon {
     width: 100px;
     height: 100px;
@@ -2406,19 +2508,49 @@ input.has-error {
   }
 }
 
+.kb-menu-preview {
+  margin-bottom: 1em;
+
+  &-container {
+    display: flex;
+    justify-content: flex-end;
+    border: 1px solid hsl(213,14%,91%);
+
+    &--footer {
+      justify-content: center;
+    }
+  }
+
+  a, span {
+    font-size: 14px;
+    padding: .5em 1em;
+    white-space: nowrap;
+    text-decoration: none;
+    line-height: 2em;
+  }
+
+  a {
+    color: hsl(206,8%,50%);
+  }
+
+  .label {
+    text-transform: none;
+  }
+}
+
 .modified-icon {
   position: relative;
   line-height: 1;
   display: block;
-  
+
   .nav-pills > li > a & {
     align-self: center;
   }
-  
+
   .icon {
     fill: currentColor;
   }
-  
+
   .modified-icon-modifier {
     bottom: 0;
     right: 0;
@@ -2426,7 +2558,7 @@ input.has-error {
     z-index: 1;
     fill: white;
     margin: 0 -2px -1px 0;
-      
+
     .nav-pills > li:hover > a & {
       fill: #f2f2f3;
     }
@@ -2694,7 +2826,7 @@ kbd {
 }
 
 .login {
-  padding: 24px 24px 97px;
+  padding: 24px;
   color: hsl(212,8%,40%);
 
   a {
@@ -2760,13 +2892,9 @@ kbd {
   align-items: center;
   justify-content: center;
   color: hsl(233,7%,26%);
-  margin: auto 0 34px -16px;
-  @include rtl(margin, auto -16px 34px 0);
+  margin: 34px 0 10px -16px;
+  @include rtl(margin, 34px -16px 10px 0);
   cursor: default;
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
 
   .icon-logo {
     @include bidi-style(margin-right, 8px, margin-left, 0);
@@ -2782,10 +2910,14 @@ kbd {
 
 .fullscreen {
   @extend .fit;
-  display: table;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   width: 100%;
   height: 100%;
   min-height: 100vh;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .fullscreen p {
@@ -2793,9 +2925,7 @@ kbd {
 }
 
 .fullscreen-center {
-  display: table-cell;
-  vertical-align: middle;
-  text-align: center;
+  margin: auto;
 }
 
 .fullscreen-body {
@@ -2927,6 +3057,10 @@ ol.tabs li {
 
     .tab {
       flex: none;
+
+      &:nth-last-child(2) {
+        @include bidi-style(border-right-width, 0, border-right-width, 1px);
+      }
     }
   }
 
@@ -2998,7 +3132,7 @@ ol.tabs li {
   flex-wrap: wrap;
   justify-content: space-between;
   margin-bottom: -10px;
-  
+
   > form {
     width: calc(33.33% - 6px);
   }
@@ -3063,6 +3197,14 @@ ol.tabs li {
     background: hsl(0,0%,27%);
   }
 
+  &.auth-provider--saml {
+    background: hsl(0,0%,27%);
+  }
+
+  &.auth-provider--sso {
+    background: #454545;
+  }
+
   .provider-name {
     flex: 1;
   }
@@ -3108,7 +3250,7 @@ ol.tabs li {
 .icon-arrow-right {
   fill: black;
   opacity: 0.39;
-  
+
   .btn--action & {
     opacity: 1;
   }
@@ -3148,7 +3290,7 @@ ol.tabs li {
 
 .icon-draggable {
   opacity: .3;
-  
+
   .table-draggable & {
     vertical-align: middle;
   }
@@ -3263,6 +3405,10 @@ ol.tabs li {
   fill: white;
 }
 
+.icon-sso-button {
+  fill: white;
+}
+
 
 /*
  * removed margin of forms to not break the layout with submit buttons within <form></form> area e. g. for modal dialogs
@@ -3278,7 +3424,7 @@ ol.tabs li {
     display: flex;
     flex-wrap: wrap;
     align-items: flex-end;
-    
+
     .alert {
       flex-basis: 100%;
     }
@@ -3287,7 +3433,7 @@ ol.tabs li {
       flex: 1 1 auto;
       margin-right: 6px;
     }
-    
+
     .form-group:last-child {
       margin-bottom: 0;
     }
@@ -3307,7 +3453,7 @@ ol.tabs li {
     width: calc(100% + 20px);
     margin-left: -10px;
     margin-right: -10px;
-    
+
     fieldset {
       flex-basis: 100%;
       display: flex;
@@ -3697,16 +3843,16 @@ footer {
   .call-widget {
     background: hsl(228,17%,91%);
     padding: 8px 10px;
-    
+
     & + & {
       border-top: 1px solid hsl(228,10%,81%);
     }
-    
+
     &-header {
       display: flex;
       color: inherit;
       margin-bottom: 3px;
-      
+
       .label {
         color: inherit;
         margin: 0;
@@ -3715,7 +3861,7 @@ footer {
       .btn--text {
         color: inherit;
         opacity: .5;
-        
+
         &:hover {
           opacity: 1;
         }
@@ -3750,7 +3896,7 @@ footer {
       padding: 0;
       margin-bottom: 9px;
       display: flex;
-      
+
       .icon-holder .icon {
         width: 16px;
         height: 16px;
@@ -3974,7 +4120,7 @@ footer {
 .state-badge {
   display: flex;
   align-items: center;
-  
+
   .icon-task-state {
     @include bidi-style(margin-right, 2px, margin-left, 0);
   }
@@ -4145,7 +4291,7 @@ footer {
     padding: 9px 15px 8px 0;
     margin-bottom: 7px;
     height: auto !important;
-    
+
     .no-match & {
       display: none;
     }
@@ -4529,7 +4675,7 @@ footer {
 
   &-header {
     margin-bottom: 7px;
-    
+
     h2 {
       margin: 0;
     }
@@ -4633,7 +4779,7 @@ footer {
 
     &:first-child {
       @include bidi-style(margin-right, 5px, margin-left, 0);
-    
+
       &[data-font] {
         @include bidi-style(margin-right, 10px, margin-left, 0);
         @include bidi-style(margin-left, 5px, margin-right, 0);
@@ -4708,7 +4854,7 @@ footer {
   .popover-content {
     padding: 0 17px;
     margin-bottom: 21px;
-    
+
     .popover--has-horizontal-form & {
       padding: 10px 5px 15px 15px;
       margin-bottom: 0;
@@ -4957,6 +5103,7 @@ footer {
 .ok-color        { fill: $ok-color; }
 .bad-color       { fill: $bad-color; }
 .superbad-color  { fill: $superbad-color; }
+.danger-color    { color: $danger-color; }
 
 .stat-widgets {
   margin: -7px -7px 20px;
@@ -4964,7 +5111,7 @@ footer {
 
   .stat-widget {
     height: 200px;
-    padding: 13px;
+    padding: 10px 10px 8px;
     text-align: center;
     line-height: 20px;
   }
@@ -4985,7 +5132,7 @@ footer {
       font-weight: normal;
       position: relative;
       padding: 0 24px;
-      
+
       .tooltip {
         text-transform: none;
         width: 200px;
@@ -5000,12 +5147,12 @@ footer {
       cursor: help;
     }
 
-    .stat-widget .stat-label {
+    .stat-label {
       color: #444a4f;
       @extend .u-textTruncate;
     }
 
-    .stat-widget .stat-detail {
+    .stat-detail {
       color: #b4b7b9;
       @extend .u-textTruncate;
     }
@@ -5042,11 +5189,16 @@ footer {
 
 .stats-row {
   padding: 8px 0 7px;
-  margin-bottom: -7px;
   border-radius: 3px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  flex: 0 1 38px;
+  height: 100%;
+
+  .icon {
+    display: block;
+  }
 }
 
 .stats-row:hover {
@@ -5054,28 +5206,30 @@ footer {
 }
 
   .stats-row .stat-bars {
-    height: 73px;
-    margin: 16px 0 15px;
-    padding: 2px 12px;
+    flex: 1;
+    margin: 10px 0 13px;
+    padding: 2px 5px;
     width: 100%;
     background: linear-gradient(to top, #f2f2f3, #f2f2f3 1px, transparent 1px);
     background-position: center bottom;
     background-size: 100% 12px;
     display: flex;
     align-items: flex-end;
+    justify-content: center;
   }
 
   .stat-bars .stat-bar {
     border-radius: 5px;
-    width: 10px;
+    max-width: 10px;
+    flex: 1;
     color: #a9bcc4;
     background: #a9bcc4;
-  }
 
-  .stat-widget .secondary {
-    opacity: .38;
-    color: #a9bcc4;
-    background: #a9bcc4;
+    &--outbound {
+      opacity: .38;
+      color: #a9bcc4;
+      background: #a9bcc4;
+    }
   }
 
   .stat-legend {
@@ -5099,6 +5253,17 @@ footer {
     border-radius: 100%;
     display: inline-block;
   }
+
+.ticket_channel_distribution {
+  .stat-graphic {
+    align-items: stretch;
+  }
+
+  .stats-row {
+    margin-bottom: -4px;
+    position: relative;
+  }
+}
 
 .frequency.stat-widget {
   .stat-bars {
@@ -5260,7 +5425,7 @@ footer {
     position: relative;
     height: 60px;
     flex: 1 1 auto;
-    
+
     &.datetime {
       min-width: 140px;
       overflow: visible; // datepicker popup needs to be visible
@@ -5538,11 +5703,62 @@ footer {
       vertical-align: top;
       margin: 2px 3px 0 0;
       @include rtl(margin, 2px 0 0 3px);
+
+      &.icon-lock {
+        margin: 0;
+      }
     }
 
     .article-meta .text-muted {
       color: #96969b;
     }
+
+  .article-meta-permanent {
+    margin: 0 55px;
+
+    + .article-content .textBubble {
+      border-top-left-radius: 0;
+      border-top-right-radius: 0;
+      border-top-width: 0;
+    }
+
+    .alert {
+      margin-bottom: 0;
+      padding-left: 20px;
+      padding-right: 20px;
+      border-radius: 0;
+      box-shadow: 0 0 0 1px inset hsla(0,0%,0%,.04);
+
+      &:first-child {
+        border-top-left-radius: 2px;
+        border-top-right-radius: 2px;
+      }
+
+      &--blank {
+        background: hsl(212,14%,99%);
+        color: hsl(198,16%,70%);
+
+        .customer.ticket-article-item & {
+          background: hsl(201,43%,96%);
+          border-color: hsl(203,38%,92%);
+        }
+      }
+
+      .icon {
+        fill: currentColor;
+        margin: 2px 6px 0 0;
+        vertical-align: top;
+        width: 14px;
+        height: 14px;
+      }
+
+      .icon-lock {
+        margin-top: 1px;
+        width: 16px;
+        height: 16px;
+      }
+    }
+  }
 
   .internal-border {
     padding: 5px;
@@ -5653,7 +5869,7 @@ footer {
 
     .bubble-arrow {
       position: absolute;
-      width: 7px;
+      width: 6px;
       height: 9px;
       left: -6px;
       top: 15px;
@@ -5664,7 +5880,7 @@ footer {
       content: "";
       position: absolute;
       top: -1px;
-      left: 2px;
+      left: 1px;
       width: 11px;
       height: 11px;
       background: white;
@@ -5700,7 +5916,7 @@ footer {
       font-weight: 500;
       text-transform: uppercase;
       padding: 0 7px;
-      
+
       .badge {
         margin: -1px 0 0 5px;
       }
@@ -5786,7 +6002,7 @@ footer {
     margin: 5px;
     display: none;
     @extend .fit;
-    
+
     &--small {
       margin: 0;
       font-size: inherit;
@@ -6235,13 +6451,13 @@ footer {
       left: 0;
       bottom: 0;
     }
-      
+
     .attachmentUpload--standalone {
       position: relative;
       margin-bottom: 7px;
       padding-bottom: 2px;
       box-shadow: 0 -4px hsl(0,0%,90%) inset;
-      
+
       &:last-child {
         margin-bottom: 0;
       }
@@ -6566,10 +6782,16 @@ footer {
   border-radius: 3px;
   color: white;
   border: none;
+  background: hsla(0,0%,0%,.3);
 
   .icon {
     @include bidi-style(margin-right, 10px, margin-left, 0);
     fill: currentColor;
+  }
+
+  .btn {
+    background: hsla(0,0%,0%,.2);
+    color: inherit;
   }
 
   &--info {
@@ -6583,6 +6805,10 @@ footer {
   &--warning {
     color: hsl(45,98%,17%);
     background: hsl(45,98%,63%);
+
+    .btn {
+      background: hsla(0,0%,100%,.2);
+    }
   }
 
   &--danger {
@@ -6591,6 +6817,15 @@ footer {
 
   &--square {
     border-radius: 0;
+  }
+
+  .btn {
+    margin-top: -4px;
+    margin-bottom: -5px;
+
+    &:last-child {
+      margin-right: -5px;
+    }
   }
 }
 
@@ -6958,7 +7193,7 @@ footer {
 
 /* allow/show autocomplete in modal dialog */
 .ui-autocomplete.ui-widget-content {
-  @extend .zIndex-8;
+  @extend .zIndex-9;
   position: absolute;
   max-height: 380px;
   overflow: auto;
@@ -7121,6 +7356,11 @@ footer {
 
 .modal {
   @extend .zIndex-10;
+
+  &-loader {
+    text-align: center;
+    padding: 70px;
+  }
 }
 
 .modal-dialog {
@@ -7275,7 +7515,6 @@ footer {
   .dropdown-icon {
     width: 16px;
     height: 16px;
-    opacity: 0.39;
   }
 
   .dropdown-menu.dropdown-menu--light {
@@ -7336,7 +7575,7 @@ footer {
 
   .dropdown-menu > li.danger:hover,
   .dropdown-menu > li.danger.is-active {
-    background: hsl(0,65%,55%);
+    background: $danger-color;
   }
 
   .dropdown-menu > li.create:hover,
@@ -7346,6 +7585,12 @@ footer {
 
   .dropdown-menu > li[disabled] {
     opacity: 0.33;
+
+    &:hover,
+    &.is-active {
+      background: none;
+      cursor: default;
+    }
   }
 
   .dropdown-menu > li > a {
@@ -7364,7 +7609,7 @@ footer {
     display: block;
   }
 
-  .dropdown-menu .badge {
+  .dropdown-menu .badge--text {
     @include bidi-style(padding-left, 10px, padding-right, 0);
   }
 
@@ -7613,7 +7858,7 @@ footer {
 .radio {
   font-size: 14px;
   padding: 0 6px;
-  
+
   .form-group & {
     padding: 0 6px;
     list-style: none;
@@ -7633,7 +7878,7 @@ footer {
     padding-left: 0;
     min-height: 0;
   }
-  
+
   > label,
   &-child {
     margin-top: 5px;
@@ -7643,7 +7888,7 @@ footer {
     text-transform: inherit;
     letter-spacing: 0;
     line-height: 1.2;
-    
+
     &:first-child {
       margin-top: 0;
     }
@@ -7651,22 +7896,22 @@ footer {
     &.is-disabled {
       cursor: default;
       touch-action: default;
-      
+
       span {
         opacity: .33;
       }
     }
-    
+
     &.additional-radio-controls {
       margin-top: 0;
-      
+
       .controls {
         display: inline-flex;
         margin-left: 5px;
       }
     }
   }
-  
+
   &-child {
     padding-left: 20px;
   }
@@ -7698,7 +7943,7 @@ footer {
     text-transform: inherit;
     letter-spacing: 0;
     line-height: 1.2;
-    
+
     &:first-child {
       margin-top: 0;
     }
@@ -7706,13 +7951,13 @@ footer {
     &.is-disabled {
       cursor: default;
       touch-action: default;
-      
+
       span {
         opacity: .33;
       }
     }
   }
-  
+
   &-child {
     padding-left: 20px;
   }
@@ -7772,7 +8017,7 @@ footer {
     width: 100%;
     padding-bottom: 100%;
     position: relative;
-    
+
     img {
       width: 100%;
       height: 100%;
@@ -7788,7 +8033,7 @@ footer {
       ~ .label-box {
         border-color: hsl(200,71%,59%);
         box-shadow: 0 0 0 3px hsl(201,62%,90%);
-        
+
         .icon-checked {
           display: inline;
         }
@@ -7877,9 +8122,37 @@ footer {
   }
 }
 
+.or-divider {
+  position: relative;
+  margin: 16px 0;
+  text-align: center;
+
+  &:before {
+    content: "";
+    position: absolute;
+    left: 0;
+    width: 100%;
+    top: 50%;
+    margin-top: -1px;
+    height: 1px;
+    background: hsla(0,0%,0%,.1);
+  }
+
+  span {
+    position: relative;
+    background: white;
+    background: var(--background, white);
+    padding: 0 10px;
+  }
+}
+
 .settings-entry {
   margin-bottom: 42px;
   max-width: 700px;
+
+  &--stretched {
+    max-width: none;
+  }
 }
 
 .setting-controls {
@@ -8284,7 +8557,7 @@ label + .wizard-buttonList {
 .fileUpload {
   position: relative;
   overflow: hidden;
-  
+
   &.btn input:focus + label {
     text-decoration: none;
   }
@@ -8554,7 +8827,6 @@ label + .wizard-buttonList {
 
 .horizontal-filter {
   display: flex;
-  align-items: center;
   background: hsl(197,20%,93%);
   padding: 7px;
   border: 1px solid hsl(198,19%,86%);
@@ -8597,12 +8869,28 @@ label + .wizard-buttonList {
   input[type=text] {
     width: auto;
   }
+
+  input[data-item=time] {
+    width: 4.5ch;
+  }
 }
 
 .horizontal-filter-body {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
   flex: 1;
+}
+
+.horizontal-filter-group {
+  padding: 10px;
+  background: hsl(109,0%,97%);
+  border: 1px solid hsl(201,19%,86%);
+  border-radius: 5px;
+  margin: 0 5px;
+
+  > .form-group:last-child {
+    margin-bottom: 0;
+  }
 }
 
 .horizontal-filter-value {
@@ -8748,7 +9036,7 @@ output {
 
 .filter-controls {
   display: flex;
-  align-items: center;
+  margin-top: 5.5px;
 }
 
 .filter-control {
@@ -8920,7 +9208,7 @@ output {
 
   .ui-sortable-placeholder {
     visibility: visible !important;
-    
+
     td {
       background: none;
       border-left-width: 0;
@@ -9005,7 +9293,7 @@ output {
 
   .settings-list-control-cell {
     padding: 5px;
-    
+
     .btn--text {
       margin: -5px;
     }
@@ -9207,7 +9495,23 @@ output {
     }
   }
 
-  .action-flow {
+  &--placeholder {
+    padding: 30px;
+    align-items: center;
+    justify-content: center;
+    color: hsl(206,9%,69%);
+    box-shadow: none;
+    background: none;
+    border-style: dashed;
+    font-style: italic;
+  }
+
+  &-alert {
+    width: calc(100% + 20px);
+    margin: -10px -10px 10px;
+  }
+
+  &-flow {
     display: flex;
     flex-wrap: wrap;
 
@@ -9220,7 +9524,7 @@ output {
     }
   }
 
-  .action-separator {
+  &-separator {
     width: 1px;
     background: hsl(0,0%,97%);
     margin: 0 10px;
@@ -9233,15 +9537,15 @@ output {
 
   h2 {
     margin-bottom: 0;
-    
+
     .action-form-status .icon {
       margin-top: 0;
     }
   }
 
-  .action-block,
-  .action-controls,
-  .action-row {
+  &-block,
+  &-controls,
+  &-row {
     padding: 10px;
 
     h2:first-child,
@@ -9250,22 +9554,26 @@ output {
     }
   }
 
-  .action-block {
+  &-block {
     &.action-block--flex {
       flex: 1;
     }
   }
 
-  .action-row {
+  &-row {
     flex-basis: 100%;
   }
 
   h3 {
     color: hsl(0,0%,60%);
     margin-top: 0;
+
+    + .btn--text {
+      margin-bottom: -4px;
+    }
   }
 
-  .action-label {
+  &-label {
     background: hsl(197,20%,93%);
     border: 1px solid hsl(197,20%,88%);
     align-self: flex-start;
@@ -9276,7 +9584,7 @@ output {
     cursor: default;
   }
 
-  .action-flow-icon {
+  &-flow-icon {
     width: 15px;
     height: 24px;
     margin-top: 16px; /* compensate for h3 height */
@@ -9285,7 +9593,7 @@ output {
     fill: hsl(198,17%,89%);
   }
 
-  .action-controls {
+  &-controls {
     display: flex;
     @include bidi-style(margin-left, auto, margin-right, 0);
     align-self: flex-end;
@@ -9331,6 +9639,7 @@ output {
 
   th {
     background: none;
+    font-weight: bold;
   }
 
   th, td {
@@ -9360,6 +9669,7 @@ output {
     font-size: 12px;
     padding: 5px 5px 0;
     text-align: center;
+    vertical-align: inherit;
   }
 
   .day {
@@ -9367,6 +9677,8 @@ output {
     height: 26px;
     border-radius: 14px;
     padding: 1px 0 0 !important;
+    background-color: inherit;
+    vertical-align: inherit;
   }
 
   .month,
@@ -9760,32 +10072,82 @@ output {
 
 .browser {
   margin: 0 0 20px;
-  border: 1px solid hsl(0,0%,90%);
-  border-radius: 5px;
   position: relative;
-  transition: 500ms;
-  width: 100%;
+
+  &[data-size] {
+    padding-bottom: 65%; // 16:10 aspect ratio;
+
+    .browser-ratio {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      left: 0;
+      top: 0;
+      transition: 500ms;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .browser-body {
+      padding: 0;
+    }
+  }
+
+  &[data-size="mobile"] .browser-ratio {
+    width: 375px;
+  }
+
+  &-ratio {
+    border: 1px solid hsl(0,0%,90%);
+    border-radius: 5px;
+  }
+}
+
+@media screen and (min-width: #{1280 + $sidebarWidth + $navigationWidth}) {
+  // hide 1:1 button when it gets inrelevant
+  [data-size="1:1"] {
+    display: none;
+  }
+
+  .browser[data-size="mobile"] .browser-ratio {
+    width: 500px;
+  }
 }
 
 .browser-body {
+  flex: 1;
   position: relative;
   overflow: hidden;
-  height: 450px;
-  width: 100%;
+  padding: 20px;
+
+  &-inner {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+  }
 
   .browser-website {
     position: relative;
     height: 100%;
-    transform-origin: left top;
+    transform-origin: right bottom;
+    transition: 500ms;
     overflow: hidden;
 
     &.is-picking {
       cursor: image_url("/assets/images/eyedropper.gif") 0 15, auto;
     }
-  }
 
-  img {
-    vertical-align: bottom;
+    &-background {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: left top;
+    }
   }
 }
 
@@ -9955,17 +10317,17 @@ output {
   padding: 0;
   line-height: 22px;
 
-  .columnSelect-shadow {
+  &-shadow {
     display: none;
   }
 
-  .columnSelect-column--selected {
+  &-column--selected {
     flex: 1 1 66%;
     overflow: auto;
     padding: 7px;
   }
 
-  .columnSelect-column--sidebar {
+  &-column--sidebar {
     flex-basis: 33%;
     flex-shrink: 1;
     border-left: 1px solid hsl(198,4%,90%);
@@ -9979,13 +10341,13 @@ output {
     }
   }
 
-  .columnSelect-pool {
+  &-pool {
     flex: 1 1 auto;
     overflow: auto;
     padding: 7px;
   }
 
-  .columnSelect-option {
+  &-option {
     @extend %clickable;
     padding: 0 5px;
     border-radius: 1px;
@@ -9998,41 +10360,53 @@ output {
     }
   }
 
+  &-group-label {
+    opacity: 0.5;
+
+    .filter-active & {
+      display: none;
+    }
+
+    ~ .columnSelect-option {
+      padding-left: 10px;
+    }
+  }
+
   .is-hidden,
   .is-filtered {
     display: none;
   }
-}
 
-.columnSelect-search {
-  position: relative;
+  &-search {
+    position: relative;
 
-  .icon {
-    fill: hsl(198,4%,85%);
-  }
+    .icon {
+      fill: hsl(198,4%,85%);
+    }
 
-  .icon-magnifier {
-    left: 7px;
-    top: 5px;
-    position: absolute;
-  }
+    .icon-magnifier {
+      left: 7px;
+      top: 5px;
+      position: absolute;
+    }
 
-  .columnSelect-search-clear {
-    position: absolute;
-    right: 0;
-    top: 0;
-    padding: 5px 7px;
-    @extend %clickable;
-    line-height: 1;
-  }
+    &-clear {
+      position: absolute;
+      right: 0;
+      top: 0;
+      padding: 5px 7px;
+      @extend %clickable;
+      line-height: 1;
+    }
 
-  input {
-    width: 100%;
-    padding: 2px 30px 1px;
-    border: none;
-    outline: none;
-    border-bottom: 1px solid hsl(198,4%,90%);
-    background: none;
+    input {
+      width: 100%;
+      padding: 2px 30px 1px;
+      border: none;
+      outline: none;
+      border-bottom: 1px solid hsl(198,4%,90%);
+      background: none;
+    }
   }
 }
 
@@ -10181,7 +10555,7 @@ output {
     }
 
     &-label {
-      width: 50%;
+      width:  80%;
       margin: 10px 0;
     }
   }
@@ -10402,18 +10776,23 @@ output {
   display: flex;
   align-items: center;
   min-width: 0;
-  
+
   &-menu {
     display: flex;
-    margin-left: auto;
-    padding-left: 20px;
+    @include ltr(margin-left, auto);
+    @include rtl(margin-right, auto);
+    @include bidi-style(padding-left, 20px, padding-right, 0);
   }
 }
 
 .breadcrumb {
   position: relative;
-  padding: 11px 13px 8px;
-  padding-right: 21px;
+  padding-top: 11px;
+  padding-bottom: 8px;
+  @include ltr(padding-right, 21px);
+  @include ltr(padding-left, 13px);
+  @include rtl(padding-left, 21px);
+  @include rtl(padding-right, 13px);
   color: inherit;
   cursor: pointer;
   @extend .u-textTruncate;
@@ -10426,16 +10805,19 @@ output {
     height: 50%;
     background: currentColor;
     opacity: .33;
-    right: 0;
+    @include ltr(right, 0);
+    @include rtl(left, 0);
     top: 0;
     transform-origin: bottom;
-    transform: rotate(-37deg);
+    @include ltr(transform, rotate(-37deg));
+    @include rtl(transform, rotate(37deg));
   }
 
   &:after {
     top: 50%;
     transform-origin: top;
-    transform: rotate(37deg);
+    @include ltr(transform, rotate(37deg));
+    @include rtl(transform, rotate(-37deg));
   }
 
   &:last-child {
@@ -10446,7 +10828,7 @@ output {
   }
 
   .modified-icon {
-    margin-right: 3px;
+    @include bidi-style(margin-right, 3px, margin-left, 0);
     display: inline-block;
     vertical-align: middle;
     line-height: 1;
@@ -10520,14 +10902,14 @@ output {
     transition: letter-spacing 200ms;
     cursor: default;
     line-height: 40px;
-    
+
     &:hover {
       letter-spacing: -2px;
     }
 
     span {
       display: none;
-      
+
       &.is-active {
         display: block;
       }
@@ -10541,11 +10923,11 @@ output {
     border: none;
     padding: 13px 20px 11px;
     outline: none;
-    
+
     &::placeholder {
       color: hsl(234,2%,50%);
     }
-    
+
     &:focus,
     &:hover {
       background: hsl(234,8%,30%);
@@ -10557,13 +10939,13 @@ output {
     flex-wrap: wrap;
     padding: 10px;
     margin: 0;
-    
+
     li {
       list-style: none;
       cursor: pointer;
       user-select: none;
       border-radius: 2px;
-      
+
       &:hover,
       &.is-active {
         background: $highlight-color;
@@ -10594,15 +10976,11 @@ output {
     padding: 4px;
   }
 
-  .color-shadow {
-    display: none;
-  }
-
   .color-field {
     width: 31px;
     height: 100%;
     position: relative;
-    
+
     // unparsable color
     &[style=""]:before {
       content: "";
@@ -10623,7 +11001,7 @@ output {
     width: 380px;
     min-width: 0;
   }
-  
+
   .open > & {
     display: flex;
   }
@@ -10646,7 +11024,7 @@ output {
     cursor: image_url("/assets/images/colorcircle.gif") 8 8, auto;
     user-select: none;
   }
-    
+
   &-lightness-plane,
   &-saturation-gradient {
     position: absolute;
@@ -10655,7 +11033,7 @@ output {
     height: 100%;
     width: 100%;
   }
-    
+
   &-circle {
     position: absolute;
     left: 0;
@@ -10679,7 +11057,7 @@ output {
     width: 20px;
     background: red;
   }
-    
+
   &-hue-gradient {
     height: 100%;
     width: 100%;
@@ -10691,7 +11069,7 @@ output {
     top: 0;
     left: -7px;
     right: -7px;
-    
+
     &-arrow {
       position: absolute;
       top: 0;
@@ -10699,12 +11077,12 @@ output {
       border: 4px solid transparent;
       border-left: 7px solid hsl(240,8%,100%);
       border-right: 7px solid hsl(240,8%,100%);
-      
+
       &--left  {
         left: 0;
         border-right: none;
       }
-      
+
       &--right {
         right: 0;
         border-left: none;
@@ -10737,12 +11115,12 @@ output {
   display: flex;
   border: 1px solid hsl(197,10%,90%);
   border-radius: 3px;
-  
+
   &.is-active {
     border-color: hsl(200,71%,59%);
     box-shadow: 0 0 0 3px #d6eaf5;
   }
-  
+
   &-preview {
     flex-grow: 1;
     display: flex;
@@ -10779,13 +11157,13 @@ output {
     margin-top: auto;
     display: block;
   }
-  
+
   .icon {
     width: 50px;
     line-height: 50px;
     text-align: center;
     font-size: 18px;
-    
+
     &:not(.loading).do-flash {
       animation: iconset-flash 0.7s ease-out;
     }
@@ -10793,11 +11171,11 @@ output {
 }
 
 @keyframes iconset-flash {
-  from { 
+  from {
     background: hsl(210,15%,94%);
     color: hsl(210,10%,30%);
   }
-  to { 
+  to {
     background: transparent;
     color: inherit;
   }
@@ -11048,37 +11426,37 @@ span.is-disabled {
   padding: 5px 5px 5px 10px;
   border: 1px solid rgba(0,0,0,.1);
   border-radius: 4px;
-  
+
   &[data-state="published"] {
     color: $supergood-color;
     border-color: transparentize($supergood-color, .65);
-    
+
     .btn {
       border-color: transparentize($supergood-color, .65);
     }
   }
-  
+
   &[data-state="archived"] {
     border-color: hsl(0,0%,80%);
-    
+
     .btn {
       border-color: hsl(0,0%,80%);
     }
   }
-  
+
   &[data-state="internal"] {
     color: $highlight-color;
     border-color: transparentize($highlight-color, .65);
-    
+
     .btn {
       border-color: transparentize($highlight-color, .65);
     }
   }
-  
+
   .help-text & {
     margin-top: 4px;
   }
-  
+
   .icon {
     color: inherit;
     fill: currentColor;
@@ -11107,11 +11485,11 @@ span.is-disabled {
     background: hsl(210,14%,94%);
     border-bottom: 1px solid hsl(0,0%,90%);
     padding: 7px;
-    
+
     .breadcrumb:not(:first-child) .breadcrumb-icon {
       width: 16px;
       height: 16px;
-    }  
+    }
   }
 
   &-body {
@@ -11121,25 +11499,28 @@ span.is-disabled {
 
   &-sidebar {
     position: absolute;
-    right: 0;
+    @include ltr(right, 0);
+    @include rtl(left, 0);
     top: 0;
     width: 280px;
     height: 100%;
     overflow: auto;
     transition: transform 500ms;
     @include bidi-style(border-left, 1px solid #e6e6e6, border-right, none);
-    
+
     @include desktop {
       width: 28%;
     }
-    
+
     &.hidden {
       display: block !important;
       visibility: visible !important;
-      transform: translateX(100%);
-      
+      @include ltr(transform, translateX(100%));
+      @include rtl(transform, translateX(-100%));
+
       + .knowledge-base-main {
-        margin-right: 0;
+        @include ltr(margin-right, 0);
+        @include rtl(margin-left, 0);
       }
     }
 
@@ -11148,18 +11529,27 @@ span.is-disabled {
       line-height: 1;
     }
   }
-    
+
   &-main {
-    transition: margin-right 500ms;
-    margin-right: 280px;
-    
+    width: 100%;
+    @include ltr(transition, margin-right 500ms);
+    @include ltr(margin-right, 280px);
+    @include rtl(transition, margin-left 500ms);
+    @include rtl(margin-left, 280px);
+
     @include desktop {
-      margin-right: 28%;
+      @include ltr(margin-right, 28%);
+      @include rtl(margin-left, 28%);
     }
   }
 
   form {
     flex-shrink: 0;
+  }
+
+  .richtext-content {
+    word-break: break-word;
+    word-wrap: anywhere;
   }
 
   .page-header {
@@ -11196,7 +11586,7 @@ span.is-disabled {
   list-style: none;
   padding: 0;
   margin: 0 -10px;
-  
+
   &:not(:empty) + &:not(:empty) {
     border-top: 1px solid hsl(0,0%,90%);
     margin-top: 20px;
@@ -11239,11 +11629,11 @@ span.is-disabled {
         text-align: center;
       }
     }
-    
+
     &[data-size="medium"] {
       .section {
         width: 25%;
-        
+
         a {
           font-size: 14px;
         }
@@ -11259,11 +11649,11 @@ span.is-disabled {
         }
       }
     }
-    
+
     &[data-size="large"] {
       .section {
         width: 33.33%;
-        
+
         a {
           font-size: 15px;
         }
@@ -11326,7 +11716,7 @@ span.is-disabled {
   &-date {
     display: inline;
     color: hsl(0,0%,75%);
-    
+
     &:after {
       content: " — ";
       color: hsl(60,1%,34%);
@@ -11344,13 +11734,15 @@ span.is-disabled {
 
   &-icon {
     flex-shrink: 0;
-    
+
     &-holder {
-      margin-right: 11px;
+      @include ltr(margin-right, 11px);
+      @include rtl(margin-left, 11px);
       margin-top: 1px;
-      
+
       .nav-pills & {
-        margin-right: 7px;
+        @include ltr(margin-right, 7px);
+        @include rtl(margin-left, 7px);
       }
     }
 
@@ -11374,7 +11766,7 @@ span.is-disabled {
   }
 }
 
-.knowledge-base-article {  
+.knowledge-base-article {
   &-header {
     text-align: center;
   }
@@ -11383,7 +11775,7 @@ span.is-disabled {
     display: block;
     text-align: center;
   }
-  
+
   &-body {
     margin-top: 20px;
     background: white;
@@ -11403,27 +11795,26 @@ span.is-disabled {
 
   &-nav {
     display: flex;
-    
+
     &-link {
       padding: 15px;
       max-width: 50%;
       display: flex;
-    
+      align-items: center;
+
+      .spacer {
+        width: 5px
+      }
+
       .icon {
         flex-shrink: 0;
         fill: currentColor;
         opacity: 1;
-        margin: 2px 5px 0 0;
         vertical-align: top;
       }
 
       &--next {
-        margin-left: auto;
-               
-        .icon {
-          margin-right: 0;
-          margin-left: 5px;
-        }
+        @include bidi-style(margin-left, auto, margin-right, inherit);
       }
 
       &-title {
@@ -11438,7 +11829,7 @@ span.is-disabled {
   font-size: 12px;
   border: 1px solid hsl(0,0%,85%);
   border-radius: 3px;
-  
+
   .column {
     list-style: none;
     padding: 0;
@@ -11447,17 +11838,17 @@ span.is-disabled {
     height: 300px;
     overflow: auto;
     border-right: 1px solid hsl(0,0%,85%);
-    
+
     &:last-child {
       border-right-width: 0;
     }
-    
+
     &-item {
       display: flex;
       align-items: center;
       padding: 5px 10px;
       cursor: default;
-      
+
       &:hover {
         background: hsl(0,0%,95%);
       }
@@ -11465,17 +11856,17 @@ span.is-disabled {
       &.is-selected {
         background: hsl(0,0%,90%);
       }
-      
+
       &--has-children {
         @extend %clickable;
         cursor: pointer;
       }
-      
+
       span {
         @extend .u-textTruncate;
         margin-right: 10px;
       }
-      
+
       > .icon:first-child,
       [data-font] {
         fill: currentColor;
@@ -11498,7 +11889,7 @@ span.is-disabled {
 
 [data-theme="dark"] {
   background: hsl(232,11%,19%);
-  
+
   label {
     color: white;
   }
@@ -11531,4 +11922,28 @@ span.is-disabled {
 
 .highlight-emulator {
   background-color: highlight;
+}
+
+
+.videoWrapper {
+	position: relative;
+	padding-bottom: 56.25%; /* 16:9 */
+	padding-top: 25px;
+	height: 0;
+}
+
+.videoWrapper iframe {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+}
+
+.btn-manage-public-menu-edit {
+  margin-top: 0
+}
+
+.kb-menu-settings-entry {
+  margin-bottom: 12px
 }

@@ -13,6 +13,7 @@ class Sequencer
 
             def self.included(base)
               base.extend(ClassMethods)
+
               base.uses :dry_run, :import_job
             end
 
@@ -40,24 +41,35 @@ class Sequencer
             def resource_iteration(&block)
               resource_collection.public_send(resource_iteration_method, &block)
             rescue ZendeskAPI::Error::NetworkError => e
-              case e.response.status.to_s
-              when '403'
-                return if resource_klass.in?(%w[UserField OrganizationField])
-              when /^5\d\d$/
-                raise if (fail_count ||= 1) > 10
+              return if expected_exception?(e)
+              raise if !retry_exception?(e)
+              raise if (fail_count ||= 1) > 10
 
-                logger.error e
-                logger.info "Sleeping 10 seconds after ZendeskAPI::Error::NetworkError and retry (##{fail_count}/10)."
-                sleep 10
+              logger.error e
+              logger.info "Sleeping 10 seconds after ZendeskAPI::Error::NetworkError and retry (##{fail_count}/10)."
+              sleep 10
 
-                (fail_count += 1) && retry
-              end
+              fail_count += 1
+              retry
+            end
 
-              raise
+            # #2262 Zendesk-Import fails for User & Organizations when 403 "access" denied
+            def expected_exception?(e)
+              status = e.response.status.to_s
+              return false if status != '403'
+
+              %w[UserField OrganizationField].include?(resource_klass)
+            end
+
+            def retry_exception?(e)
+              return true if e.message.include?('execution expired')
+
+              status = e.response.status.to_s
+              status.match?(/^(4|5)\d\d$/)
             end
 
             def resource_collection
-              collection_provider.public_send(resource_collection_attribute)
+              @resource_collection ||= collection_provider.public_send(resource_collection_attribute)
             end
 
             def resource_iteration_method

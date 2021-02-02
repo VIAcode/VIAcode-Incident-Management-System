@@ -5,11 +5,12 @@ class ApplicationController < ActionController::Base
   include ApplicationController::HandlesTransitions
   include ApplicationController::Authenticates
   include ApplicationController::SetsHeaders
-  include ApplicationController::ChecksMaintainance
+  include ApplicationController::ChecksMaintenance
   include ApplicationController::RendersModels
   include ApplicationController::HasUser
   include ApplicationController::HasResponseExtentions
   include ApplicationController::PreventsCsrf
+  include ApplicationController::HasSecureContentSecurityPolicyForDownloads
   include ApplicationController::LogsHttpAccess
-  include ApplicationController::ChecksAccess
+  include ApplicationController::Authorizes
 end

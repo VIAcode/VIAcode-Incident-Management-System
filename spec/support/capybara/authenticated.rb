@@ -13,13 +13,9 @@ RSpec.configure do |config|
     # there is no way to authenticated in a not set up system
     next if !example.metadata.fetch(:set_up, true)
 
-    # check if authentication should be performed
-    next if example.metadata.fetch(:authenticated, true).blank?
+    authenticated = example.metadata.fetch(:authenticated_as, true)
+    credentials   = authenticated_as_get_user(authenticated, return_type: :credentials)
 
-    # authenticate
-    login(
-      username: 'master@example.com',
-      password: 'test',
-    )
+    login(credentials) if credentials
   end
 end

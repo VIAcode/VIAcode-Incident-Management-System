@@ -2,7 +2,7 @@ class LdapSupport < ActiveRecord::Migration[4.2]
   def up
 
     # return if it's a new setup
-    return if !Setting.find_by(name: 'system_init_done')
+    return if !Setting.exists?(name: 'system_init_done')
 
     if !ActiveRecord::Base.connection.table_exists? 'import_jobs'
       create_table :import_jobs do |t|
@@ -13,10 +13,10 @@ class LdapSupport < ActiveRecord::Migration[4.2]
         t.text :payload, limit: 80_000
         t.text :result, limit: 80_000
 
-        t.datetime :started_at
-        t.datetime :finished_at
+        t.datetime :started_at # rubocop:disable Zammad/ExistsDateTimePrecision
+        t.datetime :finished_at # rubocop:disable Zammad/ExistsDateTimePrecision
 
-        t.timestamps null: false
+        t.timestamps null: false # rubocop:disable Zammad/ExistsDateTimePrecision
       end
     end
 

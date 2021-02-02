@@ -5,11 +5,12 @@ class KnowledgeBase::Answer < ApplicationModel
   include CanBePublished
   include HasKnowledgeBaseAttachmentPermissions
   include ChecksKbClientNotification
+  include CanCloneAttachments
 
   AGENT_ALLOWED_ATTRIBUTES       = %i[category_id promoted internal_note].freeze
   AGENT_ALLOWED_NESTED_RELATIONS = %i[translations].freeze
 
-  belongs_to :category, class_name: 'KnowledgeBase::Category',                  inverse_of: :answers,  touch: true
+  belongs_to :category, class_name: 'KnowledgeBase::Category', inverse_of: :answers, touch: true
 
   scope :include_contents, -> { eager_load(translations: :content) }
   scope :sorted,           -> { order(position: :asc) }
@@ -17,6 +18,9 @@ class KnowledgeBase::Answer < ApplicationModel
   acts_as_list scope: :category, top_of_list: 0
 
   validates :category, presence: true
+
+  # provide consistent naming with KB category
+  alias_attribute :parent, :category
 
   alias assets_essential assets
 
@@ -58,8 +62,44 @@ class KnowledgeBase::Answer < ApplicationModel
     attachments.sort_by { |elem| elem.filename.downcase }
   end
 
+  def add_attachment(file)
+    filename     = file.try(:original_filename) || File.basename(file.path)
+    content_type = file.try(:content_type) || MIME::Types.type_for(filename).first&.content_type || 'application/octet-stream'
+
+    Store.add(
+      object:      self.class.name,
+      o_id:        id,
+      data:        file.read,
+      filename:    filename,
+      preferences: { 'Content-Type': content_type }
+    )
+
+    touch # rubocop:disable Rails/SkipsModelValidations
+    translations.each(&:touch)
+
+    true
+  end
+
+  def remove_attachment(attachment_id)
+    attachment = attachments.find { |elem| elem.id == attachment_id.to_i }
+
+    raise ActiveRecord::RecordNotFound if attachment.nil?
+
+    Store.remove_item(attachment.id)
+
+    touch # rubocop:disable Rails/SkipsModelValidations
+    translations.each(&:touch)
+
+    true
+  end
+
   def api_url
     Rails.application.routes.url_helpers.knowledge_base_answer_path(category.knowledge_base, self)
+  end
+
+  # required by CanCloneAttachments
+  def content_type
+    'text/html'
   end
 
   private
@@ -67,7 +107,7 @@ class KnowledgeBase::Answer < ApplicationModel
   def reordering_callback
     return if !category_id_changed? && !position_changed?
 
-    # drop siblings cache to make sure orderign is always up to date
+    # drop siblings cache to make sure ordering is always up to date
     category.answers.each(&:cache_delete)
   end
   before_save :reordering_callback
@@ -79,7 +119,7 @@ class KnowledgeBase::Answer < ApplicationModel
       {
         id:          attachment.id,
         url:         url,
-        preview_url: url + '?preview=1',
+        preview_url: "#{url}?preview=1",
         filename:    attachment.filename,
         size:        attachment.size,
         preferences: attachment.preferences

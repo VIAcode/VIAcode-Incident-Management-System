@@ -2,12 +2,12 @@ require 'rails_helper'
 
 RSpec.describe 'Integration Placetel', type: :request do
 
-  let(:agent_user) do
-    create(:agent_user)
+  let(:agent) do
+    create(:agent)
   end
-  let!(:customer_user1) do
+  let!(:customer1) do
     create(
-      :customer_user,
+      :customer,
       login:     'ticket-caller_id_cti-customer1@example.com',
       firstname: 'CallerId',
       lastname:  'Customer1',
@@ -17,18 +17,18 @@ RSpec.describe 'Integration Placetel', type: :request do
       note:      'Phone at home: +49 99999 222224',
     )
   end
-  let!(:customer_user2) do
+  let!(:customer2) do
     create(
-      :customer_user,
+      :customer,
       login:     'ticket-caller_id_cti-customer2@example.com',
       firstname: 'CallerId',
       lastname:  'Customer2',
       phone:     '+49 99999 222222 2',
     )
   end
-  let!(:customer_user3) do
+  let!(:customer3) do
     create(
-      :customer_user,
+      :customer,
       login:     'ticket-caller_id_cti-customer3@example.com',
       firstname: 'CallerId',
       lastname:  'Customer3',
@@ -111,7 +111,7 @@ RSpec.describe 'Integration Placetel', type: :request do
       expect(reason).to eq('busy')
 
       # outbound - I - set default_caller_id
-      params = 'event=newCall&direction=out&from=030600000000&to=01114100300&call_id=8621106404543334274-3'
+      params = 'event=OutgoingCall&direction=out&from=030600000000&to=01114100300&call_id=8621106404543334274-3'
       post "/api/v1/placetel/#{token}", params: params
       expect(response).to have_http_status(:ok)
 
@@ -128,7 +128,7 @@ RSpec.describe 'Integration Placetel', type: :request do
       expect(number_to_dail).to eq('01114100300')
 
       # outbound - II - set caller_id based on routing_table by explicite number
-      params = 'event=newCall&direction=out&from=030600000000&to=491714000000&call_id=8621106404543334274-4'
+      params = 'event=OutgoingCall&direction=out&from=030600000000&to=491714000000&call_id=8621106404543334274-4'
       post "/api/v1/placetel/#{token}", params: params
       expect(response).to have_http_status(:ok)
 
@@ -145,7 +145,7 @@ RSpec.describe 'Integration Placetel', type: :request do
       expect(number_to_dail).to eq('491714000000')
 
       # outbound - III - set caller_id based on routing_table by 41*
-      params = 'event=newCall&direction=out&from=030600000000&to=4147110000000&call_id=8621106404543334274-5'
+      params = 'event=OutgoingCall&direction=out&from=030600000000&to=4147110000000&call_id=8621106404543334274-5'
       post "/api/v1/placetel/#{token}", params: params
       expect(response).to have_http_status(:ok)
 
@@ -179,7 +179,7 @@ RSpec.describe 'Integration Placetel', type: :request do
       token = Setting.get('placetel_token')
 
       # outbound - I - new call
-      params = 'event=newCall&direction=out&from=030600000000&to=01114100300&call_id=1234567890-1'
+      params = 'event=OutgoingCall&direction=out&from=030600000000&to=01114100300&call_id=1234567890-1'
       post "/api/v1/placetel/#{token}", params: params
       expect(response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-1')
@@ -223,7 +223,7 @@ RSpec.describe 'Integration Placetel', type: :request do
       travel 1.second
 
       # outbound - II - new call
-      params = 'event=newCall&direction=out&from=030600000000&to=01114100300&call_id=1234567890-2'
+      params = 'event=OutgoingCall&direction=out&from=030600000000&to=01114100300&call_id=1234567890-2'
       post "/api/v1/placetel/#{token}", params: params
       expect(response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-2')
@@ -514,15 +514,15 @@ RSpec.describe 'Integration Placetel', type: :request do
       get '/api/v1/cti/log'
       expect(response).to have_http_status(:unauthorized)
 
-      authenticated_as(agent_user)
+      authenticated_as(agent)
       get '/api/v1/cti/log', as: :json
       expect(response).to have_http_status(:ok)
       expect(json_response['list']).to be_a_kind_of(Array)
       expect(json_response['list'].count).to eq(7)
       expect(json_response['assets']).to be_truthy
       expect(json_response['assets']['User']).to be_truthy
-      expect(json_response['assets']['User'][customer_user2.id.to_s]).to be_truthy
-      expect(json_response['assets']['User'][customer_user3.id.to_s]).to be_truthy
+      expect(json_response['assets']['User'][customer2.id.to_s]).to be_truthy
+      expect(json_response['assets']['User'][customer3.id.to_s]).to be_truthy
       expect(json_response['list'][0]['call_id']).to eq('1234567890-7')
       expect(json_response['list'][1]['call_id']).to eq('1234567890-6')
       expect(json_response['list'][2]['call_id']).to eq('1234567890-5')
@@ -543,7 +543,7 @@ RSpec.describe 'Integration Placetel', type: :request do
       token = Setting.get('placetel_token')
 
       # outbound - I - new call
-      params = 'event=newCall&direction=out&from=030600000000&to=01114100300&call_id=1234567890-1&peer=something@example.com'
+      params = 'event=OutgoingCall&direction=out&from=030600000000&to=01114100300&call_id=1234567890-1&peer=something@example.com'
       post "/api/v1/placetel/#{token}", params: params
       expect(response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-1')
@@ -564,18 +564,19 @@ RSpec.describe 'Integration Placetel', type: :request do
 
       config = Setting.get('placetel_config')
       config[:api_token] = '123'
+      config[:outbound][:default_caller_id] = ''
       Setting.set('placetel_config', config)
 
       stub_request(:post, 'https://api.placetel.de/api/getVoIPUsers.json')
         .to_return(status: 200, body: [{ 'callerid' => '03055571600', 'did' => 10, 'name' => 'Bob Smith', 'stype' => 3, 'uid' => '777008478072@example.com', 'uid2' => nil }, { 'callerid' => '03055571600', 'did' => 12, 'name' => 'Josef Müller', 'stype' => 3, 'uid' => '777042617425@example.com', 'uid2' => nil }].to_json)
 
-      params = 'event=newCall&direction=out&from=030600000000&to=01114100300&call_id=1234567890-2&peer=777008478072@example.com'
+      params = 'event=OutgoingCall&direction=out&to=099999222222&call_id=1234567890-2&from=777008478072@example.com'
       post "/api/v1/placetel/#{token}", params: params
       expect(response).to have_http_status(:ok)
       log = Cti::Log.find_by(call_id: '1234567890-2')
       expect(log).to be_truthy
-      expect(log.from).to eq('4930777000000')
-      expect(log.to).to eq('01114100300')
+      expect(log.from).to eq('777008478072@example.com')
+      expect(log.to).to eq('099999222222')
       expect(log.direction).to eq('out')
       expect(log.from_comment).to eq('Bob Smith')
       expect(log.to_comment).to eq('CallerId Customer1')
@@ -591,6 +592,27 @@ RSpec.describe 'Integration Placetel', type: :request do
       # check if cache is filled
       expect(Cache.get('placetelGetVoipUsers')['777008478072@example.com']).to eq('Bob Smith')
 
+      params = 'event=IncomingCall&direction=in&to=030600000000&from=012345&call_id=1234567890-3&peer=777008478072@example.com'
+      post "/api/v1/placetel/#{token}", params: params
+      expect(response).to have_http_status(:ok)
+      log = Cti::Log.find_by(call_id: '1234567890-3')
+      expect(log).to be_truthy
+      expect(log.from).to eq('012345')
+      expect(log.to).to eq('030600000000')
+      expect(log.direction).to eq('in')
+      expect(log.from_comment).to eq(nil)
+      expect(log.to_comment).to eq('Bob Smith')
+      expect(log.comment).to be_nil
+      expect(log.state).to eq('newCall')
+      expect(log.done).to eq(false)
+      expect(log.initialized_at).to be_truthy
+      expect(log.start_at).to be_nil
+      expect(log.end_at).to be_nil
+      expect(log.duration_waiting_time).to be_nil
+      expect(log.duration_talking_time).to be_nil
+
+      # check if cache is filled
+      expect(Cache.get('placetelGetVoipUsers')['777008478072@example.com']).to eq('Bob Smith')
     end
   end
 end

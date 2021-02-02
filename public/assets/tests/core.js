@@ -1,427 +1,243 @@
-window.onload = function() {
+test( "ajax get 200", function(assert) {
+  var done = assert.async(1)
 
-// ajax
-App.Ajax.request({
-  type:  'GET',
-  url:   '/assets/tests/ajax-test.json',
-  success: function (data) {
-    test( "ajax get 200", function() {
-      ok( true, "File found!")
-      equal(data.success, true, "content parsable and ok!")
-      equal(data.success2, undefined, "content parsable and ok!")
+  new Promise( (resolve, reject) => {
+    App.Ajax.request({
+      type:  'GET',
+      url:   '/assets/tests/ajax-test.json',
+      success: resolve,
+      error: reject
     });
-  },
-  error: function (data) {
-    test( "ajax", function() {
-      ok( false, "Failed!")
-    });
-  }
+  }).then( function(data) {
+    ok( true, "File found!")
+    equal(data.success, true, "content parsable and ok!")
+    equal(data.success2, undefined, "content parsable and ok!")
+  }, function(data) {
+    ok( false, "Failed!")
+  })
+  .finally(done)
 });
 
-// ajax queueing
-App.Ajax.request({
-  type:  'GET',
-  url:   '/tests/wait/2',
-  queue: true,
-  success: function (data) {
-    test( "ajax - queue - ajax get 200 1/2", function() {
+test( "ajax - queue - ajax get 200 1/2", function(assert) {
+  var done = assert.async(1)
 
-      // check queue
-      ok( !window.testAjax, 'ajax - queue - check queue')
-      window.testAjax = true;
-      equal(data.success, true, "ajax - queue - content parsable and ok!")
-      equal(data.success2, undefined, "ajax - queue - content parsable and ok!")
+  new Promise( (resolve, reject) => {
+    App.Ajax.request({
+      type:  'GET',
+      url:   '/tests/wait/2',
+      queue: true,
+      success: resolve,
+      error: reject
     });
-  },
-  error: function (data) {
-    test( "ajax", function() {
-      ok( false, "Failed!")
-    });
-  }
-});
-App.Ajax.request({
-  type:  'GET',
-  url:   '/tests/wait/1',
-  queue: true,
-  success: function (data) {
-    test( "ajax - queue - ajax get 200 2/2", function() {
-      // check queue
-      ok( window.testAjax, 'ajax - queue - check queue')
-      window.testAjax = undefined;
-
-      equal(data.success, true, "content parsable and ok!")
-      equal(data.success2, undefined, "content parsable and ok!")
-    });
-  },
-  error: function (data) {
-    test( "ajax", function() {
-      ok( false, "Failed!")
-    });
-  }
+  }).then( function(data) {
+    ok( !window.testAjax, 'ajax - queue - check queue')
+    window.testAjax = true;
+    equal(data.success, true, "ajax - queue - content parsable and ok!")
+    equal(data.success2, undefined, "ajax - queue - content parsable and ok!")
+  }, function(data) {
+    ok( false, "Failed!")
+  })
+  .finally(done)
 });
 
-// ajax parallel
-App.Ajax.request({
-  type:  'GET',
-  url:   '/tests/wait/3',
-  success: function (data) {
-    test( "ajax - parallel - ajax get 200 1/2", function() {
+test( "ajax - queue - ajax get 200 2/2", function(assert) {
+  var done = assert.async(1)
 
-      // check queue
-      ok( window.testAjaxQ, 'ajax - parallel - check queue')
-      window.testAjaxQ = undefined;
-      equal(data.success, true, "ajax - parallel - content parsable and ok!")
-      equal(data.success2, undefined, "ajax - parallel - content parsable and ok!")
+  new Promise( (resolve, reject) => {
+    App.Ajax.request({
+      type:  'GET',
+      url:   '/tests/wait/1',
+      queue: true,
+      success: resolve,
+      error: reject
     });
-  },
-  error: function (data) {
-    test( "ajax", function() {
-      ok( false, "Failed!")
-    });
-  }
+  }).then( function(data) {
+
+    // check queue
+    ok( window.testAjax, 'ajax - queue - check queue')
+    window.testAjax = undefined;
+
+    equal(data.success, true, "content parsable and ok!")
+    equal(data.success2, undefined, "content parsable and ok!")
+  }, function(data) {
+    ok( false, "Failed!")
+  })
+  .finally(done)
 });
-App.Ajax.request({
-  type:  'GET',
-  url:   '/tests/wait/1',
-  success: function (data) {
-    test( "ajax - parallel - ajax get 200 2/2", function() {
+
+test( "ajax - parallel - ajax get 200", function(assert) {
+  var done = assert.async(1)
+
+  new Promise( (resolve, reject) => {
+    App.Ajax.request({
+      type:  'GET',
+      url:   '/tests/wait/3',
+      success: resolve,
+      error: reject
+    });
+
+    new Promise( (resolve, reject) => {
+      App.Ajax.request({
+        type:  'GET',
+        url:   '/tests/wait/1',
+        success: resolve,
+        error: reject
+      });
+    }).then( function(data) {
+
       // check queue
       ok( !window.testAjaxQ, 'ajax - parallel - check queue')
       window.testAjaxQ = true;
 
       equal(data.success, true, "content parsable and ok!")
       equal(data.success2, undefined, "content parsable and ok!")
-    });
-  },
-  error: function (data) {
-    test( "ajax", function() {
+    }, function(data) {
       ok( false, "Failed!")
-    });
-  }
+    })
+    .finally(done)
+  }).then( function(data) {
+
+    // check queue
+    ok( window.testAjaxQ, 'ajax - parallel - check queue')
+    window.testAjaxQ = undefined;
+    equal(data.success, true, "ajax - parallel - content parsable and ok!")
+    equal(data.success2, undefined, "ajax - parallel - content parsable and ok!")
+  }, function(data) {
+    ok( false, "Failed!")
+  })
 });
 
-// delay
-window.testDelay1 = false
-App.Delay.set(function() {
-    test('delay - test 1 - 1/3 - should not be executed, will be reset by next set()', function() {
+test('delay - test', function(assert) {
+  var done = assert.async(1)
 
-      // check
-      ok(false, 'delay - test 1 - 1/3 - should not be executed, will be reset by next set()')
-      window.testDelay1 = true;
-    });
-  },
-  1000,
-  'delay-test1',
-  'level'
-);
-App.Delay.set(function() {
-    test('delay - test 1 - 2/3', function() {
+  window.testDelay1 = false
+  new Promise( (resolve, reject) => {
+    App.Delay.set(resolve, 1000, 'delay-test1', 'level');
 
-      // check
-      ok(!window.testDelay1, 'delay - test 1 - 2/3')
+    new Promise( (resolve, reject) => {
+      App.Delay.set(resolve, 2000, 'delay-test1', 'level');
+    }).then( function() {
+      ok(!window.testDelay1, 'delay - 1/2')
       window.testDelay1 = 1;
-    });
-  },
-  2000,
-  'delay-test1',
-  'level'
-);
-App.Delay.set(function() {
-    test('delay - test 1 - 2/3', function() {
+    })
 
-      // check
-      ok(window.testDelay1, 'delay - test 1 - 2/3')
+    new Promise( (resolve, reject) => {
+      App.Delay.set(resolve, 3000, 'delay-test1-verify', 'level');
+    }).then( function() {
+      ok(window.testDelay1, 'delay - 2/2')
       window.testDelay1 = false;
-    });
-  },
-  3000,
-  'delay-test1-verify',
-  'level'
-);
-
-App.Delay.set(function() {
-    test('delay - test 2 - 1/3', function() {
-
-      // check
-      ok(!window.testDelay2, 'delay - test 2 - 1/3')
-      window.testDelay2 = 1;
-    });
-  },
-  2000
-);
-App.Delay.set(function() {
-    test('delay - test 2 - 2/3', function() {
-
-      // check
-      ok(!window.testDelay2, 'delay - test 2 - 2/3')
-    });
-  },
-  1000
-);
-App.Delay.set(function() {
-    test('delay - test 2 - 3/3', function() {
-
-      // check
-      ok(window.testDelay2, 'delay - test 2 - 3/3')
-    });
-  },
-  3000
-);
-
-window.testDelay3 = 1;
-App.Delay.set(function() {
-    test('delay - test 3 - 1/1', function() {
-
-      // check
-      ok(false, 'delay - test 3 - 1/1')
-    });
-  },
-  1000,
-  'delay3'
-);
-App.Delay.clear('delay3')
-
-App.Delay.set(function() {
-    test('delay - test 4 - 1/1', function() {
-
-      // check
-      ok(false, 'delay - test 4 - 1/1')
-    });
-  },
-  1000,
-  undefined,
-  'Page'
-);
-App.Delay.clearLevel('Page')
-
-
-// interval 1
-window.testInterval1 = 1
-App.Interval.set(function() {
-    window.testInterval1 += 1;
-  },
-  2000,
-  'interval-test1'
-);
-App.Delay.set(function() {
-    test('interval - test 1 - 1/2', function() {
-
-      // check
-      equal(window.testInterval1, 4, 'interval - test 1')
-      App.Interval.clear('interval-test1')
-    });
-  },
-  5200
-);
-App.Delay.set(function() {
-    test('interval - test 1 - 2/2', function() {
-
-      // check
-      equal(window.testInterval1, 4, 'interval - test after clear')
-    });
-  },
-  6500
-);
-
-
-// interval 2
-window.testInterval2 = 1
-App.Interval.set(function() {
-    window.testInterval2 += 1;
-  },
-  2000,
-  undefined,
-  'someLevel'
-);
-App.Delay.set(function() {
-    test('interval - test 2 - 1/2', function() {
-
-      // check
-      equal(window.testInterval2, 4, 'interval - test 2')
-      App.Interval.clearLevel('someLevel')
-    });
-  },
-  5200
-);
-App.Delay.set(function() {
-    test('interval - test 2 - 2/2', function() {
-
-      // check
-      equal(window.testInterval2, 4, 'interval - test 2 - after clear')
-    });
-  },
-  6900
-);
-
-
-// i18n
-test('i18n', function() {
-
-  // de
-  App.i18n.set('de-de')
-  var translated = App.i18n.translateContent('yes')
-  equal(translated, 'ja', 'de-de - yes / ja translated correctly')
-
-  translated = App.i18n.translatePlain('yes')
-  equal(translated, 'ja', 'de-de - yes / ja translated correctly')
-
-  translated = App.i18n.translateInline('yes')
-  equal(translated, 'ja', 'de-de - yes / ja translated correctly')
-
-  translated = App.i18n.translateContent('%s ago', 123);
-  equal(translated, 'vor 123', 'de-de - %s')
-
-  translated = App.i18n.translateContent('%s ago', '<b>quote</b>')
-  equal(translated, 'vor &lt;b&gt;quote&lt;/b&gt;', 'de-de - %s - quote')
-
-  translated = App.i18n.translateContent('%s %s test', 123, 'xxx |B|')
-  equal(translated, '123 xxx |B| test', 'de-de - %s %s')
-
-  translated = App.i18n.translateContent('|%s| %s test', 123, 'xxx')
-  equal(translated, '<b>123</b> xxx test', 'de-de - *%s* %s')
-
-  translated = App.i18n.translateContent('||%s|| %s test', 123, 'xxx')
-  equal(translated, '<i>123</i> xxx test', 'de-de - *%s* %s')
-
-  translated = App.i18n.translateContent('_%s_ %s test', 123, 'xxx')
-  equal(translated, '<u>123</u> xxx test', 'de-de - _%s_ %s')
-
-  translated = App.i18n.translateContent('§%s§ %s test', 123, 'xxx')
-  equal(translated, '<kbd>123</kbd> xxx test', 'de-de - §%s§ %s')
-
-  translated = App.i18n.translateContent('//%s// %s test', 123, 'xxx')
-  equal(translated, '<del>123</del> xxx test', 'de-de - //%s// %s')
-
-  translated = App.i18n.translateContent('\'%s\' %s test', 123, 'xxx')
-  equal(translated, '&#39;123&#39; xxx test', 'de-de - \'%s\' %s')
-
-  translated = App.i18n.translateContent('<test&now>//*äöüß')
-  equal(translated, '&lt;test&amp;now&gt;//*äöüß', 'de - <test&now>//*äöüß')
-
-  translated = App.i18n.translateContent('some link [to what ever](http://lalala)')
-  equal(translated, 'some link <a href="http://lalala" target="_blank">to what ever</a>', 'de-de - link')
-
-  translated = App.i18n.translateContent('some link [to what ever](%s)', 'http://lalala')
-  equal(translated, 'some link <a href="http://lalala" target="_blank">to what ever</a>', 'de-de - link')
-
-  translated = App.i18n.translateContent('Enables user authentication via %s. Register your app first at [%s](%s).', 'XXX', 'YYY', 'http://lalala')
-  equal(translated, 'Aktivieren der Benutzeranmeldung über XXX. Registriere Deine Anwendung zuerst über <a href="http://lalala" target="_blank">YYY</a>.', 'en-us - link')
-
-  var time_local = new Date();
-  var offset = time_local.getTimezoneOffset();
-  var timestamp = App.i18n.translateTimestamp('2012-11-06T21:07:24Z', offset);
-  equal(timestamp, '06.11.2012 21:07', 'de-de - timestamp translated correctly')
-
-  timestamp = App.i18n.translateTimestamp('', offset);
-  equal(timestamp, '', 'de-de - timestamp translated correctly')
-
-  timestamp = App.i18n.translateTimestamp(null, offset);
-  equal(timestamp, null, 'de-de - timestamp translated correctly')
-
-  timestamp = App.i18n.translateTimestamp(undefined, offset);
-  equal(timestamp, undefined, 'de-de - timestamp translated correctly')
-
-  var date = App.i18n.translateDate('2012-11-06', 0)
-  equal(date, '06.11.2012', 'de-de - date translated correctly')
-
-  date = App.i18n.translateDate('', 0)
-  equal(date, '', 'de-de - date translated correctly')
-
-  date = App.i18n.translateDate(null, 0)
-  equal(date, null, 'de-de - date translated correctly')
-
-  date = App.i18n.translateDate(undefined, 0)
-  equal(date, undefined, 'de-de - date translated correctly')
-
-  // en
-  App.i18n.set('en-us')
-  translated = App.i18n.translateContent('yes')
-  equal(translated, 'yes', 'en-us - yes translated correctly')
-
-  translated = App.i18n.translatePlain('yes')
-  equal(translated, 'yes', 'en-us - yes translated correctly')
-
-  translated = App.i18n.translateInline('yes')
-  equal(translated, 'yes', 'en-us - yes translated correctly')
-
-  translated = App.i18n.translateContent('%s ago', 123);
-  equal(translated, '123 ago', 'en-us - %s')
-
-  translated = App.i18n.translateContent('%s ago', '<b>quote</b>')
-  equal(translated, '&lt;b&gt;quote&lt;/b&gt; ago', 'en-us - %s - qupte')
-
-  translated = App.i18n.translateContent('%s %s test', 123, 'xxx')
-  equal(translated, '123 xxx test', 'en-us - %s %s')
-
-  translated = App.i18n.translateContent('|%s| %s test', 123, 'xxx |B|')
-  equal(translated, '<b>123</b> xxx |B| test', 'en-us - *%s* %s')
-
-  translated = App.i18n.translateContent('||%s|| %s test', 123, 'xxx')
-  equal(translated, '<i>123</i> xxx test', 'en-us - *%s* %s')
-
-  translated = App.i18n.translateContent('_%s_ %s test', 123, 'xxx')
-  equal(translated, '<u>123</u> xxx test', 'en-us - _%s_ %s')
-
-  translated = App.i18n.translateContent('§%s§ %s test', 123, 'xxx')
-  equal(translated, '<kbd>123</kbd> xxx test', 'en-us - §%s§ %s')
-
-  translated = App.i18n.translateContent('Here you can search for tickets, customers and organizations. Use the wildcard §*§ to find everything. E. g. §smi*§ or §rosent*l§. You also can use ||double quotes|| for searching phrases §"some phrase"§.')
-  equal(translated, 'Here you can search for tickets, customers and organizations. Use the wildcard <kbd>*</kbd> to find everything. E. g. <kbd>smi*</kbd> or <kbd>rosent*l</kbd>. You also can use <i>double quotes</i> for searching phrases <kbd>&quot;some phrase&quot;</kbd>.', 'en-us - §§ §§ §§ || §§')
-
-  translated = App.i18n.translateContent('//%s// %s test', 123, 'xxx')
-  equal(translated, '<del>123</del> xxx test', 'en-us - //%s// %s')
-
-  translated = App.i18n.translateContent('\'%s\' %s test', 123, 'xxx')
-  equal(translated, '&#39;123&#39; xxx test', 'en-us - \'%s\' %s')
-
-  translated = App.i18n.translateContent('<test&now>')
-  equal(translated, '&lt;test&amp;now&gt;', 'en-us - <test&now>')
-
-  translated = App.i18n.translateContent('some link [to what ever](http://lalala)')
-  equal(translated, 'some link <a href="http://lalala" target="_blank">to what ever</a>', 'en-us - link')
-
-  translated = App.i18n.translateContent('some link [to what ever](%s)', 'http://lalala')
-  equal(translated, 'some link <a href="http://lalala" target="_blank">to what ever</a>', 'en-us - link')
-
-  translated = App.i18n.translateContent('Enables user authentication via %s. Register your app first at [%s](%s).', 'XXX', 'YYY', 'http://lalala')
-  equal(translated, 'Enables user authentication via XXX. Register your app first at <a href="http://lalala" target="_blank">YYY</a>.', 'en-us - link')
-
-  timestamp = App.i18n.translateTimestamp('2012-11-06T21:07:24Z', offset)
-  equal(timestamp, '11/06/2012 21:07', 'en - timestamp translated correctly')
-
-  timestamp = App.i18n.translateTimestamp('', offset);
-  equal(timestamp, '', 'en - timestamp translated correctly')
-
-  timestamp = App.i18n.translateTimestamp(null, offset);
-  equal(timestamp, null, 'en - timestamp translated correctly')
-
-  timestamp = App.i18n.translateTimestamp(undefined, offset);
-  equal(timestamp, undefined, 'en - timestamp translated correctly')
-
-  date = App.i18n.translateDate('2012-11-06', 0)
-  equal(date, '11/06/2012', 'en - date translated correctly')
-
-  date = App.i18n.translateDate('', 0)
-  equal(date, '', 'en - date translated correctly')
-
-  date = App.i18n.translateDate(null, 0)
-  equal(date, null, 'en - date translated correctly')
-
-  date = App.i18n.translateDate(undefined, 0)
-  equal(date, undefined, 'en - date translated correctly')
-
-  // locale alias test
-  // de
-  App.i18n.set('de')
-  var translated = App.i18n.translateContent('yes')
-  equal(translated, 'ja', 'de - yes / ja translated correctly')
-
-  // locale detection test
-  // de-ch
-  App.i18n.set('de-ch')
-  var translated = App.i18n.translateContent('yes')
-  equal(translated, 'ja', 'de - yes / ja translated correctly')
+    })
+    .finally(done)
+  }).then( function() {
+    ok(false, 'delay - 1/2 - FAILED - should not be executed, will be reset by next set()')
+    window.testDelay1 = true;
+  })
 });
+
+test('delay - test 2', function(assert) {
+  var done = assert.async(1)
+
+  new Promise( (resolve, reject) => {
+    App.Delay.set(resolve, 2000);
+
+    new Promise( (resolve, reject) => {
+      App.Delay.set(resolve, 1000);
+    }).then( function() {
+      ok(!window.testDelay2, 'delay - test 2 - 1/3')
+    })
+
+    new Promise( (resolve, reject) => {
+      App.Delay.set(resolve, 3000);
+    }).then( function() {
+      ok(window.testDelay2, 'delay - test 2 - 3/3')
+    })
+    .finally(done)
+  }).then( function() {
+    ok(!window.testDelay2, 'delay - test 2 - 2/3')
+    window.testDelay2 = 1;
+  })
+});
+
+test('delay - test 3', function(assert) {
+  var done = assert.async(1)
+
+  new Promise( (resolve, reject) => {
+    App.Delay.set(resolve, 1000, 'delay3');
+    App.Delay.clear('delay3')
+    ok(true, 'delay - test 3 - 1/1')
+    done()
+  }).then( function() {
+    ok(false, 'delay - test 3 - 1/1 - FAILED')
+  })
+});
+
+test('delay - test 4', function(assert) {
+  var done = assert.async(1)
+
+  new Promise( (resolve, reject) => {
+    App.Delay.set(resolve, 1000, undefined, 'Page');
+    App.Delay.clearLevel('Page')
+    ok(true, 'delay - test 4 - 1/1')
+    done()
+  }).then( function() {
+    ok(false, 'delay - test 4 - 1/1 - FAILED')
+  })
+});
+
+test('interval - test 1', function(assert) {
+  var done = assert.async(1)
+
+  window.testInterval1 = 1
+  App.Interval.set(function() {
+      window.testInterval1 += 1;
+    },
+    100,
+    'interval-test1'
+  );
+
+  new Promise( (resolve, reject) => {
+    App.Delay.set(resolve, 1000);
+
+    new Promise( (resolve, reject) => {
+      App.Delay.set(resolve, 2000);
+    }).then( function() {
+      equal(window.testInterval1, window.testInterval1Backup, 'interval - did not change after clear interval')
+    })
+    .finally(done)
+  }).then( function() {
+    notEqual(window.testInterval1, 1, 'interval - interval moved up')
+    App.Interval.clear('interval-test1')
+    window.testInterval1Backup = window.testInterval1;
+  })
+})
+
+test('interval - test 2', function(assert) {
+  var done = assert.async(1)
+
+  window.testInterval1 = 1
+  App.Interval.set(function() {
+      window.testInterval1 += 1;
+    },
+    100,
+    undefined,
+    'someLevel'
+  );
+
+  new Promise( (resolve, reject) => {
+    App.Delay.set(resolve, 1000);
+
+    new Promise( (resolve, reject) => {
+      App.Delay.set(resolve, 2000);
+    }).then( function() {
+      equal(window.testInterval1, window.testInterval1Backup, 'interval - did not change after clear interval')
+    })
+    .finally(done)
+  }).then( function() {
+    notEqual(window.testInterval1, 1, 'interval - interval moved up')
+    App.Interval.clearLevel('someLevel')
+    window.testInterval1Backup = window.testInterval1;
+  })
+})
 
 // events
 test('events simple', function() {
@@ -669,7 +485,7 @@ test('clone', function() {
 
 });
 
-// diff
+ // diff
 test('difference', function() {
 
   // simple
@@ -765,44 +581,44 @@ test('difference', function() {
 
 });
 
-// auth
-App.Auth.login({
-  data: {
-    username: 'not_existing',
-    password: 'not_existing',
-  },
-  success: function(data) {
-    test('auth - not existing user', function() {
-      ok(false, 'ok')
-    })
-  },
-  error: function() {
-    test('auth - not existing user', function() {
-      ok(true, 'ok')
-      authWithSession()
-    })
-  }
-});
+test('auth - not existing user', function(assert) {
+  var done = assert.async(1)
 
-var authWithSession = function() {
-  App.Auth.login({
-    data: {
-      username: 'nicole.braun@zammad.org',
-      password: 'test',
-    },
-    success: function(data) {
-      test('auth - existing user', function() {
-        ok(true, 'authenticated')
-        var user = App.Session.get('login')
-        equal('nicole.braun@zammad.org', user, 'session login')
-      })
-    },
-    error: function() {
-      test('auth - existing user', function() {
-        ok(false, 'not authenticated')
-      })
-    }
-  });
-}
+  new Promise( (resolve, reject) => {
+    App.Auth.login({
+      data: {
+        username: 'not_existing',
+        password: 'not_existing',
+      },
+      success: resolve,
+      error: reject
+    });
+  }).then( function(data) {
+    ok(false, 'ok')
+  }, function() {
+    ok(true, 'ok')
+  })
+  .finally(done)
+})
 
-}
+test('auth - existing user', function(assert) {
+  var done = assert.async(1)
+
+  new Promise( (resolve, reject) => {
+    App.Auth.login({
+      data: {
+        username: 'master@example.com',
+        password: 'test',
+      },
+      success: resolve,
+      error: reject
+    });
+  }).then( function(data) {
+    ok(true, 'authenticated')
+    var user = App.Session.get('login')
+    equal('master@example.com', user, 'session login')
+  }, function() {
+    ok(false, 'failed')
+  })
+  .finally(done)
+})

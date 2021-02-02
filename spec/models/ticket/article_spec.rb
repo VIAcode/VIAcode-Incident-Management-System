@@ -1,16 +1,18 @@
 require 'rails_helper'
 require 'models/application_model_examples'
 require 'models/concerns/can_be_imported_examples'
+require 'models/concerns/can_csv_import_examples'
 require 'models/concerns/has_history_examples'
 require 'models/concerns/has_object_manager_attributes_validation_examples'
 
 RSpec.describe Ticket::Article, type: :model do
+  subject(:article) { create(:ticket_article) }
+
   it_behaves_like 'ApplicationModel'
   it_behaves_like 'CanBeImported'
+  it_behaves_like 'CanCsvImport'
   it_behaves_like 'HasHistory'
   it_behaves_like 'HasObjectManagerAttributesValidation'
-
-  subject(:article) { create(:ticket_article) }
 
   describe 'Callbacks, Observers, & Async Transactions -' do
     describe 'NULL byte handling (via ChecksAttributeValuesAndLength concern):' do
@@ -124,6 +126,24 @@ RSpec.describe Ticket::Article, type: :model do
             <a href="https://example.com" rel="nofollow noreferrer noopener" target="_blank" title="https://example.com">foo</a>
           SANITIZED
         end
+
+        context 'when a sanitization attribute is present' do
+          # ATTENTION: We use `target` here because re-sanitization would change the order of attributes
+          let(:body) { '<a href="https://example.com" target="_blank">foo</a>' }
+
+          it 'adds sanitization attributes' do
+            expect(article.body).to eq(<<~SANITIZED.chomp)
+              <a href="https://example.com" rel="nofollow noreferrer noopener" target="_blank" title="https://example.com">foo</a>
+            SANITIZED
+          end
+
+          context 'when changing an unrelated attribute' do
+
+            it "doesn't re-sanitizes the body" do
+              expect { article.update!(message_id: 'test') }.not_to change { article.reload.body }
+            end
+          end
+        end
       end
 
       context 'for all cases above, combined' do
@@ -144,7 +164,8 @@ RSpec.describe Ticket::Article, type: :model do
             <div>
             LINK
             <a href="http://lalal.de" rel="nofollow noreferrer noopener" target="_blank" title="http://lalal.de">aa</a>
-            ABC</div>
+            ABC
+            </div>
           SANITIZED
         end
       end
@@ -254,13 +275,23 @@ RSpec.describe Ticket::Article, type: :model do
           end
         end
 
+        context 'for import' do
+          before do
+            Setting.set('import_mode', true)
+          end
+
+          it 'truncates body to 1.5 million chars' do
+            expect(article.body.length).to eq(1_500_000)
+          end
+        end
+
         context 'for "test.postmaster" thread', application_handle: 'test.postmaster' do
           it 'truncates body to 1.5 million chars' do
             expect(article.body.length).to eq(1_500_000)
           end
 
           context 'with NULL bytes' do
-            let(:body) { "\u0000" + 'a' * 2_000_000 }
+            let(:body) { "\u0000#{'a' * 2_000_000}" }
 
             it 'still removes them, if necessary (postgres doesn’t like them)' do
               expect(article).to be_persisted
@@ -297,20 +328,11 @@ RSpec.describe Ticket::Article, type: :model do
       end
     end
 
-    describe 'Auto-setting of outgoing Twitter article attributes (via bg jobs):' do
+    describe 'Auto-setting of outgoing Twitter article attributes (via bg jobs):', use_vcr: :with_oauth_headers do
       subject!(:twitter_article) { create(:twitter_article, sender_name: 'Agent') }
 
       let(:channel) { Channel.find(twitter_article.ticket.preferences[:channel_id]) }
-
-      let(:run_bg_jobs) do
-        lambda do
-          VCR.use_cassette(cassette, match_requests_on: %i[method uri oauth_headers]) do
-            Scheduler.worker(true)
-          end
-        end
-      end
-
-      let(:cassette) { 'models/channel/driver/twitter/article_to_tweet' }
+      let(:run_bg_jobs) { -> { Scheduler.worker(true) } }
 
       it 'sets #from to sender’s Twitter handle' do
         expect(&run_bg_jobs)
@@ -324,7 +346,7 @@ RSpec.describe Ticket::Article, type: :model do
           .to('') # Tweet in VCR cassette is addressed to no one
       end
 
-      it 'sets #message_id to tweet ID (https://twitter.com/statuses/<id>)' do
+      it 'sets #message_id to tweet ID (https://twitter.com/_/status/<id>)' do
         expect(&run_bg_jobs)
           .to change { twitter_article.reload.message_id }
           .to('1069382411899817990')
@@ -339,7 +361,7 @@ RSpec.describe Ticket::Article, type: :model do
           .to include(
             'name'   => 'on Twitter',
             'target' => '_blank',
-            'url'    => "https://twitter.com/statuses/#{twitter_article.message_id}"
+            'url'    => "https://twitter.com/_/status/#{twitter_article.message_id}"
           )
       end
 
@@ -380,7 +402,6 @@ RSpec.describe Ticket::Article, type: :model do
 
       context 'when the original channel (specified in ticket.preferences) was deleted' do
         context 'but a new one with the same screen_name exists' do
-          let(:cassette)    { 'models/channel/driver/twitter/article_to_tweet_channel_replace' }
           let(:new_channel) { create(:twitter_channel) }
 
           before do

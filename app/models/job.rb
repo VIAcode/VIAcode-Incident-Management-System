@@ -51,51 +51,56 @@ job.run(true)
   def run(force = false, start_at = Time.zone.now)
     logger.debug { "Execute job #{inspect}" }
 
-    if !executable?(start_at) && force == false
-      if next_run_at && next_run_at <= Time.zone.now
+    tickets = nil
+    Transaction.execute(reset_user_id: true) do
+      if !executable?(start_at) && force == false
+        if next_run_at && next_run_at <= Time.zone.now
+          save!
+        end
+        return
+      end
+
+      # find tickets to change
+      matching = matching_count
+      if self.matching != matching
+        self.matching = matching
         save!
       end
-      return
-    end
 
-    matching = matching_count
-    if self.matching != matching
-      self.matching = matching
+      if !in_timeplan?(start_at) && force == false
+        if next_run_at && next_run_at <= Time.zone.now
+          save!
+        end
+        return
+      end
+
+      ticket_count, tickets = Ticket.selectors(condition, limit: 2_000, execution_time: true)
+
+      logger.debug { "Job #{name} with #{ticket_count} tickets" }
+
+      self.processed = ticket_count || 0
+      self.running = true
+      self.last_run_at = Time.zone.now
       save!
     end
 
-    if !in_timeplan?(start_at) && force == false
-      if next_run_at && next_run_at <= Time.zone.now
-        save!
-      end
-      return
-    end
-
-    # find tickets to change
-    ticket_count, tickets = Ticket.selectors(condition, limit: 2_000)
-
-    logger.debug { "Job #{name} with #{ticket_count} tickets" }
-
-    self.processed = ticket_count || 0
-    self.running = true
-    self.last_run_at = Time.zone.now
-    save!
-
     tickets&.each do |ticket|
       Transaction.execute(disable_notification: disable_notification, reset_user_id: true) do
-        ticket.perform_changes(perform, 'job')
+        ticket.perform_changes(self, 'job')
       end
     end
 
-    self.running = false
-    self.last_run_at = Time.zone.now
-    save!
+    Transaction.execute(reset_user_id: true) do
+      self.running = false
+      self.last_run_at = Time.zone.now
+      save!
+    end
   end
 
   def executable?(start_at = Time.zone.now)
     return false if !active
 
-    # only execute jobs, older then 1 min, to give admin posibility to change
+    # only execute jobs older than 1 min to give admin time to make last-minute changes
     return false if updated_at > Time.zone.now - 1.minute
 
     # check if job got stuck
@@ -135,7 +140,7 @@ job.run(true)
   end
 
   def matching_count
-    ticket_count, _tickets = Ticket.selectors(condition, limit: 1)
+    ticket_count, _tickets = Ticket.selectors(condition, limit: 1, execution_time: true)
     ticket_count || 0
   end
 

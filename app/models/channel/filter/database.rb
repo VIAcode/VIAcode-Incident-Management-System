@@ -3,7 +3,7 @@
 # process all database filter
 module Channel::Filter::Database
 
-  def self.run(_channel, mail)
+  def self.run(_channel, mail, _transaction_params)
 
     # process postmaster filter
     filters = PostmasterFilter.where(active: true, channel: 'email').order(:name, :created_at)
@@ -18,12 +18,13 @@ module Channel::Filter::Database
         value = mail[ key.downcase.to_sym ]
         match_rule = meta['value']
         min_one_rule_exists = true
-        if meta[:operator] == 'contains not'
+        case meta[:operator]
+        when 'contains not'
           if value.present? && Channel::Filter::Match::EmailRegex.match(value: value, match_rule: match_rule)
             all_matches_ok = false
             Rails.logger.info "  matching #{key.downcase}:'#{value}' on #{match_rule}, but shoud not"
           end
-        elsif meta[:operator] == 'contains'
+        when 'contains'
           if value.blank? || !Channel::Filter::Match::EmailRegex.match(value: value, match_rule: match_rule)
             all_matches_ok = false
             Rails.logger.info "  not matching #{key.downcase}:'#{value}' on #{match_rule}, but should"
@@ -48,7 +49,7 @@ module Channel::Filter::Database
 
         Rails.logger.info "  perform '#{key.downcase}' = '#{meta.inspect}'"
 
-        if key.downcase == 'x-zammad-ticket-tags' && meta['value'].present? && meta['operator'].present?
+        if key.casecmp('x-zammad-ticket-tags').zero? && meta['value'].present? && meta['operator'].present?
           mail[ 'x-zammad-ticket-tags'.downcase.to_sym ] ||= []
           tags = meta['value'].split(',')
 

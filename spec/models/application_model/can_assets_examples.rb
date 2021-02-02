@@ -1,12 +1,12 @@
 RSpec.shared_examples 'ApplicationModel::CanAssets' do |associations: [], selectors: [], own_attributes: true|
   subject { create(described_class.name.underscore, updated_by_id: admin.id) }
 
-  let(:admin) { create(:admin_user) }
+  let(:admin) { create(:admin) }
 
   describe '#assets (for supplying model data to front-end framework)' do
     shared_examples 'own asset attributes' do
       it 'returns a hash with own asset attributes' do
-        expect(subject.assets({}).dig(described_class.to_app_model))
+        expect(subject.assets({})[described_class.to_app_model])
           .to include(subject.id => hash_including(subject.attributes_with_association_ids))
       end
     end

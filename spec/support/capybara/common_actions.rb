@@ -36,10 +36,6 @@ module CommonActions
     wait(4).until_exists do
       current_login
     end
-
-    return if User.find_by(login: current_login).preferences[:intro]
-
-    find(:clues_close, wait: 3).in_fixed_postion.click
   end
 
   # Checks if the current session is logged in.
@@ -172,6 +168,71 @@ module CommonActions
     ObjectManager::Attribute.migration_execute
     page.driver.browser.navigate.refresh
     attribute
+  end
+
+  # opens the macro list in the ticket view via click
+  #
+  # @example
+  #  open_macro_list
+  #
+  def open_macro_list
+    click '.js-openDropdownMacro'
+  end
+
+  def open_article_meta
+    retry_on_stale do
+      wrapper = all('div.ticket-article-item').last
+
+      wrapper.find('.article-content .textBubble').click
+      wait(3).until do
+        wrapper.find('.article-content-meta .article-meta.top').in_fixed_position
+      end
+    end
+  end
+
+  def use_template(template)
+    wait(4).until do
+      field  = find('#form-template select[name="id"]')
+      option = field.find(:option, template.name)
+      option.select_option
+      click '.sidebar-content .js-apply'
+
+      # this is a workaround for a race condition where
+      # the template selection get's re-rendered after
+      # a selection was made. The selection is lost and
+      # the apply click has no effect.
+      template.options.any? do |attribute, value|
+        selector = %([name="#{attribute}"])
+        next if !page.has_css?(selector, wait: 0)
+
+        find(selector, wait: 0, visible: false).value == value
+      end
+    end
+  end
+
+  # Checks if modal is ready
+  #
+  # @param timeout [Integer] seconds to wait
+  def modal_ready(timeout: 4)
+    wait(timeout).until_exists { find('.modal.in', wait: 0) }
+  end
+
+  # Checks if modal has disappeared
+  #
+  # @param timeout [Integer] seconds to wait
+  def modal_disappear(timeout: 4)
+    wait(timeout).until_disappears { find('.modal', wait: 0) }
+  end
+
+  # Executes action inside of modal. Makes sure modal has opened and closes
+  #
+  # @param timeout [Integer] seconds to wait
+  def in_modal(timeout: 4, &block)
+    modal_ready(timeout: timeout)
+
+    within('.modal', &block)
+
+    modal_disappear(timeout: timeout)
   end
 end
 

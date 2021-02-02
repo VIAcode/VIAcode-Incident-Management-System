@@ -6,6 +6,8 @@ class Role < ApplicationModel
   include ChecksClientNotification
   include ChecksLatestChangeObserved
   include HasGroups
+  include HasCollectionUpdate
+  include HasTicketCreateScreenImpact
 
   include Role::Assets
 
@@ -15,7 +17,7 @@ class Role < ApplicationModel
                           after_add:     :cache_update,
                           before_remove: :last_admin_check_by_permission,
                           after_remove:  :cache_update
-  validates               :name,  presence: true
+  validates               :name, presence: true
   store                   :preferences
 
   before_create  :check_default_at_signup_permissions
@@ -40,7 +42,7 @@ grant permission to role
     raise "Invalid permission #{key}" if !permission
     return true if permission_ids.include?(permission.id)
 
-    self.permission_ids = permission_ids.push permission.id
+    self.permission_ids = permission_ids.push permission.id # rubocop:disable Style/RedundantSelfAssignment
     true
   end
 
@@ -55,7 +57,7 @@ revoke permission of role
   def permission_revoke(key)
     permission = Permission.lookup(name: key)
     raise "Invalid permission #{key}" if !permission
-    return true if !permission_ids.include?(permission.id)
+    return true if permission_ids.exclude?(permission.id)
 
     self.permission_ids = self.permission_ids -= [permission.id]
     true
@@ -220,13 +222,12 @@ returns
   end
 
   def check_default_at_signup_permissions
-    all_permissions = Permission.all.pluck(:id)
-    admin_permissions = Permission.where('name LIKE ? OR name = ?', 'admin%', 'ticket.agent').pluck(:id) # admin.*/ticket.agent permissions
-    normal_permissions = (all_permissions - admin_permissions) | (admin_permissions - all_permissions) # all other permissions besides admin.*/ticket.agent
-    return true if default_at_signup != true # means if default_at_signup = false, no need further checks
-    return true if self.permission_ids.all? { |i| normal_permissions.include? i } # allow user to choose only normal permissions
+    return true if !default_at_signup
 
-    raise Exceptions::UnprocessableEntity, 'Cannot set default at signup when role has admin or ticket.agent permissions.'
+    forbidden_permissions = permissions.reject(&:allow_signup)
+    return true if forbidden_permissions.blank?
+
+    raise Exceptions::UnprocessableEntity, "Cannot set default at signup when role has #{forbidden_permissions.join(', ')} permissions."
   end
 
 end

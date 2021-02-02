@@ -61,22 +61,6 @@ add a new online notification for this user
 
 =begin
 
-mark online notification as seen
-
-  OnlineNotification.seen(
-    id: 2,
-  )
-
-=end
-
-  def self.seen(data)
-    notification = OnlineNotification.find(data[:id])
-    notification.seen = true
-    notification.save
-  end
-
-=begin
-
 remove whole online notifications of an object
 
   OnlineNotification.remove('Ticket', 123)
@@ -134,13 +118,13 @@ return all online notifications of an object
 
   def self.list_by_object(object_name, o_id)
     object_id = ObjectLookup.by_name(object_name)
-    notifications = OnlineNotification.where(
+    OnlineNotification.where(
       object_lookup_id: object_id,
       o_id:             o_id,
     )
                                       .order(created_at: :desc)
                                       .limit(10_000)
-    notifications
+
   end
 
 =begin
@@ -177,7 +161,7 @@ mark online notification as seen by object
 
 =begin
 
-check if all notifications are seed for dedecated object
+check if all notifications are seen for dedicated object
 
   OnlineNotification.all_seen?('Ticket', 123)
 
@@ -245,10 +229,10 @@ with dedicated times
     OnlineNotification.where('created_at < ?', max_age).delete_all
     OnlineNotification.where('seen = ? AND updated_at < ?', true, max_own_seen).each do |notification|
 
-      # delete own "seen" notificatons after 1 hour
+      # delete own "seen" notifications after 1 hour
       next if notification.user_id == notification.updated_by_id && notification.updated_at > max_own_seen
 
-      # delete notificatons which are set to "seen" by somebody else after 8 hour
+      # delete notifications which are set to "seen" by somebody else after 8 hours
       next if notification.user_id != notification.updated_by_id && notification.updated_at > max_auto_seen
 
       notification.delete

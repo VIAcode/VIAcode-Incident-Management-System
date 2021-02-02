@@ -10,6 +10,10 @@ module CanBePublished
     can_be_published_aasm.published?
   end
 
+  def visible_internally?
+    can_be_published_aasm.internal? || visible?
+  end
+
   class_methods do
     def inverse_relation_name(scope_name)
       "can_be_published_#{scope_name}_#{model_name.plural}"
@@ -28,7 +32,7 @@ module CanBePublished
     after_touch   :update_active_publicly
 
     %i[archived published internal].each do |scope_name|
-      local  = "#{scope_name}_by".to_sym
+      local  = :"#{scope_name}_by"
       remote = inverse_relation_name(scope_name).to_sym
 
       belongs_to local, class_name: 'User', inverse_of: remote, optional: true
@@ -146,7 +150,6 @@ module CanBePublished
     KnowledgeBase::Answer
       .published
       .joins(category: :knowledge_base)
-      .where(knowledge_bases: { active: true })
-      .exists?
+      .exists?(knowledge_bases: { active: true })
   end
 end
